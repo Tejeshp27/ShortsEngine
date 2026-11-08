@@ -351,23 +351,42 @@ def build_frames(word_timings, story_title, background_color_hex,
         # RGBA lets us draw semi-transparent rectangles (caption background).
         image = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (*bg_color, 255))
 
-        # Apply background image (stock photo or chart) if one is available.
+        # Apply background image (stock photo, chart, or video/animation frame)
+        # if one is available for this caption group.
         if visual_frames:
             # Clamp the index so we don't go out of bounds.
             vf_index = min(index, len(visual_frames) - 1)
             bg_image_path = visual_frames[vf_index]
             if bg_image_path and os.path.exists(bg_image_path):
-                # Unpack Ken Burns parameters for this frame.
-                if index < len(frame_kb_params):
-                    frame_in_seg, total_in_seg, seg_idx = frame_kb_params[index]
-                else:
-                    frame_in_seg, total_in_seg, seg_idx = 0, 1, 0
-                _apply_background_image(
-                    image, bg_image_path,
-                    frame_in_segment=frame_in_seg,
-                    total_in_segment=total_in_seg,
-                    segment_index=seg_idx,
+                # Footage and animated frames come from cache/stock_video/ or
+                # cache/animated/. They already change every caption group so we
+                # skip the Ken Burns effect — applying pan/zoom on top of a
+                # frame that's already moving would look jarring.
+                is_motion_frame = (
+                    "stock_video" in bg_image_path or
+                    os.sep + "animated" + os.sep in bg_image_path
                 )
+
+                if is_motion_frame:
+                    # Static placement — just fill the frame with the image.
+                    _apply_background_image(
+                        image, bg_image_path,
+                        frame_in_segment=0,
+                        total_in_segment=1,
+                        segment_index=0,
+                    )
+                else:
+                    # Still photo or chart — apply Ken Burns pan/zoom.
+                    if index < len(frame_kb_params):
+                        frame_in_seg, total_in_seg, seg_idx = frame_kb_params[index]
+                    else:
+                        frame_in_seg, total_in_seg, seg_idx = 0, 1, 0
+                    _apply_background_image(
+                        image, bg_image_path,
+                        frame_in_segment=frame_in_seg,
+                        total_in_segment=total_in_seg,
+                        segment_index=seg_idx,
+                    )
 
         draw = ImageDraw.Draw(image)
         _draw_frame(draw, bg_color, story_title, group["text"],

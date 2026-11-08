@@ -147,7 +147,18 @@ def parse_arguments():
         "--no-paid-visuals",
         action="store_true",
         dest="no_paid_visuals",
-        help="Skip Pexels stock photos; use only free local visuals (charts and text cards)",
+        help="Skip Pexels calls; use only free local visuals (charts, Wikimedia, text cards)",
+    )
+    parser.add_argument(
+        "--style",
+        choices=["auto", "footage", "animated"],
+        default="auto",
+        help=(
+            "Visual style for --render --visuals: "
+            "'auto' lets Claude Haiku choose per segment (default), "
+            "'footage' prefers Pexels Video B-roll, "
+            "'animated' prefers motion graphics for data-heavy segments."
+        ),
     )
     parser.add_argument(
         "--review",
@@ -447,8 +458,9 @@ def run_render_pipeline(args, config):
     print(f"Rendering video for: {video_row['story_title']}")
     print(f"Script  : {script_path}")
     print(f"Voice   : {voice} ({tts_provider})")
+    style = getattr(args, "style", "auto")
     if use_visuals:
-        print(f"Visuals : enabled (paid={'no' if no_paid_visuals else 'yes, Pexels'})")
+        print(f"Visuals : enabled (style={style}, paid={'no' if no_paid_visuals else 'yes, Pexels + Pexels Video'})")
     print()
 
     # Only create an LLM client when visuals are requested (to avoid
@@ -470,6 +482,7 @@ def run_render_pipeline(args, config):
         channel_config=config if use_visuals else None,
         no_paid_visuals=no_paid_visuals,
         tts_provider=tts_provider,
+        style=style,
     )
 
     if not args.dry_run:

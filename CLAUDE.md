@@ -194,18 +194,27 @@ shortsengine/
 
 ## Current phase
 
-**Phases 1–7 code complete and verified.**
+**Phases 1–7 code complete. M-series visual upgrade (M.1–M.6) code complete.**
 
 - Phase 1: scripts generate for ~$0.013 ✅
-- Phase 2: `--render` produces a real 9:16 MP4 (Pillow + FFmpeg + edge-tts) ✅
+- Phase 2: `--render` produces a real 9:16 MP4 (Pillow + FFmpeg + macOS TTS) ✅
 - Phase 3: `--review` queue and `--report` work ✅
 - Phase 4: publishing code built; needs INSTAGRAM_ACCESS_TOKEN / TIKTOK_ACCESS_TOKEN in .env ✅
 - Phase 5: FastAPI dashboard runs at http://localhost:8000 (`python -m src.dashboard.app`) ✅
 - Phase 6: analytics collector + feedback loop built; needs posted videos for data ✅
 - Phase 7: Dockerfile, GitHub Actions CI (.github/workflows/tests.yml), README, docs/ ✅
+- M.1: analysis of legal footage sources and animation tools ✅
+- M.2: Claude Haiku scene planner (`scene_planner.py`) — 5 scene types ✅
+- M.3: Pexels Video B-roll integration (`stock_video.py`) — needs PEXELS_API_KEY ✅
+- M.4: Pillow-based animated graphics (`animated_frames.py`) — no extra deps ✅
+- M.5: Renderer updated to wire all M-series types + `--style` flag ✅
+- M.6: Tests for scene planner, animated frames, stock video ✅
 
-**Next human steps:** post videos by hand (Phase 2.7 improvement loop), add API tokens for
-publishing (Phase 4), and deploy to a server (Phase 7).
+**Next human steps:**
+- Add PEXELS_API_KEY to .env (free at pexels.com/api) to enable video B-roll
+- Run `--render --visuals` on a script to test the full M-series pipeline
+- For Manim animated scenes (richer diagrams): `brew install cairo pango && pip install manim`
+- Post videos by hand, then add API tokens for automated publishing (Phase 4)
 
 ## Roadmap
 
@@ -259,6 +268,47 @@ Each phase ends with something that works on its own. Finish one before starting
 ### Phase 7 — Polish for the portfolio
 - Deploy to a cheap cloud server, scheduled runs, tests, a clean README with an
   architecture diagram and screenshots, and a short demo video.
+
+### M-series — Visual quality upgrade (runs alongside Phase 7+)
+
+The M-series improves video quality without changing the core pipeline.
+
+**M.1 — Legal footage analysis** ✅
+- Identified three free sources: Pexels Video (commercial licence), Pixabay Video,
+  and US government YouTube.
+- Chose Pillow animations over Manim for data graphics (no system-library deps);
+  Manim available as an upgrade when `brew install cairo pango`.
+
+**M.2 — Scene plan JSON** ✅ (`src/video/scene_planner.py`)
+- Claude Haiku reads the spoken script and assigns a scene type to each ~15-word
+  segment: `footage`, `image`, `animated`, `chart`, or `text_card`.
+- Saved as `<slug>_sceneplan.json` next to the script for review/editing.
+
+**M.3 — Pexels Video B-roll** ✅ (`src/video/stock_video.py`)
+- Searches Pexels Video API for a clip matching the segment description.
+- Downloads and caches the clip; extracts one frame per caption group so the
+  background "plays" through the clip while captions advance.
+- Needs PEXELS_API_KEY in .env (free at pexels.com/api).
+
+**M.4 — Pillow animated graphics** ✅ (`src/video/animated_frames.py`)
+- Two animation types, both drawn with Pillow only (no extra dependencies):
+  - Number callout: a large stat counts up frame by frame (e.g. "27,000 ft").
+  - Comparison bars: two horizontal bars grow side by side.
+
+**M.5 — Renderer update** ✅ (updated `src/video/render.py`, `src/main.py`)
+- `render.py` handles all 5 scene types in `_build_visual_frames()`.
+- Footage and animated frames skip Ken Burns (they already change per caption group).
+- New `--style` flag: `auto` (Haiku decides), `footage` (prefer video), `animated`
+  (prefer graphics for data segments).
+
+**M.6 — Tests** ✅ (`tests/test_scene_planner.py`)
+- 30 tests covering scene_planner, animated_frames, and stock_video.
+- All run offline (dry_run + mocks) — no API calls needed.
+
+**Future: Manim diagrams (M.4b)**
+- Richer data-vis scenes (maps, timelines, motion diagrams) using Manim Community.
+- Requires: `brew install cairo pango && pip install manim`.
+- Stub is in place; activate by setting `scene_type = "manim"` in scene plan JSON.
 
 ## Commands
 

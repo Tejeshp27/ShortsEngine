@@ -47,6 +47,11 @@ python-multipart>=0.0.9
 # matplotlib — local chart generation for visuals (Phase V.5); no API key needed
 matplotlib>=3.8.0
 
+# lottie — Lottie animation format parser (kept for future rendering once
+#           cairo/pango are available via brew install cairo pango).
+#           Currently unused at runtime — Pillow animations are used instead.
+lottie>=0.7.2
+
 # faster-whisper — Whisper model via CTranslate2; used for accurate word-level
 #                  timing when tts_provider is "macos" or "kokoro".
 #                  Requires: brew install pkg-config && pip install av
