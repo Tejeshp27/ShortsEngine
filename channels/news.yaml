@@ -5,20 +5,37 @@
 # To add a new channel, create a new .yaml file in this folder.
 # =============================================================
 
-name: "News Explained"
-niche: "US politics and current events"
-audience: "College students who don't follow the news closely"
-tone: "Neutral, clear, engaging; explain jargon; present each side fairly"
+name: "News Explained"                                    # display name of the channel
+niche: "US politics and current events"                   # what the channel covers
+audience: "College students who don't follow the news closely"  # who we write for
+tone: "Neutral, clear, engaging; explain jargon; present each side fairly"  # writing style
 
 # Target video length in seconds (75s ≈ a short TikTok/Reel)
 target_length_seconds: 75
 
-# Models — cheaper model for quick tasks, stronger for final writing
-# Using claude-haiku-4-5 for ranking (fast + cheap) and
-# claude-sonnet-4-6 for script writing (better quality)
+# Models — cheap model for picking stories, stronger model for the script.
+# Prices for each model live in config/pricing.yaml.
 models:
-  ranking: "claude-haiku-4-5-20251001"
-  writing: "claude-sonnet-4-6"
+  ranking: "claude-haiku-5-5"    # cheap + fast: picks the best story from headlines
+  writing: "claude-sonnet-5-5"   # better writer: produces the final script
+
+# Settings for each AI step
+llm:
+  ranking_max_tokens: 2000       # hard cap on how much the ranking model may write
+  writing_max_tokens: 6000       # hard cap on how much the writing model may write
+  ranking_effort: "low"          # how hard the model "thinks" (low = cheapest)
+  writing_effort: "medium"       # a bit more care for the final script
+  max_calls_per_run: 5           # spending guard: stop if a run tries more calls than this
+
+# How stories are chosen
+selection:
+  hours_back: 24                 # only consider stories from the last N hours
+  max_headlines_to_rank: 30      # send at most this many headlines to the ranking model
+
+# How the full article is read before writing
+articles:
+  fetch_full_text: true          # download the chosen article page (cached, one request)
+  max_chars: 6000                # trim article text to this length to save tokens
 
 # RSS feeds — free public news sources
 sources:

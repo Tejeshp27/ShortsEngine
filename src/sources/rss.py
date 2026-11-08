@@ -6,12 +6,15 @@
 #   - Fetching each feed with feedparser
 #   - Filtering to stories published in the last 24 hours
 #   - Removing duplicate stories (same URL from multiple feeds)
+#   - Keeping each story's short summary (used for ranking)
 #
 # It makes no paid API calls — just free HTTP requests.
 # =============================================================
 
 import time
 import feedparser
+
+from src.sources.articles import strip_html
 
 
 def fetch_stories_from_feed(url, source_name):
@@ -28,6 +31,7 @@ def fetch_stories_from_feed(url, source_name):
             - title (str): Headline
             - url (str): Link to the full article
             - source (str): Name of the feed (e.g. "NPR News")
+            - summary (str): The feed's short description, without HTML
             - published_ts (float): Unix timestamp when published,
                                     or 0.0 if the feed didn't include one
     """
@@ -37,6 +41,12 @@ def fetch_stories_from_feed(url, source_name):
     # It never raises an exception — if the fetch fails it returns
     # an object with an empty 'entries' list.
     feed = feedparser.parse(url)
+
+    # An empty feed usually means the download failed (no internet,
+    # blocked site, wrong URL). 'bozo_exception' holds the reason.
+    if len(feed.entries) == 0:
+        reason = feed.get("bozo_exception", "the feed returned no stories")
+        print(f"    WARNING: Nothing fetched from {source_name} ({reason}).")
 
     stories = []
 
@@ -62,10 +72,15 @@ def fetch_stories_from_feed(url, source_name):
         else:
             published_ts = 0.0
 
+        # The short description often contains HTML tags (links, bold
+        # text), so we strip them to keep only plain words.
+        summary = strip_html(entry.get("summary", ""))
+
         stories.append({
             "title": title,
             "url": link,
             "source": source_name,
+            "summary": summary,
             "published_ts": published_ts,
         })
 
