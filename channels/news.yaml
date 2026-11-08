@@ -49,6 +49,13 @@ sources:
     url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"
     name: "BBC US & Canada"
 
+# Video production settings (Phase 2)
+video:
+  voice: "en-US-AriaNeural"   # edge-tts voice — free, neural quality
+                               # full list: run `edge-tts --list-voices`
+  font_size: 90                # caption font size (pixels on 1080×1920 canvas)
+  words_per_caption: 3         # how many words to show at once in captions
+
 # Platforms to publish to (Phase 4+)
 platforms:
   - tiktok

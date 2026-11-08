@@ -20,6 +20,9 @@ build/
 output/
 cache/
 
+# --- Database (contains real video data; each environment has its own) ---
+shortsengine.db
+
 # --- macOS system files ---
 .DS_Store
 

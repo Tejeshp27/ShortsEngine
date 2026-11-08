@@ -90,8 +90,8 @@ audience: "College students who don't follow the news closely"
 tone: "Neutral, clear, engaging; explain jargon; present each side fairly"
 target_length_seconds: 75               # target video length
 models:
-  ranking: "claude-haiku-5-5"           # cheap model for picking stories
-  writing: "claude-sonnet-5-5"          # stronger model for the final script
+  ranking: "claude-haiku-4-5"           # cheap model for picking stories
+  writing: "claude-sonnet-4-6"          # stronger model for the final script
 sources:
   - type: rss
     url: "https://feeds.npr.org/1001/rss.xml"
@@ -102,16 +102,38 @@ Adding a new channel should only mean adding a new YAML file.
 
 ## Tech stack
 
-- **Language:** Python 3.11+
-- **LLM:** Anthropic API (Claude). All LLM calls go through one small module
-  (`llm.py`) so the provider can be swapped and costs can be tracked in one place.
-- **News sources (Phase 1):** Public RSS feeds via `feedparser` (NPR, PBS NewsHour,
-  BBC US & Canada)
-- **Config:** YAML files, one per channel. Secrets in `.env`.
-- **Database:** SQLite to start, Postgres later if needed
-- **Backend / dashboard:** FastAPI and a simple web frontend
-- **Video:** FFmpeg, a text-to-speech voice, and captions generated from the script
-- **Dependencies:** listed in `requirements.txt`; use a virtual environment (`.venv`)
+Always choose the tool that is **most widely used in the industry** for that job. The
+goal is a portfolio that shows the same stack a hiring manager at an AI company or top
+tech company would expect to see. When a simpler but less standard tool would work,
+use the standard one and note why.
+
+- **Language:** Python 3.11+ — the dominant language for AI/ML and backend work.
+- **LLM:** Anthropic API (Claude) via the official `anthropic` Python SDK. All LLM
+  calls go through one small module (`llm.py`) so the provider can be swapped and
+  costs can be tracked in one place.
+- **Data validation:** `pydantic` — the standard for data models and config parsing
+  in Python; used heavily in FastAPI and AI pipelines at real companies.
+- **Web framework:** `FastAPI` — the fastest-growing Python API framework; async,
+  OpenAPI docs generated automatically, used by companies like Netflix and Uber.
+- **Database:** SQLite for local dev, PostgreSQL for production. Access via raw SQL
+  (not an ORM) so the queries are readable and easy to explain.
+- **Frontend (Phase 5+):** React + TypeScript — the most in-demand frontend stack.
+  TypeScript is expected at almost every company hiring frontend engineers.
+- **Video:** FFmpeg (industry standard for video processing) + `edge-tts` (free
+  neural TTS; swap for ElevenLabs later if quality needs to improve).
+- **Testing:** `pytest` — the standard Python test framework.
+- **CI/CD (Phase 7):** GitHub Actions — the most common CI system; free for public
+  repos and expected knowledge in most engineering interviews.
+- **Containerisation (Phase 7):** Docker — standard for reproducible deployments;
+  knowing Docker is expected at almost every SWE role.
+- **News sources:** Public RSS feeds via `feedparser`.
+- **Config:** YAML files, one per channel. Secrets in `.env` via `python-dotenv`.
+- **Dependencies:** `requirements.txt`; use a virtual environment (`.venv`).
+
+**Rule:** Before picking any library, check that it is the most-used option for that
+job (by GitHub stars, PyPI downloads, or industry surveys such as the Stack Overflow
+Developer Survey). If a less popular library is chosen for a good reason (e.g. cost,
+licence), add a comment explaining the trade-off.
 
 ## Planned folder structure
 
@@ -172,8 +194,8 @@ shortsengine/
 
 ## Current phase
 
-**Phase 1: news script generator — code complete, awaiting a real run to confirm.**
-Do not start Phase 2 until I say so.
+**Phase 1: complete.** Scripts generate end-to-end for ~$0.013.
+**Phase 2 (video production) and Phase 3 (database + review queue): in progress.**
 
 ## Roadmap
 

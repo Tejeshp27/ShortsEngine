@@ -2,6 +2,9 @@
 # requirements.txt — Python dependencies
 #
 # Install everything with: pip install -r requirements.txt
+#
+# System dependency (not installed by pip):
+#   FFmpeg — video rendering; install with: brew install ffmpeg
 # =============================================================
 
 # Anthropic SDK — talks to the Claude API
@@ -15,6 +18,16 @@ PyYAML>=6.0.0
 
 # python-dotenv — loads .env into environment variables at startup
 python-dotenv>=1.0.0
+
+# edge-tts — free neural text-to-speech via Microsoft Edge's engine
+#             no API key needed; provides word-level timing for captions
+edge-tts>=6.1.0
+
+# Pillow — image generation for video frames (text, background)
+Pillow>=10.0.0
+
+# pydantic — data validation; standard in FastAPI pipelines
+pydantic>=2.0.0
 
 # pytest — runs the test suite
 pytest>=8.0.0

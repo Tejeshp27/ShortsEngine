@@ -1,22 +1,36 @@
 # =============================================================
 # src/main.py — command-line entry point for ShortsEngine
 #
-# This is the main file you run. For one channel it runs the
-# Phase 1 pipeline:
-#   1. load the channel config (channels/<name>.yaml)
-#   2. fetch stories from RSS, remove duplicates and old stories
-#   3. skip stories that already have a script
-#   4. pick a story — by the cheap AI model, or by you (--pick)
-#   5. get the article text (downloaded once, then cached)
-#   6. write a neutral, sourced script with the writing model
-#   7. save it to output/<channel>/<date>-<slug>.md
-#   8. log the estimated cost of the run to output/cost_log.csv
+# This is the main file you run. It supports four modes:
+#
+#   --list    Show today's new stories (free, no AI).
+#   --dry-run Full pipeline with no paid API calls.
+#   (default) AI picks a story, writes a script, saves it to the
+#             database, renders the video if --render is given.
+#   --render  Run only video production on the most recent
+#             approved script. Skips the script-writing step.
+#   --review  Open the review queue — approve or reject drafted
+#             scripts before they move to video production.
+#
+# Full pipeline (Phase 1 → 2 → 3):
+#   1. Load the channel config (channels/<name>.yaml)
+#   2. Fetch stories from RSS, remove duplicates and old stories
+#   3. Skip stories that already have a script
+#   4. Pick a story — by AI, or by you (--pick N)
+#   5. Download the article text (cached after first download)
+#   6. Write a neutral, sourced script with the writing model
+#   7. Save the script + DB row (status = drafted)
+#   8. --review: approve or reject scripts
+#   9. --render: convert an approved script into a 9:16 MP4
+#  10. Log the cost of every run to output/cost_log.csv
 #
 # Usage:
-#   python -m src.main --channel news --list       # just show stories (free)
-#   python -m src.main --channel news --dry-run    # whole pipeline, no paid calls
-#   python -m src.main --channel news              # AI picks a story, writes script
-#   python -m src.main --channel news --pick 3     # you pick story #3 from --list
+#   python -m src.main --channel news --list
+#   python -m src.main --channel news --dry-run
+#   python -m src.main --channel news
+#   python -m src.main --channel news --pick 3
+#   python -m src.main --channel news --review
+#   python -m src.main --channel news --render
 # =============================================================
 
 import argparse
@@ -30,7 +44,15 @@ from src.generation.ranking import rank_stories
 from src.generation.writer import write_script
 from src.sources.articles import get_article_text
 from src.sources.rss import fetch_all_stories, filter_recent, remove_duplicates
+from src.storage.database import create_tables
 from src.storage.history import load_processed, mark_processed, remove_processed
+from src.storage.queries import (
+    get_videos_by_status,
+    save_cost_event,
+    save_video,
+    set_video_cost,
+    set_video_path,
+)
 
 
 def check_environment():
@@ -77,7 +99,7 @@ def parse_arguments():
     Read the options typed after "python -m src.main".
 
     Returns:
-        argparse.Namespace: The options, e.g. args.channel, args.dry_run.
+        argparse.Namespace: The parsed options.
     """
     parser = argparse.ArgumentParser(
         description="ShortsEngine — automated short-form video pipeline"
@@ -102,6 +124,16 @@ def parse_arguments():
         type=int,
         metavar="N",
         help="Write about story number N from --list instead of letting the AI choose",
+    )
+    parser.add_argument(
+        "--render",
+        action="store_true",
+        help="Render the most recent approved script into a video (Phase 2)",
+    )
+    parser.add_argument(
+        "--review",
+        action="store_true",
+        help="Open the review queue to approve or reject drafted scripts (Phase 3)",
     )
     return parser.parse_args()
 
@@ -198,9 +230,118 @@ def print_cost_summary(llm):
     print("  Logged to    : output/cost_log.csv")
 
 
+def run_script_pipeline(args, config, llm):
+    """
+    Run the script-writing pipeline (Phase 1) and save the result to the DB.
+
+    Args:
+        args: Parsed command-line arguments.
+        config (dict): The channel config.
+        llm (LLMClient): The run's AI client.
+
+    Returns:
+        str or None: The path of the saved script, or None if something failed.
+    """
+    stories = get_candidate_stories(config, args.channel)
+
+    if args.list:
+        print_story_list(stories)
+        return None
+
+    if not stories:
+        print("No new stories to write about. Try again later.")
+        return None
+
+    story = choose_story(stories, config, llm, args.pick)
+    if story is None:
+        return None
+
+    print(f"Reading article: {story['url']}")
+    article_text = get_article_text(
+        story,
+        max_chars=config["articles"]["max_chars"],
+        fetch_full_text=config["articles"]["fetch_full_text"],
+    )
+    print()
+
+    print(f"Writing script with {config['models']['writing']}...")
+    script_path = write_script(story, article_text, config, args.channel, llm)
+    print()
+    print(f"Script saved: {script_path}")
+
+    # Save to the database (status = drafted) so the review queue can find it.
+    if not args.dry_run:
+        video_id = save_video(
+            channel=args.channel,
+            story_title=story["title"],
+            story_url=story["url"],
+            script_path=script_path,
+            cost_usd=llm.total_cost,
+        )
+        print(f"Saved to database (ID {video_id}, status: drafted).")
+        print("Next step: run --review to approve it, then --render to make the video.")
+        mark_processed(args.channel, story, script_path)
+    else:
+        print("Next step: open the script, fact-check, then run --review.")
+
+    print()
+    return script_path
+
+
+def run_render_pipeline(args, config):
+    """
+    Render the most recently approved script into a video (Phase 2).
+
+    Finds the latest approved script for the channel from the database,
+    generates the voiceover and captions, and assembles the MP4 with FFmpeg.
+
+    Args:
+        args: Parsed command-line arguments.
+        config (dict): The channel config.
+    """
+    # Import here so the render dependencies (edge-tts, ffmpeg) are only
+    # needed when actually rendering, not on every run.
+    from src.video.render import render_video
+
+    approved = get_videos_by_status("approved", channel=args.channel)
+
+    if not approved:
+        print(f"No approved scripts found for '{args.channel}'.")
+        print("Run --review first to approve a drafted script.")
+        return
+
+    # Pick the most recently approved one (the list is ordered newest first).
+    video_row = approved[0]
+    script_path = video_row["script_path"]
+
+    if not script_path or not os.path.exists(script_path):
+        print(f"ERROR: Script file not found: {script_path}")
+        return
+
+    voice = config["video"]["voice"]
+
+    print(f"Rendering video for: {video_row['story_title']}")
+    print(f"Script  : {script_path}")
+    print(f"Voice   : {voice}")
+    print()
+
+    video_path = render_video(
+        script_path=script_path,
+        story_title=video_row["story_title"],
+        channel_key=args.channel,
+        voice=voice,
+        font_size=config["video"].get("font_size", 90),
+        dry_run=args.dry_run,
+    )
+
+    if not args.dry_run:
+        set_video_path(video_row["id"], video_path)
+        print(f"Database updated — video path recorded (ID {video_row['id']}).")
+
+
 def main():
     """
-    Parse command-line arguments and run the pipeline for one channel.
+    Parse command-line arguments and run the appropriate pipeline step.
 
     Example:
         python -m src.main --channel news --dry-run
@@ -208,9 +349,12 @@ def main():
     args = parse_arguments()
     load_dotenv()
 
+    # Ensure the database and its tables exist before anything else.
+    create_tables()
+
     # --- Header ---
     print("=" * 55)
-    print("ShortsEngine — Phase 1: news script generator")
+    print("ShortsEngine")
     print("=" * 55)
     print(f"Channel  : {args.channel}")
     print(f"Dry run  : {args.dry_run}")
@@ -221,18 +365,18 @@ def main():
     print(f"Loaded channels/{args.channel}.yaml — {config['name']}")
     print()
 
-    # --- Get stories ---
-    stories = get_candidate_stories(config, args.channel)
-
-    if args.list:
-        print_story_list(stories)
+    # --- Review queue mode (Phase 3) ---
+    if args.review:
+        from src.review import run_review_queue
+        run_review_queue(args.channel)
         return
 
-    if not stories:
-        print("No new stories to write about. Try again later.")
+    # --- Render mode (Phase 2): video production only ---
+    if args.render:
+        run_render_pipeline(args, config)
         return
 
-    # --- Check the API key (not needed for a dry run) ---
+    # --- Script-writing pipeline (Phase 1) ---
     if not args.dry_run and not check_environment():
         print("ERROR: Missing ANTHROPIC_API_KEY in .env — "
               "add it, or use --dry-run to test without paid calls.")
@@ -242,30 +386,9 @@ def main():
     note = ""
 
     try:
-        story = choose_story(stories, config, llm, args.pick)
-        if story is None:
-            raise SystemExit(1)
-        note = story["title"]
-
-        print(f"Reading article: {story['url']}")
-        article_text = get_article_text(
-            story,
-            max_chars=config["articles"]["max_chars"],
-            fetch_full_text=config["articles"]["fetch_full_text"],
-        )
-        print()
-
-        print(f"Writing script with {config['models']['writing']}...")
-        script_path = write_script(story, article_text, config, args.channel, llm)
-        print()
-        print(f"Script saved: {script_path}")
-        print("Next step: open it, fact-check against the sources, and edit as needed.")
-        print()
-
-        # Only remember the story for real runs, so a dry run
-        # doesn't stop you writing the real script later.
-        if not args.dry_run:
-            mark_processed(args.channel, story, script_path)
+        script_path = run_script_pipeline(args, config, llm)
+        if script_path:
+            note = os.path.basename(script_path)
 
     except CallLimitReached as error:
         print(f"STOPPED: {error}")
