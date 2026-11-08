@@ -122,6 +122,7 @@ shortsengine/
   requirements.txt
   .env.example          # lists required keys, no real values
   channels/             # one YAML config per channel
+  config/               # shared settings, e.g. pricing.yaml (model prices)
   src/
     sources/            # fetching news / clips (rss.py, twitch.py later)
     generation/         # script writing (llm.py, prompts.py)
@@ -171,7 +172,8 @@ shortsengine/
 
 ## Current phase
 
-**Phase 1: news script generator.** Do not start a later phase until I say so.
+**Phase 1: news script generator — code complete, awaiting a real run to confirm.**
+Do not start Phase 2 until I say so.
 
 ## Roadmap
 
@@ -243,8 +245,10 @@ source .venv/bin/activate
 
 **Running the pipeline:**
 ```bash
-python -m src.main --channel news                # fetch and list today's stories
-python -m src.main --channel news --dry-run      # same, but no paid API calls
+python -m src.main --channel news --list         # list today's new stories (free)
+python -m src.main --channel news --dry-run      # full pipeline, no paid API calls
+python -m src.main --channel news                # AI picks a story and writes a script
+python -m src.main --channel news --pick 3       # write about story #3 from --list
 ```
 
 **Tests:**

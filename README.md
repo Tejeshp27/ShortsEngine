@@ -45,15 +45,56 @@ cp .env.example .env
 ## Running the project
 
 ```bash
-# Run the pipeline for the news channel
+# 1. See today's new stories (free — no AI calls)
+python -m src.main --channel news --list
+
+# 2. Test the whole pipeline without paying anything.
+#    Shows the most each AI call could cost and saves a placeholder script.
+python -m src.main --channel news --dry-run
+
+# 3. Real run: the cheap model picks a story, the writing model writes the script
 python -m src.main --channel news
 
-# Dry run — no paid API calls (safe for testing)
-python -m src.main --channel news --dry-run
+# ...or choose the story yourself (number from --list) and skip the ranking call
+python -m src.main --channel news --pick 3
 
 # Run the test suite
 pytest
 ```
+
+Each script is saved to `output/<channel>/<date>-<slug>.md`, with a header (status,
+model, word count, estimated length), the script sections, notes for the reviewer, and the
+**source title and URL** at the bottom for fact-checking. Every run adds a row to
+`output/cost_log.csv` with the tokens used and the estimated cost.
+
+### How Phase 1 works
+
+```
+channels/news.yaml ──► RSS feeds ──► dedupe + last 24h ──► skip already-used stories
+        │                                                        │
+        │                       ┌── --pick N (you choose, free) ─┤
+        │                       └── ranking model (Haiku) ───────┘
+        ▼                                                        ▼
+  prompts.py ──► download + trim article (cached) ──► writing model (Sonnet) ──► output/news/*.md
+                                                                                  + cost_log.csv
+```
+
+### Keeping costs low
+
+| Guard | Where |
+|-------|-------|
+| Cheap model for ranking, stronger model only for the final script | `models:` in the channel YAML |
+| `max_tokens` cap and `effort` level on every call | `llm:` in the channel YAML |
+| Maximum AI calls per run | `llm.max_calls_per_run` |
+| Saved AI answers reused for free (`cache/llm/`) | `src/generation/llm.py` |
+| Articles downloaded once, HTML stripped, trimmed (`cache/articles/`) | `src/sources/articles.py` |
+| Stories that already have a script are skipped | `src/storage/history.py` |
+| Prompt caching on the system prompt | `src/generation/llm.py` |
+| `--dry-run` makes no paid calls | `src/main.py` |
+| Per-run cost log | `output/cost_log.csv` (prices in `config/pricing.yaml`) |
+
+A typical real run makes two calls (one Haiku ranking call and one Sonnet writing call) and
+should cost about one to three cents. `--dry-run` shows the worst-case maximum.
 
 ---
 
@@ -62,6 +103,7 @@ pytest
 ```
 shortsengine/
   channels/         # one YAML config per channel
+  config/           # shared settings (model price list)
   src/
     sources/        # RSS and other news fetchers
     generation/     # script writing with Claude
@@ -81,7 +123,7 @@ shortsengine/
 | Phase | Status | Description |
 |-------|--------|-------------|
 | 0 | ✅ Done | Project setup, hello world |
-| 1 | 🔄 In progress | News script generator (text only) |
+| 1 | 🧪 Built, awaiting first real run | News script generator (text only) |
 | 2 | Planned | Video production (TTS + FFmpeg) |
 | 3 | Planned | Database and human review queue |
 | 4 | Planned | Automated publishing |
@@ -94,7 +136,7 @@ shortsengine/
 ## Tech stack
 
 - **Language:** Python 3.11
-- **AI:** [Anthropic Claude](https://anthropic.com) (Haiku for ranking, Sonnet for writing)
+- **AI:** [Anthropic Claude](https://anthropic.com) (Claude Haiku 5.5 for ranking, Claude Sonnet 5.5 for writing)
 - **News sources:** RSS via `feedparser`
 - **Config:** YAML (one file per channel)
 - **Database:** SQLite → Postgres
