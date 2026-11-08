@@ -144,11 +144,15 @@ def plan_visuals(script_path, channel_config, llm, dry_run=False):
 
     if dry_run:
         # In dry-run mode, make a simple plan with text cards for every segment.
+        # We still save the JSON file so the renderer can find it.
         print(f"  [DRY RUN] Skipping visual planning AI call ({len(segments)} segments).")
         plan = [
             {"segment": seg, "visual_type": "text_card", "query": seg[:40]}
             for seg in segments
         ]
+        os.makedirs(os.path.dirname(plan_path) or ".", exist_ok=True)
+        with open(plan_path, "w", encoding="utf-8") as f:
+            json.dump(plan, f, indent=2)
         return plan
 
     print(f"  Planning visuals with {channel_config['models']['ranking']} "

@@ -128,6 +128,12 @@ def parse_arguments():
         help="Write about story number N from --list instead of letting the AI choose",
     )
     parser.add_argument(
+        "--url",
+        type=str,
+        metavar="URL",
+        help="Write a script about this specific article URL, skipping the RSS step",
+    )
+    parser.add_argument(
         "--render",
         action="store_true",
         help="Render the most recent approved script into a video (Phase 2)",
@@ -249,6 +255,63 @@ def print_cost_summary(llm):
     print("  Logged to    : output/cost_log.csv")
 
 
+def _extract_page_title(url):
+    """
+    Fetch just the <title> tag from a web page and return it as a string.
+
+    Used by --url mode so the script filename and heading are human-readable
+    instead of showing the raw URL.
+
+    Args:
+        url (str): The article URL.
+
+    Returns:
+        str: The page title text, or the URL itself if extraction fails.
+    """
+    import urllib.request
+    from html.parser import HTMLParser
+
+    class TitleFinder(HTMLParser):
+        """Minimal HTML parser that records the first <title> tag."""
+        def __init__(self):
+            super().__init__()
+            self.in_title = False
+            self.title = ""
+
+        def handle_starttag(self, tag, attrs):
+            if tag == "title":
+                self.in_title = True
+
+        def handle_endtag(self, tag):
+            if tag == "title":
+                self.in_title = False
+
+        def handle_data(self, data):
+            if self.in_title:
+                self.title += data
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "ShortsEngine/0.1 (personal news-summary project)"},
+        )
+        with urllib.request.urlopen(req, timeout=10) as resp:
+            html = resp.read(32_000).decode("utf-8", errors="replace")
+
+        finder = TitleFinder()
+        finder.feed(html)
+        title = finder.title.strip()
+
+        # Strip common site suffixes like " - CNN" or " | NBC News".
+        for sep in [" - ", " | ", " — "]:
+            if sep in title:
+                title = title.split(sep)[0].strip()
+
+        return title if title else url
+    except Exception:
+        return url
+
+
 def run_script_pipeline(args, config, llm):
     """
     Run the script-writing pipeline (Phase 1) and save the result to the DB.
@@ -261,6 +324,37 @@ def run_script_pipeline(args, config, llm):
     Returns:
         str or None: The path of the saved script, or None if something failed.
     """
+    # --url: skip RSS entirely and write about a specific article.
+    if getattr(args, "url", None):
+        story = {
+            "title": _extract_page_title(args.url),
+            "url": args.url,
+            "source": "custom URL",
+        }
+        print(f"Custom URL mode — fetching: {args.url}")
+        article_text = get_article_text(
+            story,
+            max_chars=config["articles"]["max_chars"],
+            fetch_full_text=True,
+        )
+        print()
+        print(f"Writing script with {config['models']['writing']}...")
+        script_path = write_script(story, article_text, config, args.channel, llm)
+        print()
+        print(f"Script saved: {script_path}")
+        if not args.dry_run:
+            video_id = save_video(
+                channel=args.channel,
+                story_title=story["title"],
+                story_url=story["url"],
+                script_path=script_path,
+                cost_usd=llm.total_cost,
+            )
+            print(f"Saved to database (ID {video_id}, status: drafted).")
+            mark_processed(args.channel, story, script_path)
+        print()
+        return script_path
+
     stories = get_candidate_stories(config, args.channel)
 
     if args.list:
