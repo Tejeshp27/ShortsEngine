@@ -121,7 +121,7 @@ def _output_video_path(channel_key, script_path):
 
 
 def _build_visual_frames(visual_plan, word_timings, channel_key,
-                          no_paid_visuals=False):
+                          no_paid_visuals=False, script_path=None):
     """
     Download/generate visuals and return a list of image paths — one per
     caption group.
@@ -156,6 +156,20 @@ def _build_visual_frames(visual_plan, word_timings, channel_key,
     from src.video.visual_planner import WORDS_PER_SEGMENT
     groups_per_segment = max(1, WORDS_PER_SEGMENT // WORDS_PER_CAPTION)
 
+    # Try to get actual photos from the source article first.
+    # These are the editorial images chosen by the journalist — far more
+    # relevant than generic stock photos.
+    from src.video.article_images import get_article_images
+    article_images = get_article_images(script_path)
+
+    # Assign article images across the stock_photo segments.
+    # We cycle through them so each segment gets an image even if the
+    # article has fewer photos than there are segments.
+    article_image_index = 0
+    stock_photo_segment_count = sum(
+        1 for seg in visual_plan if seg.get("visual_type") == "stock_photo"
+    )
+
     # Pre-resolve each visual segment to a local file path (or None).
     resolved = []
     for i, segment in enumerate(visual_plan):
@@ -170,13 +184,18 @@ def _build_visual_frames(visual_plan, word_timings, channel_key,
             path = make_chart(query, chart_path, channel_key)
 
         elif visual_type == "stock_photo" and query:
-            if no_paid_visuals:
-                # Free-only mode: skip Pexels, try Wikimedia Commons directly.
-                from src.video.stock import fetch_wikimedia_photo
-                path = fetch_wikimedia_photo(query)
-            else:
-                # Normal mode: try Pexels first, then Wikimedia as fallback.
-                path = fetch_stock_photo(query, channel_key=channel_key)
+            # Priority 1: use an actual photo from the source article.
+            if article_images:
+                path = article_images[article_image_index % len(article_images)]
+                article_image_index += 1
+
+            # Priority 2 (fallback): Wikimedia or Pexels stock photo.
+            if path is None:
+                if no_paid_visuals:
+                    from src.video.stock import fetch_wikimedia_photo
+                    path = fetch_wikimedia_photo(query)
+                else:
+                    path = fetch_stock_photo(query, channel_key=channel_key)
 
         # text_card → path stays None; the renderer uses the solid background.
         resolved.append(path)
@@ -251,6 +270,7 @@ def render_video(script_path, story_title, channel_key, voice,
         visual_frames = _build_visual_frames(
             visual_plan, word_timings, channel_key,
             no_paid_visuals=no_paid_visuals,
+            script_path=script_path,
         )
         visuals_used = sum(1 for v in visual_frames if v is not None)
         print(f"  Visuals resolved: {visuals_used}/{len(visual_frames)} frames "

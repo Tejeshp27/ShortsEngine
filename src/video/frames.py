@@ -107,39 +107,107 @@ def _wrap_headline(draw, text, font, max_width):
     return lines
 
 
-def _apply_background_image(image, bg_image_path):
-    """
-    Replace the solid background with a stock photo or chart image.
+# In-memory cache so each background image is scaled only once per render.
+# Key: file path. Value: (pre_scaled_image, base_w, base_h)
+_bg_image_cache = {}
 
-    The source image is scaled to fill the full 1080×1920 frame
-    (cropping the sides if needed). A dark semi-transparent overlay
-    is then applied so white text remains readable.
+
+def _clear_bg_cache():
+    """Clear the in-memory background image cache between render jobs."""
+    _bg_image_cache.clear()
+
+
+def _apply_background_image(image, bg_image_path,
+                              frame_in_segment=0, total_in_segment=1,
+                              segment_index=0):
+    """
+    Replace the solid background with an image, animated with a Ken Burns effect.
+
+    Ken Burns is the classic documentary technique of slowly panning and
+    zooming across a still photo so it feels like video. Each segment
+    (group of frames showing the same photo) gets a subtle motion:
+      - Even segments: zoom in left-to-right
+      - Odd segments:  zoom in right-to-left
+      - Every 3rd:     zoom in top-to-bottom
+      - Every 4th:     zoom in bottom-to-top
 
     Args:
         image (PIL.Image): The RGBA canvas to modify in place.
-        bg_image_path (str): Local path to the .jpg or .png image.
+        bg_image_path (str): Local path to the background .jpg or .png.
+        frame_in_segment (int): This frame's position within its segment (0-based).
+        total_in_segment (int): Total frames that share this background image.
+        segment_index (int): Index of this segment in the video (for direction).
     """
-    try:
-        source = Image.open(bg_image_path).convert("RGBA")
-    except (OSError, IOError):
-        return  # Can't open the file — keep the solid background.
+    # Load and pre-scale the image at max zoom (once per unique path).
+    # Pre-scaling to 110% of fill size gives us room to pan without resizing
+    # on every frame, keeping rendering fast.
+    max_zoom = 1.10   # 10% — subtle motion, not distracting
 
-    # Scale to fill the frame while preserving aspect ratio (cover mode).
-    src_w, src_h = source.size
-    scale = max(VIDEO_WIDTH / src_w, VIDEO_HEIGHT / src_h)
-    new_w = int(src_w * scale)
-    new_h = int(src_h * scale)
-    source = source.resize((new_w, new_h), Image.LANCZOS)
+    if bg_image_path not in _bg_image_cache:
+        try:
+            source = Image.open(bg_image_path).convert("RGBA")
+        except (OSError, IOError):
+            return  # Can't open — keep solid background.
 
-    # Crop to exactly 1080×1920, centred.
-    left = (new_w - VIDEO_WIDTH) // 2
-    top = (new_h - VIDEO_HEIGHT) // 2
-    source = source.crop((left, top, left + VIDEO_WIDTH, top + VIDEO_HEIGHT))
+        src_w, src_h = source.size
+        # Scale to cover the frame at max zoom so we always have room to move.
+        base_scale = max(VIDEO_WIDTH / src_w, VIDEO_HEIGHT / src_h) * max_zoom
+        new_w = int(src_w * base_scale)
+        new_h = int(src_h * base_scale)
+        scaled = source.resize((new_w, new_h), Image.LANCZOS)
+        _bg_image_cache[bg_image_path] = (scaled, new_w, new_h)
 
-    # Paste the photo onto the canvas.
-    image.paste(source, (0, 0))
+    cache_entry = _bg_image_cache.get(bg_image_path)
+    if cache_entry is None:
+        return
 
-    # Dark overlay so text is always legible on top of any photo.
+    scaled, pre_w, pre_h = cache_entry
+
+    # Progress through the segment: 0.0 at the first frame, 1.0 at the last.
+    t = frame_in_segment / max(1, total_in_segment - 1)
+
+    # The crop window shrinks as we zoom in: at t=0 we see max area, at t=1 less.
+    # zoom_factor tells us how zoomed in we currently are (1.0 = no zoom, 1.08 = 8%).
+    zoom_start = 1.0
+    zoom_end = max_zoom * 0.9   # zoom to about 1.0 × max_zoom * 0.9 ≈ 9%
+    zoom = zoom_start + (zoom_end - zoom_start) * t
+
+    # At this zoom level, the crop window in the pre-scaled image covers:
+    crop_w = int(VIDEO_WIDTH * max_zoom / zoom)
+    crop_h = int(VIDEO_HEIGHT * max_zoom / zoom)
+    crop_w = min(crop_w, pre_w)
+    crop_h = min(crop_h, pre_h)
+
+    # Maximum pan travel for this image at this crop size.
+    max_x = max(0, pre_w - crop_w)
+    max_y = max(0, pre_h - crop_h)
+
+    # Choose pan direction based on segment number for visual variety.
+    direction = segment_index % 4
+    if direction == 0:   # left → right
+        x = int(max_x * t)
+        y = max_y // 2
+    elif direction == 1: # right → left
+        x = int(max_x * (1.0 - t))
+        y = max_y // 2
+    elif direction == 2: # top → bottom
+        x = max_x // 2
+        y = int(max_y * t)
+    else:                # bottom → top
+        x = max_x // 2
+        y = int(max_y * (1.0 - t))
+
+    # Crop the pre-scaled image at the current pan/zoom position.
+    crop = scaled.crop((x, y, x + crop_w, y + crop_h))
+
+    # Resize the crop to the final frame size (this is the key render step).
+    if crop.size != (VIDEO_WIDTH, VIDEO_HEIGHT):
+        crop = crop.resize((VIDEO_WIDTH, VIDEO_HEIGHT), Image.LANCZOS)
+
+    # Paste the cropped/zoomed photo onto the canvas.
+    image.paste(crop, (0, 0))
+
+    # Dark overlay so captions are always legible over any photo.
     overlay = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (0, 0, 0, 160))
     image.paste(overlay, (0, 0), mask=overlay)
 
@@ -248,6 +316,33 @@ def build_frames(word_timings, story_title, background_color_hex,
     headline_font = _load_font(50)
     caption_font = _load_font(font_size, bold=True)
 
+    # Pre-compute Ken Burns parameters: for each frame, we need to know
+    # how many consecutive frames share the same background image (the
+    # "segment"), and which position this frame is within that segment.
+    # This lets us animate a smooth pan/zoom across each image.
+    frame_kb_params = []   # list of (frame_in_segment, total_in_segment, segment_idx)
+    if visual_frames:
+        total_frames = len(caption_groups)
+        segment_index = 0
+        i = 0
+        while i < total_frames:
+            vf_i = min(i, len(visual_frames) - 1)
+            current_path = visual_frames[vf_i]
+            # Find how many consecutive frames share this same image.
+            run_length = 1
+            while (i + run_length < total_frames):
+                vf_j = min(i + run_length, len(visual_frames) - 1)
+                if visual_frames[vf_j] != current_path:
+                    break
+                run_length += 1
+            for pos in range(run_length):
+                frame_kb_params.append((pos, run_length, segment_index))
+            if current_path is not None:
+                segment_index += 1   # only advance segment counter for real images
+            i += run_length
+
+    _clear_bg_cache()   # start fresh for this render job
+
     concat_lines = ["ffconcat version 1.0"]
     frame_paths = []
 
@@ -262,7 +357,17 @@ def build_frames(word_timings, story_title, background_color_hex,
             vf_index = min(index, len(visual_frames) - 1)
             bg_image_path = visual_frames[vf_index]
             if bg_image_path and os.path.exists(bg_image_path):
-                _apply_background_image(image, bg_image_path)
+                # Unpack Ken Burns parameters for this frame.
+                if index < len(frame_kb_params):
+                    frame_in_seg, total_in_seg, seg_idx = frame_kb_params[index]
+                else:
+                    frame_in_seg, total_in_seg, seg_idx = 0, 1, 0
+                _apply_background_image(
+                    image, bg_image_path,
+                    frame_in_segment=frame_in_seg,
+                    total_in_segment=total_in_seg,
+                    segment_index=seg_idx,
+                )
 
         draw = ImageDraw.Draw(image)
         _draw_frame(draw, bg_color, story_title, group["text"],
