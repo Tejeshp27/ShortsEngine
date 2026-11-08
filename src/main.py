@@ -133,6 +133,17 @@ def parse_arguments():
         help="Render the most recent approved script into a video (Phase 2)",
     )
     parser.add_argument(
+        "--visuals",
+        action="store_true",
+        help="Generate a visual plan (stock photos + charts) for the video (Phase V.2–V.6)",
+    )
+    parser.add_argument(
+        "--no-paid-visuals",
+        action="store_true",
+        dest="no_paid_visuals",
+        help="Skip Pexels stock photos; use only free local visuals (charts and text cards)",
+    )
+    parser.add_argument(
         "--review",
         action="store_true",
         help="Open the review queue to approve or reject drafted scripts (Phase 3)",
@@ -327,11 +338,23 @@ def run_render_pipeline(args, config):
         return
 
     voice = config["video"]["voice"]
+    use_visuals = getattr(args, "visuals", False)
+    no_paid_visuals = getattr(args, "no_paid_visuals", False)
 
     print(f"Rendering video for: {video_row['story_title']}")
     print(f"Script  : {script_path}")
     print(f"Voice   : {voice}")
+    if use_visuals:
+        print(f"Visuals : enabled (paid={'no' if no_paid_visuals else 'yes, Pexels'})")
     print()
+
+    # Only create an LLM client when visuals are requested (to avoid
+    # needing an API key for plain --render runs).
+    llm = None
+    if use_visuals and not args.dry_run:
+        from src.generation.llm import LLMClient
+        llm = LLMClient(dry_run=False,
+                        max_calls=config["llm"]["max_calls_per_run"])
 
     video_path = render_video(
         script_path=script_path,
@@ -340,6 +363,9 @@ def run_render_pipeline(args, config):
         voice=voice,
         font_size=config["video"].get("font_size", 90),
         dry_run=args.dry_run,
+        llm=llm,
+        channel_config=config if use_visuals else None,
+        no_paid_visuals=no_paid_visuals,
     )
 
     if not args.dry_run:

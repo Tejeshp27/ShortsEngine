@@ -11,6 +11,11 @@
 # duration using an "ffconcat" script. A 100-second video with
 # 85 caption groups produces 85 PNGs, not 3000.
 #
+# Phase V.6 update: each frame can now have a background image
+# (stock photo or chart PNG). Pass a list of image paths via the
+# visual_frames parameter. If an entry is None, the solid background
+# colour is used instead.
+#
 # Output files:
 #   cache/frames/<fingerprint>/frame_001.png
 #   cache/frames/<fingerprint>/frame_002.png
@@ -102,6 +107,43 @@ def _wrap_headline(draw, text, font, max_width):
     return lines
 
 
+def _apply_background_image(image, bg_image_path):
+    """
+    Replace the solid background with a stock photo or chart image.
+
+    The source image is scaled to fill the full 1080×1920 frame
+    (cropping the sides if needed). A dark semi-transparent overlay
+    is then applied so white text remains readable.
+
+    Args:
+        image (PIL.Image): The RGBA canvas to modify in place.
+        bg_image_path (str): Local path to the .jpg or .png image.
+    """
+    try:
+        source = Image.open(bg_image_path).convert("RGBA")
+    except (OSError, IOError):
+        return  # Can't open the file — keep the solid background.
+
+    # Scale to fill the frame while preserving aspect ratio (cover mode).
+    src_w, src_h = source.size
+    scale = max(VIDEO_WIDTH / src_w, VIDEO_HEIGHT / src_h)
+    new_w = int(src_w * scale)
+    new_h = int(src_h * scale)
+    source = source.resize((new_w, new_h), Image.LANCZOS)
+
+    # Crop to exactly 1080×1920, centred.
+    left = (new_w - VIDEO_WIDTH) // 2
+    top = (new_h - VIDEO_HEIGHT) // 2
+    source = source.crop((left, top, left + VIDEO_WIDTH, top + VIDEO_HEIGHT))
+
+    # Paste the photo onto the canvas.
+    image.paste(source, (0, 0))
+
+    # Dark overlay so text is always legible on top of any photo.
+    overlay = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (0, 0, 0, 160))
+    image.paste(overlay, (0, 0), mask=overlay)
+
+
 def _draw_frame(draw, background_color, headline, caption_text,
                 headline_font, caption_font):
     """
@@ -160,19 +202,30 @@ def _draw_frame(draw, background_color, headline, caption_text,
 
 
 def build_frames(word_timings, story_title, background_color_hex,
-                 output_folder, font_size=90):
+                 output_folder, font_size=90, visual_frames=None):
     """
     Generate PNG frames and an FFmpeg concat script for the video.
 
     One PNG is created per caption group. The concat script tells
     FFmpeg how long to display each image.
 
+    Phase V.6: if visual_frames is provided, each frame uses the
+    matching image (stock photo or chart) as its background instead
+    of the solid colour.
+
     Args:
         word_timings (list[dict]): Word timing data from tts.py.
         story_title (str): The headline to show at the top of every frame.
-        background_color_hex (str): Background colour, e.g. "0x1a1a2e".
+        background_color_hex (str): Fallback solid background colour,
+                                    e.g. "0x1a1a2e". Used when no visual
+                                    image is available for a frame.
         output_folder (str): Where to save the frame PNGs and concat.txt.
         font_size (int): Caption font size in pixels.
+        visual_frames (list[str or None] or None): One entry per caption
+            group. Each entry is either a local image path (stock photo
+            or chart PNG) or None (use solid background). If this list
+            is shorter than the number of caption groups, the last entry
+            is repeated.
 
     Returns:
         str: Path to the FFmpeg concat script (concat.txt).
@@ -202,8 +255,16 @@ def build_frames(word_timings, story_title, background_color_hex,
         # Create a new RGBA image for each frame.
         # RGBA lets us draw semi-transparent rectangles (caption background).
         image = Image.new("RGBA", (VIDEO_WIDTH, VIDEO_HEIGHT), (*bg_color, 255))
-        draw = ImageDraw.Draw(image)
 
+        # Apply background image (stock photo or chart) if one is available.
+        if visual_frames:
+            # Clamp the index so we don't go out of bounds.
+            vf_index = min(index, len(visual_frames) - 1)
+            bg_image_path = visual_frames[vf_index]
+            if bg_image_path and os.path.exists(bg_image_path):
+                _apply_background_image(image, bg_image_path)
+
+        draw = ImageDraw.Draw(image)
         _draw_frame(draw, bg_color, story_title, group["text"],
                     headline_font, caption_font)
 

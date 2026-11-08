@@ -4,11 +4,13 @@
 # Builds a 9:16 (1080×1920) MP4 video from an approved script:
 #
 #   1. Generate voiceover audio with edge-tts (see tts.py)
-#   2. Use Pillow to draw PNG frames — one per caption group
-#      (background colour, headline text, word captions)
-#   3. Write an FFmpeg concat script that lists each frame and
-#      how long to hold it
-#   4. Run FFmpeg to encode the frames into a video and mix in audio
+#   2. (Phase V.6) Optionally build a visual plan — Claude Haiku
+#      decides what to show each segment (stock photo, chart, or
+#      text card). Stock photos come from Pexels; charts from
+#      matplotlib. Both are cached after first use.
+#   3. Use Pillow to draw PNG frames — one per caption group,
+#      with the planned visual as the background where available.
+#   4. Write an FFmpeg concat script and encode the final MP4.
 #
 # Using Pillow for text rendering means we don't need FFmpeg's
 # optional drawtext/subtitles filters (which require libfreetype
@@ -118,15 +120,82 @@ def _output_video_path(channel_key, script_path):
     return path
 
 
+def _build_visual_frames(visual_plan, word_timings, channel_key,
+                          no_paid_visuals=False):
+    """
+    Download/generate visuals and return a list of image paths — one per
+    caption group.
+
+    The visual plan has one entry per ~15-word segment. Word timings
+    drive caption groups at 3 words each. So roughly every 5 caption
+    groups share the same visual (15 words ÷ 3 words/group = 5 groups).
+
+    Args:
+        visual_plan (list[dict]): Output from visual_planner.plan_visuals().
+        word_timings (list[dict]): Word timing data from tts.py.
+        channel_key (str): Used for Pexels credits file path.
+        no_paid_visuals (bool): If True, skip Pexels (use text cards only).
+
+    Returns:
+        list[str or None]: One entry per caption group. Each entry is a
+            local image path or None (fall back to solid background).
+    """
+    from src.video.captions import _group_words, WORDS_PER_CAPTION
+    from src.video.stock import fetch_stock_photo
+    from src.video.charts import make_chart
+    import hashlib as _hashlib
+
+    if not visual_plan:
+        return []
+
+    caption_groups = _group_words(word_timings, WORDS_PER_CAPTION)
+    total_caption_groups = len(caption_groups) + 1  # +1 for the trailing blank frame
+
+    # How many caption groups per visual segment.
+    # Visual segments are 15 words; caption groups are 3 words → 5 groups each.
+    from src.video.visual_planner import WORDS_PER_SEGMENT
+    groups_per_segment = max(1, WORDS_PER_SEGMENT // WORDS_PER_CAPTION)
+
+    # Pre-resolve each visual segment to a local file path (or None).
+    resolved = []
+    for i, segment in enumerate(visual_plan):
+        visual_type = segment.get("visual_type", "text_card")
+        query = segment.get("query", "")
+        path = None
+
+        if visual_type == "chart" and query:
+            # Generate a matplotlib chart from the data string.
+            fingerprint = _hashlib.sha256(query.encode()).hexdigest()[:16]
+            chart_path = os.path.join("cache", "charts", f"{fingerprint}.png")
+            path = make_chart(query, chart_path, channel_key)
+
+        elif visual_type == "stock_photo" and query and not no_paid_visuals:
+            path = fetch_stock_photo(query, channel_key=channel_key)
+
+        # text_card → path stays None; the renderer uses the solid background.
+        resolved.append(path)
+
+    # Expand the per-segment list to one entry per caption group.
+    visual_frames = []
+    for group_index in range(total_caption_groups):
+        segment_index = min(group_index // groups_per_segment, len(resolved) - 1)
+        visual_frames.append(resolved[segment_index])
+
+    return visual_frames
+
+
 def render_video(script_path, story_title, channel_key, voice,
-                 font_size=90, dry_run=False):
+                 font_size=90, dry_run=False, llm=None,
+                 channel_config=None, no_paid_visuals=False):
     """
     Turn an approved script into a ready-to-post 9:16 MP4 video.
 
     Steps:
       1. Generate (or load from cache) the voiceover MP3 and word timings.
-      2. Use Pillow to draw one PNG per caption group.
-      3. Run FFmpeg to encode the PNGs into a video and mix in the audio.
+      2. (Optional) Generate a visual plan with Claude Haiku: each spoken
+         segment gets a background image (stock photo or chart).
+      3. Use Pillow to draw one PNG per caption group.
+      4. Run FFmpeg to encode the PNGs into a video and mix in the audio.
 
     Args:
         script_path (str): Path to the approved .md script file.
@@ -135,6 +204,10 @@ def render_video(script_path, story_title, channel_key, voice,
         voice (str): The edge-tts voice name from the channel config.
         font_size (int): Caption font size in pixels (from channel config).
         dry_run (bool): If True, skip TTS and FFmpeg; return a placeholder path.
+        llm (LLMClient or None): If provided, visual planning is run.
+                                 If None, visuals are skipped (original behaviour).
+        channel_config (dict or None): Required when llm is provided.
+        no_paid_visuals (bool): Skip Pexels calls; use only free local visuals.
 
     Returns:
         str: Path to the finished .mp4 file.
@@ -158,7 +231,22 @@ def render_video(script_path, story_title, channel_key, voice,
         print(f"  [DRY RUN] Would save video to: {video_path}")
         return video_path
 
-    # --- Step 2: Frames ---
+    # --- Step 2: Visual plan (optional) ---
+    visual_frames = []
+    if llm is not None and channel_config is not None:
+        from src.video.visual_planner import plan_visuals
+        print("  Planning visuals...")
+        visual_plan = plan_visuals(script_path, channel_config, llm,
+                                   dry_run=dry_run)
+        visual_frames = _build_visual_frames(
+            visual_plan, word_timings, channel_key,
+            no_paid_visuals=no_paid_visuals,
+        )
+        visuals_used = sum(1 for v in visual_frames if v is not None)
+        print(f"  Visuals resolved: {visuals_used}/{len(visual_frames)} frames "
+              f"have an image background.")
+
+    # --- Step 3: Frames ---
     print("  Drawing video frames with Pillow...")
     bg_color = _pick_background_color(channel_key)
 
@@ -173,6 +261,7 @@ def render_video(script_path, story_title, channel_key, voice,
         background_color_hex=bg_color,
         output_folder=frames_folder,
         font_size=font_size,
+        visual_frames=visual_frames if visual_frames else None,
     )
 
     # Count how many frames were generated for the status message.

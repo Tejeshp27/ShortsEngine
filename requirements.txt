@@ -43,3 +43,6 @@ httpx>=0.27.0
 
 # python-multipart — required by FastAPI for form data (approve/reject buttons)
 python-multipart>=0.0.9
+
+# matplotlib — local chart generation for visuals (Phase V.5); no API key needed
+matplotlib>=3.8.0
