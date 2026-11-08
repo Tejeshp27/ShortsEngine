@@ -194,8 +194,18 @@ shortsengine/
 
 ## Current phase
 
-**Phase 1: complete.** Scripts generate end-to-end for ~$0.013.
-**Phase 2 (video production) and Phase 3 (database + review queue): in progress.**
+**Phases 1–7 code complete and verified.**
+
+- Phase 1: scripts generate for ~$0.013 ✅
+- Phase 2: `--render` produces a real 9:16 MP4 (Pillow + FFmpeg + edge-tts) ✅
+- Phase 3: `--review` queue and `--report` work ✅
+- Phase 4: publishing code built; needs INSTAGRAM_ACCESS_TOKEN / TIKTOK_ACCESS_TOKEN in .env ✅
+- Phase 5: FastAPI dashboard runs at http://localhost:8000 (`python -m src.dashboard.app`) ✅
+- Phase 6: analytics collector + feedback loop built; needs posted videos for data ✅
+- Phase 7: Dockerfile, GitHub Actions CI (.github/workflows/tests.yml), README, docs/ ✅
+
+**Next human steps:** post videos by hand (Phase 2.7 improvement loop), add API tokens for
+publishing (Phase 4), and deploy to a server (Phase 7).
 
 ## Roadmap
 
