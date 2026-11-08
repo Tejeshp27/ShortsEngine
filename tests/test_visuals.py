@@ -160,12 +160,20 @@ class TestCachePathForQuery:
 class TestFetchStockPhoto:
     """Tests for fetch_stock_photo — downloads images from Pexels."""
 
-    def test_returns_none_without_api_key(self, monkeypatch):
-        """If no API key is set, fetch_stock_photo should return None."""
-        # Remove PEXELS_API_KEY from the environment for this test.
+    def test_falls_back_to_wikimedia_without_pexels_key(self, monkeypatch):
+        """Without a Pexels key, fetch_stock_photo should delegate to
+        fetch_wikimedia_photo (the free fallback) rather than returning None."""
+        import unittest.mock as mock
         monkeypatch.delenv("PEXELS_API_KEY", raising=False)
-        result = fetch_stock_photo("Capitol building exterior")
-        assert result is None
+
+        # Mock the Wikimedia fallback so the test never hits the network.
+        with mock.patch(
+            "src.video.stock.fetch_wikimedia_photo", return_value="/fake/path.jpg"
+        ) as mock_wm:
+            result = fetch_stock_photo("Capitol building exterior")
+
+        mock_wm.assert_called_once_with("Capitol building exterior")
+        assert result == "/fake/path.jpg"
 
     def test_uses_env_key(self, monkeypatch, tmp_path):
         """When PEXELS_API_KEY is set, the function should attempt to fetch

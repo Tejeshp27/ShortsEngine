@@ -25,12 +25,14 @@
 import hashlib
 import json
 import os
+import time
 import urllib.request
 import urllib.parse
 
 
 STOCK_CACHE_FOLDER = os.path.join("cache", "stock")
 PEXELS_SEARCH_URL = "https://api.pexels.com/v1/search"
+WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php"
 
 
 def _search_pexels(query, api_key, per_page=15):
@@ -132,6 +134,122 @@ def _save_credit(channel_key, photo):
         f.write(line)
 
 
+def fetch_wikimedia_photo(query):
+    """
+    Search Wikimedia Commons for a free photo and download it.
+
+    Wikimedia Commons is a library of freely licensed images. No API
+    key is needed. We use it as a fallback when no Pexels key is set.
+
+    The images are in the public domain or under Creative Commons
+    licences — they are safe to use in videos, including commercially.
+
+    Args:
+        query (str): The search term, e.g. "aircraft wreckage debris".
+
+    Returns:
+        str or None: Local path to the downloaded image, or None if not found.
+    """
+    # Step 1: Search Wikimedia Commons for image files matching the query.
+    params = urllib.parse.urlencode({
+        "action": "query",
+        "generator": "search",
+        "gsrnamespace": "6",        # namespace 6 = File: (images)
+        "gsrsearch": query,
+        "gsrlimit": "15",
+        "prop": "imageinfo",
+        # Ask for a 1080px-wide thumbnail URL instead of the full-res file.
+        # Wikimedia explicitly recommends this — full-res downloads get rate-limited.
+        "iiprop": "url|thumburl|size|mime",
+        "iiurlwidth": "1080",
+        "format": "json",
+    })
+    url = f"{WIKIMEDIA_API_URL}?{params}"
+    request = urllib.request.Request(url)
+    # Wikimedia requires a User-Agent header.
+    request.add_header("User-Agent",
+                       "ShortsEngine/0.1 (personal news project; "
+                       "contact: shortsengine@example.com)")
+
+    try:
+        with urllib.request.urlopen(request, timeout=15) as resp:
+            data = json.loads(resp.read())
+    except Exception as err:
+        print(f"  Wikimedia search failed for '{query}': {err}")
+        return None
+
+    pages = data.get("query", {}).get("pages", {})
+    if not pages:
+        return None
+
+    # Step 2: Filter to JPEG/PNG images and pick the most portrait-shaped.
+    candidates = []
+    for page in pages.values():
+        info_list = page.get("imageinfo", [])
+        if not info_list:
+            continue
+        info = info_list[0]
+        mime = info.get("mime", "")
+        if mime not in ("image/jpeg", "image/png"):
+            continue
+        w = info.get("width", 1)
+        h = info.get("height", 1)
+        # Skip tiny thumbnails.
+        if w < 400 or h < 400:
+            continue
+        candidates.append({
+            "url": info["url"],
+            "thumburl": info.get("thumburl"),   # 1080px thumbnail, if the API returned one
+            "width": w,
+            "height": h,
+        })
+
+    if not candidates:
+        return None
+
+    # Sort candidates: portrait images first (taller than wide), then any image.
+    portrait = [c for c in candidates if c["height"] >= c["width"]]
+    ordered = portrait + [c for c in candidates if c["height"] < c["width"]]
+
+    # Step 3: Download and cache the image, trying candidates in order.
+    # If one URL is rate-limited (HTTP 429), skip it and try the next candidate.
+    # Wikimedia sometimes throttles specific popular files.
+    img_path, _ = _cache_path_for_query(f"wm:{query}")
+    os.makedirs(STOCK_CACHE_FOLDER, exist_ok=True)
+
+    for candidate_index, candidate in enumerate(ordered):
+        # Prefer the 1080px thumbnail URL — Wikimedia explicitly recommends
+        # this over full-resolution files to avoid rate limiting.
+        thumb_url = candidate.get("thumburl") or candidate["url"]
+
+        # Small delay between requests so we don't hammer Wikimedia.
+        time.sleep(1.0)
+
+        try:
+            req = urllib.request.Request(thumb_url)
+            req.add_header("User-Agent",
+                           "ShortsEngine/0.1 (personal news project)")
+            with urllib.request.urlopen(req, timeout=30) as resp:
+                with open(img_path, "wb") as f:
+                    f.write(resp.read())
+            # Success — stop trying other candidates.
+            print(f"  Wikimedia photo downloaded: {os.path.basename(img_path)} "
+                  f"(for query: '{query}')")
+            return img_path
+        except Exception as err:
+            err_str = str(err)
+            if "429" in err_str:
+                # This specific file is rate-limited; try the next candidate.
+                print(f"  Wikimedia 429 on candidate {candidate_index + 1}, "
+                      f"trying next...")
+            else:
+                print(f"  Wikimedia download failed: {err}")
+                return None  # non-rate-limit errors are unlikely to clear
+
+    print(f"  Wikimedia: all {len(ordered)} candidates rate-limited for '{query}'")
+    return None
+
+
 def fetch_stock_photo(query, channel_key="news", api_key=None):
     """
     Search Pexels for a portrait photo matching the query, download and cache it.
@@ -155,8 +273,8 @@ def fetch_stock_photo(query, channel_key="news", api_key=None):
     key = api_key or os.getenv("PEXELS_API_KEY")
 
     if not key:
-        # No key set — return None so the renderer falls back to a text card.
-        return None
+        # No Pexels key — try Wikimedia Commons (free, no key required).
+        return fetch_wikimedia_photo(query)
 
     img_path, meta_path = _cache_path_for_query(query)
 

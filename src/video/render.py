@@ -169,8 +169,14 @@ def _build_visual_frames(visual_plan, word_timings, channel_key,
             chart_path = os.path.join("cache", "charts", f"{fingerprint}.png")
             path = make_chart(query, chart_path, channel_key)
 
-        elif visual_type == "stock_photo" and query and not no_paid_visuals:
-            path = fetch_stock_photo(query, channel_key=channel_key)
+        elif visual_type == "stock_photo" and query:
+            if no_paid_visuals:
+                # Free-only mode: skip Pexels, try Wikimedia Commons directly.
+                from src.video.stock import fetch_wikimedia_photo
+                path = fetch_wikimedia_photo(query)
+            else:
+                # Normal mode: try Pexels first, then Wikimedia as fallback.
+                path = fetch_stock_photo(query, channel_key=channel_key)
 
         # text_card → path stays None; the renderer uses the solid background.
         resolved.append(path)

@@ -168,6 +168,7 @@ def plan_visuals(script_path, channel_config, llm, dry_run=False):
         ),
         user_message=prompt,
         max_tokens=1500,
+        purpose="visual_planning",
     )
 
     # Parse the JSON response. If it fails, fall back to text cards.
