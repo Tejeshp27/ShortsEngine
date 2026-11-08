@@ -1,0 +1,49 @@
+# =============================================================
+# .github/workflows/tests.yml — run the test suite on every push
+#
+# GitHub Actions runs this automatically whenever you push code
+# or open a pull request. It installs dependencies and runs pytest.
+#
+# Green checkmark = all tests passed.
+# Red X = something broke; check the "Actions" tab on GitHub.
+# =============================================================
+
+name: Tests
+
+# Run on every push to any branch, and on every pull request.
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    name: Run pytest
+    # Use the latest Ubuntu runner (free for public repos).
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out the repository code.
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Python 3.11 — matches the version we develop with.
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          # Cache pip packages so the CI run is faster on repeat runs.
+          cache: "pip"
+
+      # Step 3: Install all dependencies from requirements.txt.
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      # Step 4: Run all tests.
+      # The ANTHROPIC_API_KEY is not needed here because tests use mocks
+      # and --dry-run mode — no real API calls are made in CI.
+      - name: Run tests
+        run: pytest -v
+        env:
+          # Provide a dummy key so code that checks os.getenv("ANTHROPIC_API_KEY")
+          # doesn't fail during import or initialization.
+          ANTHROPIC_API_KEY: "test-key-not-real"

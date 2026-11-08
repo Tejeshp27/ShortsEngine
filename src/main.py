@@ -106,8 +106,10 @@ def parse_arguments():
     )
     parser.add_argument(
         "--channel",
-        required=True,
-        help="Name of the channel to run (must match a file in channels/)",
+        required=False,
+        default=None,
+        help="Name of the channel to run (must match a file in channels/). "
+             "Required for all modes except --report (which shows all channels if omitted).",
     )
     parser.add_argument(
         "--dry-run",
@@ -134,6 +136,11 @@ def parse_arguments():
         "--review",
         action="store_true",
         help="Open the review queue to approve or reject drafted scripts (Phase 3)",
+    )
+    parser.add_argument(
+        "--report",
+        action="store_true",
+        help="Print a cost and activity report for this channel (Phase 3)",
     )
     return parser.parse_args()
 
@@ -175,7 +182,7 @@ def get_candidate_stories(config, channel_key):
     return new_stories
 
 
-def choose_story(stories, config, llm, pick_number):
+def choose_story(stories, config, llm, pick_number, channel_key=None):
     """
     Decide which story to write about.
 
@@ -185,6 +192,7 @@ def choose_story(stories, config, llm, pick_number):
         llm (LLMClient): The run's AI client.
         pick_number (int or None): A story number chosen by the user, or None
                                    to let the ranking model choose.
+        channel_key (str or None): Channel name, used to load analytics feedback.
 
     Returns:
         dict or None: The chosen story, or None if pick_number is invalid.
@@ -198,7 +206,7 @@ def choose_story(stories, config, llm, pick_number):
         return stories[pick_number - 1]
 
     print(f"Ranking stories with {config['models']['ranking']}...")
-    chosen_stories, reason = rank_stories(stories, config, llm)
+    chosen_stories, reason = rank_stories(stories, config, llm, channel_key=channel_key)
 
     print()
     print("  Top picks:")
@@ -252,7 +260,7 @@ def run_script_pipeline(args, config, llm):
         print("No new stories to write about. Try again later.")
         return None
 
-    story = choose_story(stories, config, llm, args.pick)
+    story = choose_story(stories, config, llm, args.pick, channel_key=args.channel)
     if story is None:
         return None
 
@@ -356,9 +364,21 @@ def main():
     print("=" * 55)
     print("ShortsEngine")
     print("=" * 55)
-    print(f"Channel  : {args.channel}")
-    print(f"Dry run  : {args.dry_run}")
+    print(f"Channel  : {args.channel or '(all)'}")
+    if hasattr(args, "dry_run"):
+        print(f"Dry run  : {args.dry_run}")
     print()
+
+    # --- Cost report mode (Phase 3) — works with or without --channel ---
+    if args.report:
+        from src.storage.reports import print_cost_report
+        print_cost_report(channel=args.channel)
+        return
+
+    # Everything below requires --channel.
+    if not args.channel:
+        print("ERROR: --channel is required. Example: --channel news")
+        raise SystemExit(1)
 
     # --- Load channel config ---
     config = load_channel_config(args.channel)

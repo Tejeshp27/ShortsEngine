@@ -1,0 +1,44 @@
+# =============================================================
+# docker-compose.yml — run ShortsEngine services together
+#
+# Services:
+#   dashboard  — the FastAPI web app on port 8000
+#   pipeline   — the daily script-writing job (run manually)
+#
+# Usage:
+#   docker compose up dashboard          # start the dashboard
+#   docker compose run --rm pipeline     # run one pipeline pass
+#   docker compose run --rm pipeline \
+#     --channel news --dry-run           # test without paying
+# =============================================================
+
+services:
+
+  # Web dashboard — stays running, restart on crash or reboot.
+  dashboard:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    volumes:
+      # Mount the data folders so they persist between container restarts.
+      - ./output:/app/output
+      - ./cache:/app/cache
+    restart: unless-stopped
+
+  # Pipeline — a one-shot job, run manually or on a cron schedule.
+  # It does not stay running: "docker compose run --rm pipeline" runs it
+  # and exits when done.
+  pipeline:
+    build: .
+    env_file:
+      - .env
+    volumes:
+      - ./output:/app/output
+      - ./cache:/app/cache
+    # The default entrypoint runs the news channel pipeline.
+    # Override on the command line with --channel or --dry-run.
+    command: ["python", "-m", "src.main", "--channel", "news"]
+    # Profiles prevent the pipeline from starting with "docker compose up".
+    profiles: ["pipeline"]

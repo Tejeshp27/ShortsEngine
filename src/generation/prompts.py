@@ -28,17 +28,20 @@ def target_word_count(target_seconds):
     return int(target_seconds * WORDS_PER_SECOND)
 
 
-def build_ranking_system_prompt(config):
+def build_ranking_system_prompt(config, feedback_text=""):
     """
     Write the standing instructions for the cheap "story picker" model.
 
     Args:
         config (dict): The channel config (uses niche and audience).
+        feedback_text (str): Optional past-performance data from collector.py.
+                             If provided, it's appended so the model knows
+                             which story types have done well before.
 
     Returns:
         str: The system prompt text.
     """
-    return (
+    base = (
         f"You choose stories for a short-form video channel about {config['niche']}.\n"
         f"The audience is: {config['audience']}.\n\n"
         "Pick the stories that are most important and most interesting to this "
@@ -49,6 +52,9 @@ def build_ranking_system_prompt(config):
         "Line 1: up to 3 story numbers, best first, separated by commas (e.g. 4, 1, 7)\n"
         "Line 2: one short sentence explaining why the first pick is best."
     )
+    if feedback_text:
+        base += f"\n\n{feedback_text}"
+    return base
 
 
 def build_ranking_user_message(stories):

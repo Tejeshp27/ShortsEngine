@@ -10,6 +10,7 @@
 import re
 
 from src.generation.prompts import build_ranking_system_prompt, build_ranking_user_message
+from src.analytics.feedback import load_feedback_for_channel
 
 
 def parse_ranking_answer(answer_text, number_of_stories):
@@ -60,7 +61,7 @@ def parse_ranking_reason(answer_text):
     return lines[1].strip()
 
 
-def rank_stories(stories, config, llm):
+def rank_stories(stories, config, llm, channel_key=None):
     """
     Ask the cheap model which stories are worth covering.
 
@@ -68,6 +69,8 @@ def rank_stories(stories, config, llm):
         stories (list[dict]): Candidate stories (already deduplicated).
         config (dict): The channel config.
         llm (LLMClient): The run's AI client (handles cost and caching).
+        channel_key (str or None): Channel name used to load feedback data.
+                                   If None, the feedback loop is skipped.
 
     Returns:
         tuple: (list of chosen stories best first, reason text).
@@ -77,9 +80,13 @@ def rank_stories(stories, config, llm):
     max_headlines = config["selection"]["max_headlines_to_rank"]
     candidates = stories[:max_headlines]
 
+    # Phase 6.3: inject past performance data into the ranking prompt
+    # if a feedback file has been saved by src/analytics/feedback.py.
+    feedback_text = load_feedback_for_channel(channel_key) if channel_key else ""
+
     answer = llm.ask(
         model=config["models"]["ranking"],
-        system_prompt=build_ranking_system_prompt(config),
+        system_prompt=build_ranking_system_prompt(config, feedback_text=feedback_text),
         user_message=build_ranking_user_message(candidates),
         max_tokens=config["llm"]["ranking_max_tokens"],
         effort=config["llm"].get("ranking_effort"),
