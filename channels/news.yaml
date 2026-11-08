@@ -1,0 +1,38 @@
+# =============================================================
+# channels/news.yaml — config for the "News Explained" channel
+#
+# Every setting specific to this channel lives here.
+# To add a new channel, create a new .yaml file in this folder.
+# =============================================================
+
+name: "News Explained"
+niche: "US politics and current events"
+audience: "College students who don't follow the news closely"
+tone: "Neutral, clear, engaging; explain jargon; present each side fairly"
+
+# Target video length in seconds (75s ≈ a short TikTok/Reel)
+target_length_seconds: 75
+
+# Models — cheaper model for quick tasks, stronger for final writing
+# Using claude-haiku-4-5 for ranking (fast + cheap) and
+# claude-sonnet-4-6 for script writing (better quality)
+models:
+  ranking: "claude-haiku-4-5-20251001"
+  writing: "claude-sonnet-4-6"
+
+# RSS feeds — free public news sources
+sources:
+  - type: rss
+    url: "https://feeds.npr.org/1001/rss.xml"
+    name: "NPR News"
+  - type: rss
+    url: "https://www.pbs.org/newshour/feeds/rss/headlines"
+    name: "PBS NewsHour"
+  - type: rss
+    url: "https://feeds.bbci.co.uk/news/world/us_and_canada/rss.xml"
+    name: "BBC US & Canada"
+
+# Platforms to publish to (Phase 4+)
+platforms:
+  - tiktok
+  - instagram

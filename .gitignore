@@ -1,0 +1,29 @@
+# =============================================================
+# .gitignore — files git should never track
+# =============================================================
+
+# --- Secrets ---
+# NEVER commit .env — it holds real API keys
+.env
+
+# --- Python ---
+# Virtual environment (each developer creates their own)
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+
+# --- Generated output (can be re-created by running the pipeline) ---
+output/
+cache/
+
+# --- macOS system files ---
+.DS_Store
+
+# --- Editor files ---
+.vscode/
+.idea/
+*.swp

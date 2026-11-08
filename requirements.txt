@@ -1,0 +1,20 @@
+# =============================================================
+# requirements.txt — Python dependencies
+#
+# Install everything with: pip install -r requirements.txt
+# =============================================================
+
+# Anthropic SDK — talks to the Claude API
+anthropic>=0.40.0
+
+# RSS feed parser — reads news feeds from NPR, BBC, etc.
+feedparser>=6.0.0
+
+# YAML parser — reads channel config files (channels/*.yaml)
+PyYAML>=6.0.0
+
+# python-dotenv — loads .env into environment variables at startup
+python-dotenv>=1.0.0
+
+# pytest — runs the test suite
+pytest>=8.0.0
