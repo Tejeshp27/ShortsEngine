@@ -20,6 +20,10 @@ build/
 output/
 cache/
 
+# --- Downloaded AI model files (large, re-downloadable) ---
+# Kokoro TTS model (~310 MB) and Whisper model (auto-cached by faster-whisper)
+models/
+
 # --- Database (contains real video data; each environment has its own) ---
 shortsengine.db
 

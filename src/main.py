@@ -431,13 +431,22 @@ def run_render_pipeline(args, config):
         print(f"ERROR: Script file not found: {script_path}")
         return
 
-    voice = config["video"]["voice"]
+    # Decide which TTS provider and voice to use from the channel config.
+    # tts_provider defaults to "edge" so old channel configs still work.
+    tts_provider = config["video"].get("tts_provider", "edge")
+    if tts_provider == "macos":
+        voice = config["video"].get("macos_voice", "Flo (English (US))")
+    elif tts_provider == "kokoro":
+        voice = config["video"].get("kokoro_voice", "af_heart")
+    else:
+        voice = config["video"]["voice"]
+
     use_visuals = getattr(args, "visuals", False)
     no_paid_visuals = getattr(args, "no_paid_visuals", False)
 
     print(f"Rendering video for: {video_row['story_title']}")
     print(f"Script  : {script_path}")
-    print(f"Voice   : {voice}")
+    print(f"Voice   : {voice} ({tts_provider})")
     if use_visuals:
         print(f"Visuals : enabled (paid={'no' if no_paid_visuals else 'yes, Pexels'})")
     print()
@@ -460,6 +469,7 @@ def run_render_pipeline(args, config):
         llm=llm,
         channel_config=config if use_visuals else None,
         no_paid_visuals=no_paid_visuals,
+        tts_provider=tts_provider,
     )
 
     if not args.dry_run:

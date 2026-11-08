@@ -192,7 +192,8 @@ def _build_visual_frames(visual_plan, word_timings, channel_key,
 
 def render_video(script_path, story_title, channel_key, voice,
                  font_size=90, dry_run=False, llm=None,
-                 channel_config=None, no_paid_visuals=False):
+                 channel_config=None, no_paid_visuals=False,
+                 tts_provider="edge"):
     """
     Turn an approved script into a ready-to-post 9:16 MP4 video.
 
@@ -214,6 +215,7 @@ def render_video(script_path, story_title, channel_key, voice,
                                  If None, visuals are skipped (original behaviour).
         channel_config (dict or None): Required when llm is provided.
         no_paid_visuals (bool): Skip Pexels calls; use only free local visuals.
+        tts_provider (str): "edge" (Microsoft, online) or "kokoro" (local, higher quality).
 
     Returns:
         str: Path to the finished .mp4 file.
@@ -230,7 +232,9 @@ def render_video(script_path, story_title, channel_key, voice,
 
     # --- Step 1: Voiceover ---
     print("  Generating voiceover...")
-    audio_path, word_timings = get_voiceover(script_path, voice, dry_run=dry_run)
+    audio_path, word_timings = get_voiceover(
+        script_path, voice, tts_provider=tts_provider, dry_run=dry_run
+    )
 
     if dry_run:
         video_path = _output_video_path(channel_key, script_path)

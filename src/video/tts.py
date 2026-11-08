@@ -76,7 +76,7 @@ def _extract_spoken_text(script_path):
     return "\n".join(spoken_lines).strip()
 
 
-def _audio_cache_path(script_path, voice):
+def _audio_cache_path(script_path, voice, extension=".mp3"):
     """
     Work out where to cache the audio for a given script + voice combo.
 
@@ -85,10 +85,11 @@ def _audio_cache_path(script_path, voice):
 
     Args:
         script_path (str): Path to the script file.
-        voice (str): The edge-tts voice name.
+        voice (str): The TTS voice name (edge-tts or Kokoro).
+        extension (str): File extension — ".mp3" for edge-tts, ".wav" for Kokoro.
 
     Returns:
-        tuple[str, str]: (audio .mp3 path, timing .json path)
+        tuple[str, str]: (audio file path, timing .json path)
     """
     with open(script_path, "r", encoding="utf-8") as f:
         content = f.read()
@@ -97,7 +98,7 @@ def _audio_cache_path(script_path, voice):
         (content + voice).encode("utf-8")
     ).hexdigest()[:24]
 
-    audio_path = os.path.join(AUDIO_CACHE_FOLDER, f"{fingerprint}.mp3")
+    audio_path = os.path.join(AUDIO_CACHE_FOLDER, f"{fingerprint}{extension}")
     timing_path = os.path.join(AUDIO_CACHE_FOLDER, f"{fingerprint}_timing.json")
     return audio_path, timing_path
 
@@ -186,29 +187,37 @@ async def _synthesize(text, voice, audio_path, timing_path):
         json.dump(word_boundaries, f, indent=2)
 
 
-def get_voiceover(script_path, voice, dry_run=False):
+def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
     """
-    Generate (or load from cache) a voiceover MP3 and word-timing data.
+    Generate (or load from cache) a voiceover audio file and word-timing data.
+
+    Supports two TTS providers:
+      - "edge"   — Microsoft Edge neural TTS (free, online, .mp3)
+      - "kokoro" — Kokoro ONNX (free, local, near-ElevenLabs quality, .wav)
 
     Args:
         script_path (str): Path to the .md script file.
-        voice (str): edge-tts voice name from the channel config,
-                     e.g. "en-US-AriaNeural".
+        voice (str): Voice name for the chosen provider.
+                     edge:   e.g. "en-US-AriaNeural"
+                     kokoro: e.g. "af_heart", "am_michael", "bf_emma"
+        tts_provider (str): "edge" or "kokoro". Defaults to "edge".
         dry_run (bool): If True, skip the actual TTS call and return
-                        placeholder paths (useful for testing the rest
-                        of the pipeline without making network calls).
+                        placeholder paths.
 
     Returns:
         tuple[str, list[dict]]:
-            - audio_path: path to the .mp3 file
+            - audio_path: path to the audio file (.mp3 for edge, .wav for kokoro)
             - word_timings: list of {"word", "start", "end"} dicts
 
     Example:
-        audio, timings = get_voiceover("output/news/2026-11-07-big.md",
-                                       "en-US-AriaNeural")
-        print(timings[0])  # {"word": "Homelessness", "start": 0.1, "end": 0.6}
+        audio, timings = get_voiceover(
+            "output/news/2026-11-07-big.md", "af_heart", tts_provider="kokoro"
+        )
+        print(timings[0])  # {"word": "A", "start": 0.1, "end": 0.4}
     """
-    audio_path, timing_path = _audio_cache_path(script_path, voice)
+    # kokoro and macos both produce WAV; edge-tts produces MP3.
+    extension = ".wav" if tts_provider in ("kokoro", "macos") else ".mp3"
+    audio_path, timing_path = _audio_cache_path(script_path, voice, extension)
 
     # Already cached? Use the saved files.
     if os.path.exists(audio_path) and os.path.exists(timing_path):
@@ -226,15 +235,27 @@ def get_voiceover(script_path, voice, dry_run=False):
         raise ValueError(f"No spoken text found in {script_path}. "
                          "Check that the script has the expected ## sections.")
 
-    print(f"  Generating voiceover with {voice} "
-          f"({len(text.split())} words)...")
+    if tts_provider == "macos":
+        # macOS built-in neural voice (Flo, Reed, Shelley, etc.) — high quality,
+        # fully local, no API key needed.
+        from src.video.tts_macos import synthesize_macos
+        rate = 155  # words per minute — slightly slower for a compassionate tone
+        synthesize_macos(text, voice, audio_path, timing_path, rate=rate)
 
-    # asyncio.run() starts the async function and waits for it to finish.
-    # This is the standard way to call async code from regular Python.
-    asyncio.run(_synthesize(text, voice, audio_path, timing_path))
+    elif tts_provider == "kokoro":
+        # Kokoro ONNX — near-ElevenLabs quality; requires onnxruntime.
+        from src.video.tts_kokoro import synthesize_kokoro
+        synthesize_kokoro(text, voice, audio_path, timing_path)
+
+    else:
+        # edge-tts — free Microsoft Edge neural TTS (online).
+        print(f"  Generating voiceover with {voice} "
+              f"({len(text.split())} words)...")
+        # asyncio.run() starts the async function and waits for it to finish.
+        asyncio.run(_synthesize(text, voice, audio_path, timing_path))
 
     with open(timing_path, "r", encoding="utf-8") as f:
         word_timings = json.load(f)
 
-    print(f"  Voiceover saved: {audio_path} ({len(word_timings)} words timed)")
+    print(f"  Voiceover ready: {len(word_timings)} words timed.")
     return audio_path, word_timings

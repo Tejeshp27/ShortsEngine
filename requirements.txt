@@ -46,3 +46,14 @@ python-multipart>=0.0.9
 
 # matplotlib — local chart generation for visuals (Phase V.5); no API key needed
 matplotlib>=3.8.0
+
+# faster-whisper — Whisper model via CTranslate2; used for accurate word-level
+#                  timing when tts_provider is "macos" or "kokoro".
+#                  Requires: brew install pkg-config && pip install av
+#                  (av has no pre-built wheel for Python 3.15 yet — install
+#                   manually once pkg-config is available via Homebrew).
+#                  Current fallback: proportional word-timing estimation.
+#   pip install: pip install --no-deps faster-whisper tokenizers huggingface_hub
+ctranslate2>=4.0.0
+tokenizers>=0.13.4
+huggingface_hub>=0.22.0

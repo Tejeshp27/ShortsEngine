@@ -51,8 +51,27 @@ sources:
 
 # Video production settings (Phase 2)
 video:
-  voice: "en-US-AriaNeural"   # edge-tts voice — free, neural quality
-                               # full list: run `edge-tts --list-voices`
+  # Which TTS engine to use:
+  #   "macos"  — Apple neural voices (Flo, Shelley, Reed…) — recommended,
+  #              local, no install, same quality as Siri.
+  #   "edge"   — Microsoft Edge neural TTS (free, online).
+  #   "kokoro" — Kokoro ONNX (near-ElevenLabs, local); requires onnxruntime.
+  tts_provider: "macos"
+
+  # macOS voice — used when tts_provider = "macos".
+  # Run `say --voice "?" | grep en_US` to see all installed voices.
+  # Warm female: "Flo (English (US))", "Shelley (English (US))", "Sandy (English (US))"
+  # Professional male: "Reed (English (US))", "Rocko (English (US))"
+  macos_voice: "Flo (English (US))"
+
+  # Kokoro voice — used when tts_provider = "kokoro" (future upgrade).
+  # American female: af_heart (warm), af_sarah (clear), af_bella (expressive)
+  # American male:   am_michael (warm), am_adam (deep)
+  kokoro_voice: "af_heart"
+
+  # edge-tts voice — used when tts_provider = "edge" (fallback).
+  voice: "en-US-AriaNeural"
+
   font_size: 90                # caption font size (pixels on 1080×1920 canvas)
   words_per_caption: 3         # how many words to show at once in captions
 
