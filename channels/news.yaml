@@ -16,8 +16,8 @@ target_length_seconds: 75
 # Models — cheap model for picking stories, stronger model for the script.
 # Prices for each model live in config/pricing.yaml.
 models:
-  ranking: "claude-haiku-5-5"    # cheap + fast: picks the best story from headlines
-  writing: "claude-sonnet-5-5"   # better writer: produces the final script
+  ranking: "claude-haiku-4-5"    # cheap + fast: picks the best story from headlines
+  writing: "claude-sonnet-4-6"   # better writer: produces the final script
 
 # Settings for each AI step
 llm:

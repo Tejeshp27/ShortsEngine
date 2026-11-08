@@ -65,7 +65,7 @@ def calculate_cost(pricing, model, input_tokens, output_tokens,
 
     Args:
         pricing (dict): The price list from load_pricing().
-        model (str): The model name, e.g. "claude-haiku-5-5".
+        model (str): The model name, e.g. "claude-haiku-4-5".
         input_tokens (int): Normal tokens we sent.
         output_tokens (int): Tokens the model wrote back.
         cache_write_tokens (int): Tokens saved into the prompt cache
@@ -150,7 +150,7 @@ class LLMClient:
 
     Example:
         llm = LLMClient(dry_run=True, max_calls=5)
-        answer = llm.ask(model="claude-haiku-5-5",
+        answer = llm.ask(model="claude-haiku-4-5",
                          system_prompt="You pick news stories.",
                          user_message="1. Headline A\\n2. Headline B",
                          max_tokens=500, purpose="ranking")
@@ -286,7 +286,10 @@ class LLMClient:
             }],
             "messages": [{"role": "user", "content": user_message}],
         }
-        if effort:
+        # Not all models support the effort parameter (e.g. Haiku 4.5 does not).
+        # We store this in pricing.yaml so we don't hardcode model names here.
+        model_config = self.pricing.get(model, {})
+        if effort and model_config.get("supports_effort", False):
             request["output_config"] = {"effort": effort}
 
         try:
