@@ -32,6 +32,7 @@ import urllib.parse
 
 STOCK_CACHE_FOLDER = os.path.join("cache", "stock")
 PEXELS_SEARCH_URL = "https://api.pexels.com/v1/search"
+PIXABAY_API_URL = "https://pixabay.com/api/"
 WIKIMEDIA_API_URL = "https://commons.wikimedia.org/w/api.php"
 
 
@@ -132,6 +133,102 @@ def _save_credit(channel_key, photo):
 
     with open(credits_path, "a", encoding="utf-8") as f:
         f.write(line)
+
+
+def fetch_pixabay_photo(query):
+    """
+    Search Pixabay for a portrait photo and download it.
+
+    Pixabay is a completely free alternative to Pexels. No attribution is
+    required. It requires a free API key (same key as Pixabay video).
+
+    Used as a fallback when PEXELS_API_KEY is not set, or when Pexels
+    returns no results for a query.
+
+    Args:
+        query (str): The search term, e.g. "Capitol building exterior".
+
+    Returns:
+        str or None: Local path to the downloaded image, or None on failure.
+
+    Example:
+        path = fetch_pixabay_photo("Capitol building")
+        # → "cache/stock/px_a3f7b1.jpg"  (or None if no key)
+    """
+    api_key = os.getenv("PIXABAY_API_KEY", "")
+    if not api_key:
+        return None
+
+    params = urllib.parse.urlencode({
+        "key": api_key,
+        "q": query,
+        "per_page": 15,
+        "image_type": "photo",
+        "orientation": "vertical",   # prefer tall photos for 9:16 video
+        "min_width": 500,
+    })
+    url = f"{PIXABAY_API_URL}?{params}"
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "ShortsEngine/0.1"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read())
+    except Exception as err:
+        print(f"  Pixabay search failed for '{query}': {err}")
+        return None
+
+    hits = data.get("hits", [])
+    if not hits:
+        return None
+
+    # Pick the most portrait-shaped photo (highest height/width ratio).
+    best = max(
+        hits,
+        key=lambda h: h.get("imageHeight", 1) / max(h.get("imageWidth", 1), 1),
+    )
+
+    # Use a "px:" prefix in the cache key so Pixabay results don't collide
+    # with Pexels results for the same query.
+    img_path, meta_path = _cache_path_for_query(f"px:{query}")
+
+    if os.path.exists(img_path):
+        return img_path
+
+    os.makedirs(STOCK_CACHE_FOLDER, exist_ok=True)
+
+    # largeImageURL is the full-size file; webformatURL is a safe fallback.
+    download_url = best.get("largeImageURL") or best.get("webformatURL", "")
+    if not download_url:
+        return None
+
+    try:
+        req = urllib.request.Request(
+            download_url,
+            headers={"User-Agent": "ShortsEngine/0.1"},
+        )
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            with open(img_path, "wb") as f:
+                f.write(resp.read())
+    except Exception as err:
+        print(f"  Pixabay photo download failed: {err}")
+        return None
+
+    with open(meta_path, "w", encoding="utf-8") as f:
+        json.dump({
+            "id": best.get("id"),
+            "user": best.get("user"),
+            "pageURL": best.get("pageURL", ""),
+            "query": query,
+            "source": "pixabay",
+            "licence": "Pixabay Licence — free for commercial use, no attribution required",
+        }, f, indent=2)
+
+    print(f"  Pixabay photo downloaded: {os.path.basename(img_path)} "
+          f"(by {best.get('user', 'unknown')})")
+    return img_path
 
 
 def fetch_wikimedia_photo(query):
@@ -272,47 +369,48 @@ def fetch_stock_photo(query, channel_key="news", api_key=None):
     """
     key = api_key or os.getenv("PEXELS_API_KEY")
 
-    if not key:
-        # No Pexels key — try Wikimedia Commons (free, no key required).
-        return fetch_wikimedia_photo(query)
+    # Try Pexels first (highest quality, requires a free API key).
+    if key:
+        img_path, meta_path = _cache_path_for_query(query)
 
-    img_path, meta_path = _cache_path_for_query(query)
+        # Already downloaded from Pexels? Use the cached file.
+        if os.path.exists(img_path) and os.path.exists(meta_path):
+            return img_path
 
-    # Already downloaded? Use the cached file.
-    if os.path.exists(img_path) and os.path.exists(meta_path):
-        return img_path
+        os.makedirs(STOCK_CACHE_FOLDER, exist_ok=True)
 
-    os.makedirs(STOCK_CACHE_FOLDER, exist_ok=True)
+        photos = _search_pexels(query, key)
+        photo = _pick_best_photo(photos)
 
-    photos = _search_pexels(query, key)
-    photo = _pick_best_photo(photos)
+        if photo:
+            # Pexels found something — download it and return.
+            download_url = photo["src"].get("large", photo["src"].get("original", ""))
+            if download_url:
+                try:
+                    urllib.request.urlretrieve(download_url, img_path)
+                except Exception as err:
+                    print(f"  Failed to download Pexels photo: {err}")
+                    # Fall through to Pixabay below.
+                else:
+                    with open(meta_path, "w", encoding="utf-8") as f:
+                        json.dump({
+                            "id": photo.get("id"),
+                            "photographer": photo.get("photographer"),
+                            "url": photo.get("url"),
+                            "query": query,
+                            "licence": "Pexels Licence — free for commercial use",
+                        }, f, indent=2)
+                    _save_credit(channel_key, photo)
+                    print(f"  Stock photo downloaded: {os.path.basename(img_path)} "
+                          f"(by {photo.get('photographer', 'unknown')})")
+                    return img_path
+        else:
+            print(f"  No Pexels result for: '{query}' — trying Pixabay...")
 
-    if not photo:
-        print(f"  No Pexels result for: '{query}'")
-        return None
+    # Fallback 1: Pixabay (free, same quality tier, requires PIXABAY_API_KEY).
+    pixabay_result = fetch_pixabay_photo(query)
+    if pixabay_result:
+        return pixabay_result
 
-    # Download the medium-size version (good enough, smaller file).
-    download_url = photo["src"].get("large", photo["src"].get("original", ""))
-    if not download_url:
-        return None
-
-    try:
-        urllib.request.urlretrieve(download_url, img_path)
-    except Exception as err:
-        print(f"  Failed to download photo: {err}")
-        return None
-
-    # Save metadata for the credits file.
-    with open(meta_path, "w", encoding="utf-8") as f:
-        json.dump({
-            "id": photo.get("id"),
-            "photographer": photo.get("photographer"),
-            "url": photo.get("url"),
-            "query": query,
-            "licence": "Pexels Licence — free for commercial use",
-        }, f, indent=2)
-
-    _save_credit(channel_key, photo)
-    print(f"  Stock photo downloaded: {os.path.basename(img_path)} "
-          f"(by {photo.get('photographer', 'unknown')})")
-    return img_path
+    # Fallback 2: Wikimedia Commons (completely free, no key needed).
+    return fetch_wikimedia_photo(query)

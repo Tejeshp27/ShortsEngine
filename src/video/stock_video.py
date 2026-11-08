@@ -1,8 +1,8 @@
 # =============================================================
-# src/video/stock_video.py — Pexels Video B-roll integration (M.3)
+# src/video/stock_video.py — video B-roll integration (M.3)
 #
 # When the scene plan calls for "footage", this module:
-#   1. Searches the Pexels Video API for a clip matching the query.
+#   1. Searches for a clip matching the query (Pexels first, then Pixabay).
 #   2. Downloads the clip (preferring portrait orientation for 9:16 output;
 #      falls back to landscape and crops the center vertical strip).
 #   3. Extracts N evenly-spaced frames using FFmpeg, one per caption group.
@@ -13,12 +13,12 @@
 # The downloaded clip is cached under cache/stock_video/ so the same search
 # query does not trigger a re-download on the next render.
 #
-# If PEXELS_API_KEY is not set, get_video_frames() returns [] immediately
-# and the caller falls back to stock photos.
+# Provider priority:
+#   1. Pexels Video (PEXELS_API_KEY) — best quality, free, commercial use
+#   2. Pixabay Video (PIXABAY_API_KEY) — free, commercial use, no attribution
+#   3. Returns [] if neither key is set → caller falls back to stock photos
 #
-# Credit: all clips come from Pexels (pexels.com/license) — free for
-# commercial use, no attribution required by their licence, but we log
-# credits to output/pexels_credits.txt anyway.
+# Credits are logged to output/video_credits.txt.
 #
 # How it fits in:
 #   render.py → _build_visual_frames() → get_video_frames() (here)
@@ -34,6 +34,7 @@ import urllib.request
 
 STOCK_VIDEO_CACHE = os.path.join("cache", "stock_video")
 PEXELS_VIDEO_API = "https://api.pexels.com/videos/search"
+PIXABAY_VIDEO_API = "https://pixabay.com/api/videos/"
 
 
 def _search_pexels_video(query, orientation="portrait"):
@@ -201,6 +202,70 @@ def _extract_frame(clip_path, timestamp, output_path, is_portrait):
     return result.returncode == 0 and os.path.exists(output_path)
 
 
+def _search_pixabay_video(query, orientation="vertical"):
+    """
+    Search Pixabay Video for clips matching the query.
+
+    Pixabay is a free alternative to Pexels. No attribution is required
+    but results vary in quality — use Pexels first when available.
+
+    Args:
+        query (str): Search term, e.g. "plane flying sky".
+        orientation (str): "vertical" (portrait) or "horizontal" (landscape).
+
+    Returns:
+        list[dict]: Pixabay video hit objects, or [] on failure / no key.
+    """
+    api_key = os.getenv("PIXABAY_API_KEY", "")
+    if not api_key:
+        return []
+
+    params = urllib.parse.urlencode({
+        "key": api_key,
+        "q": query,
+        "per_page": 10,
+        "video_type": "film",
+        "orientation": orientation,
+    })
+    url = f"{PIXABAY_VIDEO_API}?{params}"
+
+    try:
+        req = urllib.request.Request(
+            url,
+            headers={"User-Agent": "ShortsEngine/0.1"},
+        )
+        with urllib.request.urlopen(req, timeout=15) as resp:
+            data = json.loads(resp.read().decode())
+        return data.get("hits", [])
+    except Exception as err:
+        print(f"  Pixabay Video search failed: {err}")
+        return []
+
+
+def _pick_pixabay_video_url(hit):
+    """
+    Pick the best quality video URL from a Pixabay video hit.
+
+    Pixabay videos have sizes: large, medium, small, tiny.
+    We prefer medium (good quality, manageable file size).
+
+    Args:
+        hit (dict): A Pixabay video hit from the API response.
+
+    Returns:
+        tuple: (download_url, is_portrait) or (None, False).
+    """
+    videos = hit.get("videos", {})
+    for size in ("medium", "large", "small", "tiny"):
+        entry = videos.get(size, {})
+        url = entry.get("url", "")
+        if url:
+            w = entry.get("width", 1)
+            h = entry.get("height", 1)
+            return url, h > w  # is_portrait = taller than wide
+    return None, False
+
+
 def _log_credit(query, video_id, photographer):
     """
     Append a Pexels credit line to output/pexels_credits.txt.
@@ -252,27 +317,50 @@ def get_video_frames(query, num_frames, segment_index=0):
 
     # --- Step 1: Ensure we have a downloaded clip ---
     if not os.path.exists(clip_path):
-        # Try portrait first (better for 9:16 output).
+        download_url = None
+        is_portrait = False
+        photographer = "Unknown"
+        video_id = 0
+
+        # Priority 1: Pexels portrait (best quality for 9:16 output).
         videos = _search_pexels_video(query, orientation="portrait")
-
         if videos:
-            is_portrait = True
-        else:
-            # Fall back to landscape — we'll crop it to 9:16 during extraction.
+            video_obj = videos[0]
+            files = video_obj.get("video_files", [])
+            download_url, is_portrait = _pick_best_video_file(files, prefer_portrait=True)
+            photographer = video_obj.get("user", {}).get("name", "Unknown")
+            video_id = video_obj.get("id", 0)
+
+        # Priority 2: Pexels landscape (crop to 9:16 during frame extraction).
+        if not download_url:
             videos = _search_pexels_video(query, orientation="landscape")
-            is_portrait = False
+            if videos:
+                video_obj = videos[0]
+                files = video_obj.get("video_files", [])
+                download_url, is_portrait = _pick_best_video_file(files, prefer_portrait=False)
+                photographer = video_obj.get("user", {}).get("name", "Unknown")
+                video_id = video_obj.get("id", 0)
 
-        if not videos:
-            # No results at all (no API key, rate-limited, or no matching clips).
-            return []
+        # Priority 3: Pixabay vertical (free, no attribution required).
+        if not download_url:
+            videos = _search_pixabay_video(query, orientation="vertical")
+            if videos:
+                video_obj = videos[0]
+                download_url, is_portrait = _pick_pixabay_video_url(video_obj)
+                photographer = video_obj.get("user", "Unknown")
+                video_id = video_obj.get("id", 0)
 
-        video_obj = videos[0]
-        video_files = video_obj.get("video_files", [])
-        download_url, is_portrait = _pick_best_video_file(
-            video_files, prefer_portrait=is_portrait
-        )
+        # Priority 4: Pixabay horizontal (crop to 9:16).
+        if not download_url:
+            videos = _search_pixabay_video(query, orientation="horizontal")
+            if videos:
+                video_obj = videos[0]
+                download_url, is_portrait = _pick_pixabay_video_url(video_obj)
+                photographer = video_obj.get("user", "Unknown")
+                video_id = video_obj.get("id", 0)
 
         if not download_url:
+            # No clip found anywhere — caller will fall back to stock photos.
             return []
 
         print(f"  Downloading video clip for: {query[:40]}...")
@@ -281,16 +369,15 @@ def get_video_frames(query, num_frames, segment_index=0):
             return []
 
         # Save metadata so we know orientation on the next render.
-        photographer = video_obj.get("user", {}).get("name", "Unknown")
         with open(meta_path, "w") as f:
             json.dump({
                 "is_portrait": is_portrait,
                 "query": query,
-                "pexels_id": video_obj.get("id"),
+                "id": video_id,
                 "photographer": photographer,
             }, f)
 
-        _log_credit(query, video_obj.get("id", 0), photographer)
+        _log_credit(query, video_id, photographer)
 
     else:
         # Load cached metadata.

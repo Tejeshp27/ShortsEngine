@@ -272,7 +272,7 @@ def _build_visual_frames(scene_plan, word_timings, channel_key,
 def render_video(script_path, story_title, channel_key, voice,
                  font_size=90, dry_run=False, llm=None,
                  channel_config=None, no_paid_visuals=False,
-                 tts_provider="edge", style="auto"):
+                 tts_provider="edge", style="auto", use_music=False):
     """
     Turn an approved script into a ready-to-post 9:16 MP4 video.
 
@@ -295,9 +295,11 @@ def render_video(script_path, story_title, channel_key, voice,
                                  If None, visuals are skipped (original behaviour).
         channel_config (dict or None): Required when llm is provided.
         no_paid_visuals (bool): Skip Pexels calls; use only free local visuals.
-        tts_provider (str): "edge", "macos", or "kokoro".
+        tts_provider (str): "edge", "macos", "kokoro", or "elevenlabs".
         style (str): Visual style: "auto" (Haiku decides per segment),
                      "footage" (prefer video), or "animated" (prefer graphics).
+        use_music (bool): If True, generate background music via Mubert and
+                          mix it under the voiceover at the channel's music_volume.
 
     Returns:
         str: Path to the finished .mp4 file.
@@ -367,27 +369,68 @@ def render_video(script_path, story_title, channel_key, voice,
     duration = _get_audio_duration(audio_path)
     video_path = _output_video_path(channel_key, script_path)
 
+    # --- Step 3.5: Background music (optional) ---
+    # Generates a Mubert track matching the channel's music_mood setting,
+    # then mixes it under the voiceover at the channel's music_volume level.
+    music_path = None
+    if use_music and channel_config is not None:
+        from src.video.music import get_background_music
+        music_mood = channel_config.get("video", {}).get("music_mood", "focused")
+        music_path = get_background_music(
+            duration, mood=music_mood, channel_key=channel_key
+        )
+
+    music_volume = 0.12  # default: music at 12% of voiceover volume
+    if channel_config:
+        music_volume = channel_config.get("video", {}).get("music_volume", 0.12)
+
     # FFmpeg reads the frames from the concat script and mixes in audio.
     # -safe 0 is required because the concat script uses absolute paths.
-    command = [
-        "ffmpeg",
-        "-y",                           # overwrite output without asking
-        "-f", "concat",
-        "-safe", "0",                   # allow absolute paths in concat script
-        "-i", concat_path,              # input 0: frame sequence
-        "-i", audio_path,               # input 1: voiceover audio
-        "-map", "0:v",                  # video from input 0 (frames)
-        "-map", "1:a",                  # audio from input 1 (voiceover)
-        "-c:v", "libx264",              # H.264 video codec (universal)
-        "-preset", "fast",              # encoding speed vs file size
-        "-crf", "23",                   # quality (18=great, 28=small; 23 is default)
-        "-pix_fmt", "yuv420p",          # required for compatibility on all devices
-        "-c:a", "aac",                  # AAC audio codec (required for TikTok/Instagram)
-        "-b:a", "192k",                 # audio bitrate
-        "-t", str(duration),            # stop at the end of the voiceover
-        "-movflags", "+faststart",      # move metadata to start for streaming
-        video_path,
-    ]
+    if music_path and os.path.exists(music_path):
+        # Three inputs: frames, voiceover, music.
+        # amix blends voiceover (weight=1) and music (weight=music_volume).
+        # normalize=0 keeps the voiceover at full volume rather than
+        # averaging both streams down.
+        # -stream_loop -1 on the music input loops the track if it's shorter
+        # than the video — Mubert tracks are usually a perfect fit but we
+        # loop just in case.
+        command = [
+            "ffmpeg", "-y",
+            "-f", "concat", "-safe", "0", "-i", concat_path,
+            "-i", audio_path,
+            "-stream_loop", "-1", "-i", music_path,
+            "-filter_complex",
+            f"[1:a][2:a]amix=inputs=2:weights=1 {music_volume}:normalize=0[aout]",
+            "-map", "0:v",
+            "-map", "[aout]",
+            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+            "-pix_fmt", "yuv420p",
+            "-c:a", "aac", "-b:a", "192k",
+            "-t", str(duration),
+            "-movflags", "+faststart",
+            video_path,
+        ]
+        print(f"  Mixing background music at volume={music_volume}.")
+    else:
+        command = [
+            "ffmpeg",
+            "-y",                           # overwrite output without asking
+            "-f", "concat",
+            "-safe", "0",                   # allow absolute paths in concat script
+            "-i", concat_path,              # input 0: frame sequence
+            "-i", audio_path,               # input 1: voiceover audio
+            "-map", "0:v",                  # video from input 0 (frames)
+            "-map", "1:a",                  # audio from input 1 (voiceover)
+            "-c:v", "libx264",              # H.264 video codec (universal)
+            "-preset", "fast",              # encoding speed vs file size
+            "-crf", "23",                   # quality (18=great, 28=small; 23 is default)
+            "-pix_fmt", "yuv420p",          # required for compatibility on all devices
+            "-c:a", "aac",                  # AAC audio codec (required for TikTok/Instagram)
+            "-b:a", "192k",                 # audio bitrate
+            "-t", str(duration),            # stop at the end of the voiceover
+            "-movflags", "+faststart",      # move metadata to start for streaming
+            video_path,
+        ]
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:

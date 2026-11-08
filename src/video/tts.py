@@ -191,16 +191,21 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
     """
     Generate (or load from cache) a voiceover audio file and word-timing data.
 
-    Supports two TTS providers:
-      - "edge"   — Microsoft Edge neural TTS (free, online, .mp3)
-      - "kokoro" — Kokoro ONNX (free, local, near-ElevenLabs quality, .wav)
+    Supported TTS providers:
+      - "edge"       — Microsoft Edge neural TTS (free, online, .mp3)
+      - "macos"      — Apple neural voices (free, local, .wav)
+      - "kokoro"     — Kokoro ONNX (free, local, near-ElevenLabs quality, .wav)
+      - "elevenlabs" — ElevenLabs API (paid, best quality, .mp3)
 
     Args:
         script_path (str): Path to the .md script file.
         voice (str): Voice name for the chosen provider.
-                     edge:   e.g. "en-US-AriaNeural"
-                     kokoro: e.g. "af_heart", "am_michael", "bf_emma"
-        tts_provider (str): "edge" or "kokoro". Defaults to "edge".
+                     edge:        e.g. "en-US-AriaNeural"
+                     macos:       e.g. "Flo (English (US))"
+                     kokoro:      e.g. "af_heart", "am_michael", "bf_emma"
+                     elevenlabs:  e.g. "Rachel", "Josh", or a voice ID
+        tts_provider (str): "edge", "macos", "kokoro", or "elevenlabs".
+                            Defaults to "edge".
         dry_run (bool): If True, skip the actual TTS call and return
                         placeholder paths.
 
@@ -215,7 +220,7 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
         )
         print(timings[0])  # {"word": "A", "start": 0.1, "end": 0.4}
     """
-    # kokoro and macos both produce WAV; edge-tts produces MP3.
+    # kokoro and macos produce WAV; edge-tts and elevenlabs produce MP3.
     extension = ".wav" if tts_provider in ("kokoro", "macos") else ".mp3"
     audio_path, timing_path = _audio_cache_path(script_path, voice, extension)
 
@@ -246,6 +251,11 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
         # Kokoro ONNX — near-ElevenLabs quality; requires onnxruntime.
         from src.video.tts_kokoro import synthesize_kokoro
         synthesize_kokoro(text, voice, audio_path, timing_path)
+
+    elif tts_provider == "elevenlabs":
+        # ElevenLabs — best quality, paid API; requires ELEVENLABS_API_KEY in .env.
+        from src.video.tts_elevenlabs import synthesize_elevenlabs
+        synthesize_elevenlabs(text, voice, audio_path, timing_path)
 
     else:
         # edge-tts — free Microsoft Edge neural TTS (online).

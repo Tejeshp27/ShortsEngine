@@ -52,10 +52,10 @@ sources:
 # Video production settings (Phase 2)
 video:
   # Which TTS engine to use:
-  #   "macos"  — Apple neural voices (Flo, Shelley, Reed…) — recommended,
-  #              local, no install, same quality as Siri.
-  #   "edge"   — Microsoft Edge neural TTS (free, online).
-  #   "kokoro" — Kokoro ONNX (near-ElevenLabs, local); requires onnxruntime.
+  #   "macos"      — Apple neural voices (local, free, macOS only) — default
+  #   "elevenlabs" — ElevenLabs API (best quality, ~$0.18/video); needs ELEVENLABS_API_KEY
+  #   "kokoro"     — Kokoro ONNX (free, local, near-ElevenLabs quality); needs onnxruntime
+  #   "edge"       — Microsoft Edge neural TTS (free, online)
   tts_provider: "macos"
 
   # macOS voice — used when tts_provider = "macos".
@@ -64,7 +64,12 @@ video:
   # Professional male: "Reed (English (US))", "Rocko (English (US))"
   macos_voice: "Flo (English (US))"
 
-  # Kokoro voice — used when tts_provider = "kokoro" (future upgrade).
+  # ElevenLabs voice — used when tts_provider = "elevenlabs".
+  # Use a voice name (e.g. "Rachel", "Josh") or paste a voice ID from your account.
+  # Browse voices at elevenlabs.io/voice-library.
+  elevenlabs_voice: "Rachel"
+
+  # Kokoro voice — used when tts_provider = "kokoro".
   # American female: af_heart (warm), af_sarah (clear), af_bella (expressive)
   # American male:   am_michael (warm), am_adam (deep)
   kokoro_voice: "af_heart"
@@ -74,6 +79,14 @@ video:
 
   font_size: 90                # caption font size (pixels on 1080×1920 canvas)
   words_per_caption: 3         # how many words to show at once in captions
+
+  # Background music — only used when you pass --music at the command line.
+  # Requires MUBERT_API_KEY and MUBERT_EMAIL in .env (free tier at mubert.com/api).
+  # music_mood options: focused, calm, intense, happy, sad, inspirational
+  music_mood: "focused"
+  # music_volume: how loud the music is relative to the voiceover.
+  # 0.0 = silent, 1.0 = same level as voiceover. 0.12 (12%) is subtle and professional.
+  music_volume: 0.12
 
 # Platforms to publish to (Phase 4+)
 platforms:

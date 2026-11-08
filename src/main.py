@@ -161,6 +161,16 @@ def parse_arguments():
         ),
     )
     parser.add_argument(
+        "--music",
+        action="store_true",
+        help=(
+            "Add background music to the video using the Mubert API. "
+            "Requires MUBERT_API_KEY and MUBERT_EMAIL in .env. "
+            "Music mood and volume are set in the channel YAML "
+            "(music_mood, music_volume)."
+        ),
+    )
+    parser.add_argument(
         "--review",
         action="store_true",
         help="Open the review queue to approve or reject drafted scripts (Phase 3)",
@@ -449,28 +459,36 @@ def run_render_pipeline(args, config):
         voice = config["video"].get("macos_voice", "Flo (English (US))")
     elif tts_provider == "kokoro":
         voice = config["video"].get("kokoro_voice", "af_heart")
+    elif tts_provider == "elevenlabs":
+        voice = config["video"].get("elevenlabs_voice", "Rachel")
     else:
         voice = config["video"]["voice"]
 
     use_visuals = getattr(args, "visuals", False)
     no_paid_visuals = getattr(args, "no_paid_visuals", False)
+    use_music = getattr(args, "music", False)
 
     print(f"Rendering video for: {video_row['story_title']}")
     print(f"Script  : {script_path}")
     print(f"Voice   : {voice} ({tts_provider})")
     style = getattr(args, "style", "auto")
     if use_visuals:
-        print(f"Visuals : enabled (style={style}, paid={'no' if no_paid_visuals else 'yes, Pexels + Pexels Video'})")
+        print(f"Visuals : enabled (style={style}, paid={'no' if no_paid_visuals else 'yes, Pexels + Pexels Video + Pixabay'})")
+    if use_music:
+        print(f"Music   : enabled (Mubert, mood={config['video'].get('music_mood', 'focused')})")
     print()
 
-    # Only create an LLM client when visuals are requested (to avoid
-    # needing an API key for plain --render runs).
+    # Create an LLM client when visuals are requested (to avoid needing
+    # an API key for plain --render runs).
     llm = None
     if use_visuals and not args.dry_run:
         from src.generation.llm import LLMClient
         llm = LLMClient(dry_run=False,
                         max_calls=config["llm"]["max_calls_per_run"])
 
+    # Pass channel_config whenever visuals or music is requested —
+    # both features read settings from it.
+    needs_config = use_visuals or use_music
     video_path = render_video(
         script_path=script_path,
         story_title=video_row["story_title"],
@@ -479,10 +497,11 @@ def run_render_pipeline(args, config):
         font_size=config["video"].get("font_size", 90),
         dry_run=args.dry_run,
         llm=llm,
-        channel_config=config if use_visuals else None,
+        channel_config=config if needs_config else None,
         no_paid_visuals=no_paid_visuals,
         tts_provider=tts_provider,
         style=style,
+        use_music=use_music,
     )
 
     if not args.dry_run:
