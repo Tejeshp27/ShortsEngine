@@ -38,8 +38,11 @@ slow, wasteful or wrong, and when you do, explain why in a comment.
 **Descriptions for everything:**
 - Every file starts with a comment block: what the file is for and how it fits into
   the project.
-- Every function has a docstring: what it does, its inputs, what it returns, and an
-  example where helpful.
+- Every function, method, and class must have a docstring written in plain English,
+  as if explaining it to someone seeing Python for the first time. Cover: what it does
+  in one sentence, what each input means, what it returns, and a short example where
+  that helps. Avoid technical jargon in the docstring itself — use a follow-up comment
+  if you need to explain an implementation detail.
 - Add comments above any step that isn't obvious, explaining *why*, not just *what*.
 - Config files (YAML, `.env.example`) have a comment for every setting.
 
@@ -163,6 +166,8 @@ shortsengine/
 5. Suggest a git commit with a clear message after each working step.
 6. Keep `README.md` up to date: what the project does, setup steps and how to run it.
    It is part of my portfolio.
+7. **Updating this file:** You may update `CLAUDE.md` at any time without asking
+   permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
 
@@ -223,9 +228,27 @@ Each phase ends with something that works on its own. Finish one before starting
 
 ## Commands
 
-*(Fill these in as the project grows.)*
+**First-time setup:**
+```bash
+python3 -m venv .venv          # create the virtual environment
+source .venv/bin/activate      # activate it (Mac/Linux)
+pip install -r requirements.txt
+cp .env.example .env           # then open .env and add your API key
+```
 
-- Set up: `python -m venv .venv` → activate → `pip install -r requirements.txt`
-- Run Phase 1: `python -m src.main --channel news`
-- Dry run (no paid calls): `python -m src.main --channel news --dry-run`
-- Test: `pytest`
+**Every session** — activate the virtual environment first:
+```bash
+source .venv/bin/activate
+```
+
+**Running the pipeline:**
+```bash
+python -m src.main --channel news                # fetch and list today's stories
+python -m src.main --channel news --dry-run      # same, but no paid API calls
+```
+
+**Tests:**
+```bash
+pytest          # run all tests
+pytest -v       # verbose (shows each test name)
+```
