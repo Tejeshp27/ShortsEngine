@@ -153,12 +153,29 @@ commercial use.
 ## Dashboard
 
 ```bash
+python -m src.dashboard.set_password   # first time only: create your login
 python -m src.dashboard.app
-# Open http://localhost:8000
+# Open http://localhost:8000 and log in
 ```
 
 Features: stats cards, review queue (approve/reject in browser), per-channel analytics,
-channel list. Protected by `DASHBOARD_PASSWORD` in `.env`.
+channel list.
+
+**The dashboard is private by default.** A single check runs before every request, and
+anything other than the login page and the stylesheet is refused unless the browser is
+logged in — so a page added later is protected automatically.
+
+| Protection | How |
+|-----------|-----|
+| Password stored safely | Hashed with bcrypt in the `users` table; never in a file or in git |
+| Login sessions | Signed cookie (`SESSION_SECRET` in `.env`), `HttpOnly`, `SameSite=Lax`, optional `Secure` |
+| Guessing limit | 5 wrong passwords lock that address out for 15 minutes (`config/dashboard.yaml`) |
+| Forged requests | Every form carries a secret token; forms without it are refused |
+| Injected HTML | Jinja2 templates escape all text from the database |
+| Old sessions | Changing the password signs out every device |
+| Network | Listens on `127.0.0.1` only unless `DASHBOARD_HOST` says otherwise |
+
+The login rules are in `src/dashboard/auth.py`, with tests in `tests/test_dashboard_auth.py`.
 
 ---
 
@@ -176,7 +193,7 @@ shortsengine/
     publishing/         # TikTok and Instagram API clients, scheduler
     storage/            # SQLite schema, all queries in one place, cost reports
     analytics/          # metrics collector, feedback loop
-    dashboard/          # FastAPI web app
+    dashboard/          # FastAPI web app: login (auth.py), pages (app.py), templates/, static/
     main.py             # command-line entry point
   assets/fonts/         # Montserrat font (open licence) used for on-screen text
   docs/                 # deployment guide, resume bullets

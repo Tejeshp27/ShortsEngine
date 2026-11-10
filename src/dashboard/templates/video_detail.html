@@ -1,0 +1,70 @@
+{# templates/video_detail.html — one video: details, script, approve / reject. #}
+{% extends "base.html" %}
+{% block title %}{{ video.story_title[:40] }}{% endblock %}
+{% block content %}
+<h1>{{ video.story_title }}</h1>
+<p class="meta">
+  Channel: {{ video.channel }} &nbsp;|&nbsp;
+  Status: <span class="badge badge-{{ video.status }}">{{ video.status }}</span> &nbsp;|&nbsp;
+  Cost: ${{ "%.4f"|format(video.total_cost_usd) }} &nbsp;|&nbsp;
+  Created: {{ video.created_at[:10] }}
+</p>
+
+{% if source_url %}
+<p class="note"><a href="{{ source_url }}" target="_blank" rel="noopener noreferrer">Source article ↗</a></p>
+{% endif %}
+
+{% if video.reviewer_notes %}
+<p class="note">Notes: {{ video.reviewer_notes }}</p>
+{% endif %}
+
+{% if video.status == "drafted" %}
+<div class="actions">
+  <form method="post" action="/video/{{ video.id }}/approve">
+    <input type="hidden" name="form_token" value="{{ form_token }}">
+    <div class="form-group">
+      <label>Reviewer notes (optional)</label>
+      <input type="text" name="notes" placeholder="Looks good!">
+    </div>
+    <button class="btn btn-green" type="submit">✓ Approve</button>
+  </form>
+  <form method="post" action="/video/{{ video.id }}/reject">
+    <input type="hidden" name="form_token" value="{{ form_token }}">
+    <div class="form-group">
+      <label>Reason for rejection (optional)</label>
+      <input type="text" name="notes" placeholder="Inaccurate...">
+    </div>
+    <button class="btn btn-red" type="submit">✗ Reject</button>
+  </form>
+</div>
+{% endif %}
+
+{% if has_video_file %}
+<p class="note">Video file: {{ video.video_path }}</p>
+{% endif %}
+
+<h2>Script</h2>
+{% if script_text %}
+<div class="script-box">{{ script_text }}</div>
+{% else %}
+<p class="note">Script file not found.</p>
+{% endif %}
+
+{% if visual_plan %}
+<h2>Visual plan ({{ visual_plan|length }} segments)</h2>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Spoken segment</th><th>Visual type</th><th>Query / data</th></tr></thead>
+  <tbody>
+    {% for item in visual_plan %}
+    <tr>
+      <td class="meta">{{ item.segment }}…</td>
+      <td><span class="badge">{{ item.visual_type }}</span></td>
+      <td class="meta">{{ item.query }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endif %}
+{% endblock %}

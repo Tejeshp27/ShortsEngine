@@ -1,30 +1,53 @@
 # =============================================================
-# src/dashboard/app.py — FastAPI web dashboard
+# src/dashboard/app.py — the private web dashboard
 #
-# Runs a local web app so you can manage ShortsEngine from
-# a browser. Covers Phase 5:
-#   - /           → stats overview (videos made, cost, status)
-#   - /channels   → list channels
-#   - /videos     → review queue (approve / reject in browser)
-#   - /video/<id> → detail view for one video
-#   - /publish    → trigger scheduler manually
+# Runs a web app so you can manage ShortsEngine from a browser:
+#   /login        → log in (the only page that works logged out)
+#   /             → overview (videos made, cost, status)
+#   /channels     → list channels
+#   /videos       → review queue (approve / reject in browser)
+#   /video/<id>   → detail view for one video
+#   /analytics    → views, likes, comments and shares
+#
+# Privacy: every page is locked by default. A check runs before
+# EVERY request, and anything that is not the login page or the
+# stylesheet is refused unless the browser is logged in. A page
+# added later is therefore private automatically — nobody has to
+# remember to protect it. The login rules live in auth.py.
+#
+# First-time setup:
+#   1. Add SESSION_SECRET to .env (see .env.example).
+#   2. python -m src.dashboard.set_password
 #
 # Run with:
 #   python -m src.dashboard.app
 # Then open http://localhost:8000 in your browser.
-#
-# Authentication: a simple password set in .env (DASHBOARD_PASSWORD).
-# In Phase 7 this would be replaced with a proper login system.
 # =============================================================
 
+import json
 import os
 
-from fastapi import FastAPI, Form, HTTPException, Request, Depends
-from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.security import HTTPBasic, HTTPBasicCredentials
-import secrets
 import uvicorn
+import yaml
+from dotenv import load_dotenv
+from fastapi import APIRouter, FastAPI, Form, HTTPException, Request
+from fastapi.responses import PlainTextResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
+from src.analytics.collector import get_metrics_summary
+from src.dashboard.auth import (
+    check_form_token,
+    get_logged_in_user,
+    is_locked_out,
+    load_login_settings,
+    note_failed_login,
+    note_successful_login,
+    start_session,
+    verify_login,
+)
 from src.storage.database import create_tables
 from src.storage.queries import (
     approve_video,
@@ -33,459 +56,551 @@ from src.storage.queries import (
     get_videos_by_status,
     reject_video,
 )
-from src.analytics.collector import get_metrics_summary
-
-app = FastAPI(title="ShortsEngine Dashboard")
-security = HTTPBasic()
+from src.storage.users import count_users
 
 
-def _check_auth(credentials: HTTPBasicCredentials = Depends(security)):
+# The dashboard's own folder, so templates and the stylesheet are found
+# no matter which folder the app is started from.
+DASHBOARD_FOLDER = os.path.dirname(os.path.abspath(__file__))
+TEMPLATES_FOLDER = os.path.join(DASHBOARD_FOLDER, "templates")
+STATIC_FOLDER = os.path.join(DASHBOARD_FOLDER, "static")
+
+# Pages that work without being logged in. Keep this list as short as
+# possible: everything not listed here is private.
+PUBLIC_PATHS = ["/login"]
+
+# Folders whose files are served without a login. Only the stylesheet
+# lives here — never put anything private in static/.
+PUBLIC_PREFIXES = ["/static/"]
+
+# The session secret must be long enough that it cannot be guessed.
+MINIMUM_SECRET_LENGTH = 32
+
+# The statuses a video can have, in the order the review page lists them.
+VIDEO_STATUSES = ["drafted", "approved", "posted", "failed"]
+
+# Jinja2 fills in the HTML templates. It is the standard template
+# engine for FastAPI, and it escapes text automatically, so a story
+# title containing HTML is shown as plain text instead of being run.
+templates = Jinja2Templates(directory=TEMPLATES_FOLDER)
+
+# A router collects the page functions below. create_app() attaches
+# them to the app.
+router = APIRouter()
+
+
+# ---------------------------------------------------------------------------
+# The login check that runs before every request
+# ---------------------------------------------------------------------------
+
+def is_public_path(path):
     """
-    Verify the dashboard password using HTTP Basic Auth.
-
-    The password is set via DASHBOARD_PASSWORD in .env.
-    If not set, any password is accepted (dev mode only).
+    Decide whether a page may be seen without logging in.
 
     Args:
-        credentials: The username/password from the browser prompt.
+        path (str): The path part of the address, e.g. "/videos".
 
     Returns:
-        str: The username (not used, but FastAPI requires a return value).
+        bool: True only for the login page and the stylesheet folder.
+
+    Example:
+        is_public_path("/login")    # → True
+        is_public_path("/videos")   # → False
+    """
+    if path in PUBLIC_PATHS:
+        return True
+    for prefix in PUBLIC_PREFIXES:
+        if path.startswith(prefix):
+            return True
+    return False
+
+
+def add_privacy_headers(response):
+    """
+    Add instructions that tell the browser to treat a page as private.
+
+    Args:
+        response: The response about to be sent to the browser.
+
+    Returns:
+        The same response, with the extra headers set.
+    """
+    # Don't keep copies of private pages on disk or in shared caches.
+    response.headers["Cache-Control"] = "no-store"
+    # Don't allow the dashboard to be shown inside another website's frame.
+    response.headers["X-Frame-Options"] = "DENY"
+    # Don't guess file types (stops a text file being run as a script).
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    # Don't tell other sites which dashboard page a link was clicked on.
+    response.headers["Referrer-Policy"] = "no-referrer"
+    return response
+
+
+async def require_login(request, call_next):
+    """
+    Check every request before it reaches a page: logged in, or refused.
+
+    This is "middleware": code that sits between the browser and the
+    page functions and sees every single request. Doing the check here,
+    in one place, is what makes the whole dashboard private by default.
+
+    (FastAPI requires middleware to be written with "async" and "await".
+    "await call_next(request)" simply means: now run the real page and
+    wait for its answer.)
+
+    Args:
+        request (Request): The incoming request.
+        call_next: A function that runs the real page for this request.
+
+    Returns:
+        The page's response if allowed, otherwise a redirect to the
+        login page (or a "401 Not logged in" for form submissions).
+    """
+    path = request.url.path
+
+    if is_public_path(path):
+        response = await call_next(request)
+        # The stylesheet may be cached by the browser; the login page may not.
+        if path in PUBLIC_PATHS:
+            add_privacy_headers(response)
+        return response
+
+    username = get_logged_in_user(request.session)
+
+    if username is None:
+        if request.method == "GET":
+            return RedirectResponse(url="/login", status_code=303)
+        return PlainTextResponse("Not logged in.", status_code=401)
+
+    # Remember who is logged in so the page can show their name.
+    request.state.username = username
+    response = await call_next(request)
+    return add_privacy_headers(response)
+
+
+# ---------------------------------------------------------------------------
+# Small helpers used by the pages
+# ---------------------------------------------------------------------------
+
+def render_page(request, template_name, context=None, status_code=200):
+    """
+    Fill in an HTML template and return it as a web page.
+
+    Every page automatically receives two extra values: "username" (who
+    is logged in, for the top bar) and "form_token" (the secret value
+    each form sends back; see auth.check_form_token).
+
+    Args:
+        request (Request): The current request.
+        template_name (str): The template file, e.g. "home.html".
+        context (dict or None): The values the template needs.
+        status_code (int): The HTTP status, e.g. 200 (OK) or 401.
+
+    Returns:
+        The finished page, ready to send to the browser.
+    """
+    page_context = {
+        "username": getattr(request.state, "username", None),
+        "form_token": request.session.get("form_token", ""),
+    }
+    if context:
+        page_context.update(context)
+    return templates.TemplateResponse(
+        request, template_name, page_context, status_code=status_code
+    )
+
+
+def require_form_token(request, form_token):
+    """
+    Refuse a form submission that did not come from one of our pages.
+
+    Args:
+        request (Request): The current request.
+        form_token (str): The hidden token that arrived with the form.
 
     Raises:
-        HTTPException 401: If the password is wrong.
+        HTTPException 403: If the token is missing or wrong.
     """
-    expected_password = os.getenv("DASHBOARD_PASSWORD", "")
-    if expected_password:
-        correct = secrets.compare_digest(
-            credentials.password.encode("utf-8"),
-            expected_password.encode("utf-8"),
+    if not check_form_token(request.session, form_token):
+        raise HTTPException(
+            status_code=403,
+            detail="This form has expired. Go back, reload the page and try again.",
         )
-        if not correct:
-            raise HTTPException(
-                status_code=401,
-                detail="Wrong password",
-                headers={"WWW-Authenticate": "Basic"},
-            )
-    return credentials.username
 
 
-# ---------------------------------------------------------------------------
-# Simple HTML helpers (no Jinja2 needed for this phase)
-# ---------------------------------------------------------------------------
-
-def _page(title, body, nav=True):
+def get_client_address(request):
     """
-    Wrap body HTML in a full page with a nav bar and basic styling.
+    Get the network address a request came from.
 
     Args:
-        title (str): Page title shown in the browser tab.
-        body (str): HTML content for the page body.
-        nav (bool): Whether to show the top nav bar.
+        request (Request): The current request.
 
     Returns:
-        str: Full HTML page as a string.
+        str: The address, e.g. "192.168.1.20", or "unknown".
     """
-    nav_html = ""
-    if nav:
-        nav_html = """
-        <nav>
-          <a href="/">Dashboard</a>
-          <a href="/channels">Channels</a>
-          <a href="/videos">Review Queue</a>
-          <a href="/videos?status=approved">Approved</a>
-          <a href="/videos?status=posted">Posted</a>
-          <a href="/analytics">Analytics</a>
-        </nav>"""
-
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{title} — ShortsEngine</title>
-  <style>
-    * {{ box-sizing: border-box; margin: 0; padding: 0; }}
-    body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #0f0f1a; color: #e8e8f0; line-height: 1.6; }}
-    nav {{ background: #1a1a2e; padding: 1rem 2rem; display: flex; gap: 1.5rem;
-           border-bottom: 1px solid #2a2a4e; }}
-    nav a {{ color: #8888cc; text-decoration: none; font-weight: 500; }}
-    nav a:hover {{ color: #fff; }}
-    .container {{ max-width: 1100px; margin: 0 auto; padding: 2rem; }}
-    h1 {{ font-size: 1.8rem; margin-bottom: 1.5rem; color: #fff; }}
-    h2 {{ font-size: 1.2rem; margin: 1.5rem 0 0.75rem; color: #aaa; text-transform: uppercase;
-          letter-spacing: 0.05em; font-size: 0.85rem; }}
-    .cards {{ display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }}
-    .card {{ background: #1a1a2e; border: 1px solid #2a2a4e; border-radius: 8px; padding: 1.25rem; }}
-    .card-value {{ font-size: 2rem; font-weight: 700; color: #8888ff; }}
-    .card-label {{ font-size: 0.85rem; color: #888; margin-top: 0.25rem; }}
-    table {{ width: 100%; border-collapse: collapse; background: #1a1a2e;
-             border-radius: 8px; overflow: hidden; }}
-    th {{ background: #2a2a4e; padding: 0.75rem 1rem; text-align: left; font-size: 0.85rem;
-          color: #aaa; text-transform: uppercase; letter-spacing: 0.05em; }}
-    td {{ padding: 0.75rem 1rem; border-bottom: 1px solid #2a2a4e; font-size: 0.9rem; }}
-    tr:last-child td {{ border-bottom: none; }}
-    tr:hover td {{ background: #22223a; }}
-    .badge {{ display: inline-block; padding: 0.2rem 0.6rem; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }}
-    .badge-drafted {{ background: #333; color: #aaa; }}
-    .badge-approved {{ background: #1a4a1a; color: #6f6; }}
-    .badge-posted {{ background: #1a2a4a; color: #6af; }}
-    .badge-failed {{ background: #4a1a1a; color: #f66; }}
-    .btn {{ display: inline-block; padding: 0.4rem 1rem; border-radius: 6px;
-            text-decoration: none; font-size: 0.85rem; font-weight: 600;
-            border: none; cursor: pointer; }}
-    .btn-green {{ background: #1a4a1a; color: #6f6; }}
-    .btn-red {{ background: #4a1a1a; color: #f66; }}
-    .btn-blue {{ background: #1a2a4a; color: #6af; }}
-    form {{ display: inline; }}
-    .script-box {{ background: #111; border: 1px solid #2a2a4e; border-radius: 6px;
-                   padding: 1rem; white-space: pre-wrap; font-family: monospace;
-                   font-size: 0.85rem; line-height: 1.5; color: #ccc;
-                   max-height: 500px; overflow-y: auto; margin-top: 1rem; }}
-    input[type=text], textarea {{ background: #111; border: 1px solid #2a2a4e; color: #eee;
-                                   border-radius: 6px; padding: 0.5rem 0.75rem; width: 100%;
-                                   font-size: 0.9rem; }}
-    label {{ font-size: 0.85rem; color: #888; display: block; margin-bottom: 0.3rem; }}
-    .form-group {{ margin-bottom: 1rem; }}
-    .meta {{ font-size: 0.8rem; color: #666; }}
-  </style>
-</head>
-<body>
-  {nav_html}
-  <div class="container">
-    {body}
-  </div>
-</body>
-</html>"""
+    if request.client is None:
+        return "unknown"
+    return request.client.host
 
 
-def _status_badge(status):
-    return f'<span class="badge badge-{status}">{status}</span>'
-
-
-# ---------------------------------------------------------------------------
-# Routes
-# ---------------------------------------------------------------------------
-
-@app.on_event("startup")
-def startup():
-    """Create database tables when the app starts, if they don't exist."""
-    create_tables()
-
-
-@app.get("/", response_class=HTMLResponse)
-def dashboard_home(username: str = Depends(_check_auth)):
+def load_all_channels():
     """
-    Main dashboard: stats cards + recent videos table.
+    Read every channel config in the channels/ folder.
+
+    Returns:
+        list[dict]: One dict per channel with "key", "name", "niche",
+                    "platforms" and "writing_model", ready for display.
     """
-    all_videos = get_all_videos()
-
-    drafted = sum(1 for v in all_videos if v["status"] == "drafted")
-    approved = sum(1 for v in all_videos if v["status"] == "approved")
-    posted = sum(1 for v in all_videos if v["status"] == "posted")
-    total_cost = sum(v["total_cost_usd"] for v in all_videos)
-
-    cards_html = f"""
-    <div class="cards">
-      <div class="card">
-        <div class="card-value">{len(all_videos)}</div>
-        <div class="card-label">Total videos</div>
-      </div>
-      <div class="card">
-        <div class="card-value">{drafted}</div>
-        <div class="card-label">Awaiting review</div>
-      </div>
-      <div class="card">
-        <div class="card-value">{approved}</div>
-        <div class="card-label">Approved</div>
-      </div>
-      <div class="card">
-        <div class="card-value">{posted}</div>
-        <div class="card-label">Posted</div>
-      </div>
-      <div class="card">
-        <div class="card-value">${total_cost:.3f}</div>
-        <div class="card-label">Total AI cost</div>
-      </div>
-    </div>"""
-
-    rows = ""
-    for v in all_videos[:20]:
-        rows += f"""<tr>
-          <td><a href="/video/{v['id']}" style="color:#8888ff">{v['story_title'][:60]}</a></td>
-          <td>{v['channel']}</td>
-          <td>{_status_badge(v['status'])}</td>
-          <td>${v['total_cost_usd']:.4f}</td>
-          <td class="meta">{v['created_at'][:10]}</td>
-        </tr>"""
-
-    table_html = f"""
-    <table>
-      <thead><tr><th>Story</th><th>Channel</th><th>Status</th><th>Cost</th><th>Date</th></tr></thead>
-      <tbody>{rows or '<tr><td colspan="5" style="color:#666;text-align:center">No videos yet</td></tr>'}</tbody>
-    </table>"""
-
-    body = f"<h1>ShortsEngine Dashboard</h1>{cards_html}<h2>Recent videos</h2>{table_html}"
-    return HTMLResponse(_page("Dashboard", body))
-
-
-@app.get("/channels", response_class=HTMLResponse)
-def channels_page(username: str = Depends(_check_auth)):
-    """
-    Lists every channel config found in the channels/ folder.
-    """
-    import yaml as pyyaml
     channels = []
     folder = "channels"
-    if os.path.isdir(folder):
-        for filename in sorted(os.listdir(folder)):
-            if filename.endswith(".yaml"):
-                with open(os.path.join(folder, filename)) as f:
-                    cfg = pyyaml.safe_load(f)
-                channels.append((filename.replace(".yaml", ""), cfg))
+    if not os.path.isdir(folder):
+        return channels
 
-    rows = ""
-    for key, cfg in channels:
-        rows += f"""<tr>
-          <td>{key}</td>
-          <td>{cfg.get('name', key)}</td>
-          <td>{cfg.get('niche', '—')}</td>
-          <td>{', '.join(cfg.get('platforms', []))}</td>
-          <td>{cfg.get('models', {}).get('writing', '—')}</td>
-        </tr>"""
-
-    table = f"""<table>
-      <thead><tr><th>Key</th><th>Name</th><th>Niche</th><th>Platforms</th><th>Writing model</th></tr></thead>
-      <tbody>{rows or '<tr><td colspan="5" style="color:#666">No channels found</td></tr>'}</tbody>
-    </table>
-    <p style="margin-top:1rem;color:#666;font-size:0.85rem">
-      To add a channel, create a new YAML file in the channels/ folder.
-    </p>"""
-
-    body = f"<h1>Channels</h1>{table}"
-    return HTMLResponse(_page("Channels", body))
+    for filename in sorted(os.listdir(folder)):
+        if not filename.endswith(".yaml"):
+            continue
+        with open(os.path.join(folder, filename), "r", encoding="utf-8") as f:
+            config = yaml.safe_load(f) or {}
+        key = filename.replace(".yaml", "")
+        channels.append({
+            "key": key,
+            "name": config.get("name", key),
+            "niche": config.get("niche", "—"),
+            "platforms": ", ".join(config.get("platforms", [])),
+            "writing_model": config.get("models", {}).get("writing", "—"),
+        })
+    return channels
 
 
-@app.get("/videos", response_class=HTMLResponse)
-def videos_page(status: str = "drafted", username: str = Depends(_check_auth)):
+def read_text_file(path):
     """
-    Review queue: shows videos with the given status.
+    Read a text file, or return "" if it does not exist.
+
+    Args:
+        path (str or None): The file to read.
+
+    Returns:
+        str: The file's contents, or "" if there is no such file.
     """
-    videos = get_videos_by_status(status)
-
-    rows = ""
-    for v in videos:
-        action_buttons = ""
-        if v["status"] == "drafted":
-            action_buttons = f"""
-              <form method="post" action="/video/{v['id']}/approve">
-                <button class="btn btn-green" type="submit">Approve</button>
-              </form>
-              <form method="post" action="/video/{v['id']}/reject">
-                <button class="btn btn-red" type="submit">Reject</button>
-              </form>"""
-        rows += f"""<tr>
-          <td><a href="/video/{v['id']}" style="color:#8888ff">{v['story_title'][:55]}</a></td>
-          <td>{v['channel']}</td>
-          <td>{_status_badge(v['status'])}</td>
-          <td>${v['total_cost_usd']:.4f}</td>
-          <td>{action_buttons}</td>
-        </tr>"""
-
-    table = f"""<table>
-      <thead><tr><th>Story</th><th>Channel</th><th>Status</th><th>Cost</th><th>Actions</th></tr></thead>
-      <tbody>{rows or '<tr><td colspan="5" style="color:#666;text-align:center">No videos with status "{status}"</td></tr>'}</tbody>
-    </table>"""
-
-    filter_links = " | ".join(
-        f'<a href="/videos?status={s}" style="color:#8888cc">{s}</a>'
-        for s in ["drafted", "approved", "posted", "failed"]
-    )
-    body = f"<h1>Review Queue</h1><p style='margin-bottom:1rem;color:#666;font-size:0.85rem'>{filter_links}</p>{table}"
-    return HTMLResponse(_page("Review Queue", body))
+    if not path or not os.path.exists(path):
+        return ""
+    with open(path, "r", encoding="utf-8") as f:
+        return f.read()
 
 
-@app.get("/video/{video_id}", response_class=HTMLResponse)
-def video_detail(video_id: int, username: str = Depends(_check_auth)):
+def load_visual_plan(script_path):
     """
-    Detail view for one video: shows the script and approve/reject buttons.
+    Load the saved visual plan that belongs to a script, if there is one.
+
+    Args:
+        script_path (str or None): Path to the script .md file.
+
+    Returns:
+        list[dict]: One dict per segment with "segment", "visual_type"
+                    and "query". Empty if there is no plan.
     """
+    if not script_path:
+        return []
+    plan_path = os.path.splitext(script_path)[0] + "_visuals.json"
+    if not os.path.exists(plan_path):
+        return []
+
+    with open(plan_path, "r", encoding="utf-8") as f:
+        plan = json.load(f)
+
+    rows = []
+    for item in plan:
+        rows.append({
+            "segment": item.get("segment", "")[:60],
+            "visual_type": item.get("visual_type", "text_card"),
+            "query": item.get("query", ""),
+        })
+    return rows
+
+
+def safe_web_link(url):
+    """
+    Return a web address only if it is an ordinary http(s) link.
+
+    A saved "link" could in theory be something else, such as a
+    "javascript:" address that runs code when clicked. Those are dropped.
+
+    Args:
+        url (str or None): The address saved with a video.
+
+    Returns:
+        str: The address, or "" if it is not a normal web link.
+    """
+    if url and (url.startswith("http://") or url.startswith("https://")):
+        return url
+    return ""
+
+
+# ---------------------------------------------------------------------------
+# Login and logout
+# ---------------------------------------------------------------------------
+
+@router.get("/login")
+def login_page(request: Request):
+    """Show the login form (or go straight to the dashboard if logged in)."""
+    if get_logged_in_user(request.session) is not None:
+        return RedirectResponse(url="/", status_code=303)
+
+    error = ""
+    if count_users() == 0:
+        error = ("No login has been created yet. In the terminal, run: "
+                 "python -m src.dashboard.set_password")
+    return render_page(request, "login.html", {"error": error})
+
+
+@router.post("/login")
+def login_submit(request: Request, username: str = Form(default=""),
+                 password: str = Form(default="")):
+    """
+    Check a submitted username and password.
+
+    Too many wrong attempts from one address lock that address out for
+    a while — even the correct password is refused until the lock ends,
+    so there is no point in continuing to guess.
+    """
+    address = get_client_address(request)
+
+    if is_locked_out(address):
+        minutes = load_login_settings()["lockout_minutes"]
+        error = f"Too many failed attempts. Try again in {minutes} minutes."
+        return render_page(request, "login.html", {"error": error}, status_code=429)
+
+    user = verify_login(username, password)
+    if user is None:
+        note_failed_login(address)
+        # The same message for a wrong username and a wrong password, so
+        # the form does not reveal which usernames exist.
+        error = "Wrong username or password."
+        return render_page(request, "login.html", {"error": error}, status_code=401)
+
+    note_successful_login(address)
+    start_session(request.session, user)
+    return RedirectResponse(url="/", status_code=303)
+
+
+@router.post("/logout")
+def logout(request: Request, form_token: str = Form(default="")):
+    """Log this browser out and return to the login page."""
+    require_form_token(request, form_token)
+    request.session.clear()
+    return RedirectResponse(url="/login", status_code=303)
+
+
+# ---------------------------------------------------------------------------
+# Pages
+# ---------------------------------------------------------------------------
+
+@router.get("/")
+def dashboard_home(request: Request):
+    """Main dashboard: number cards and a table of the newest videos."""
+    all_videos = get_all_videos()
+
+    drafted = 0
+    approved = 0
+    posted = 0
+    total_cost = 0.0
+    for video in all_videos:
+        if video["status"] == "drafted":
+            drafted += 1
+        elif video["status"] == "approved":
+            approved += 1
+        elif video["status"] == "posted":
+            posted += 1
+        total_cost += video["total_cost_usd"]
+
+    return render_page(request, "home.html", {
+        "total_videos": len(all_videos),
+        "drafted": drafted,
+        "approved": approved,
+        "posted": posted,
+        "total_cost": total_cost,
+        "recent_videos": all_videos[:20],
+    })
+
+
+@router.get("/channels")
+def channels_page(request: Request):
+    """List every channel config found in the channels/ folder."""
+    return render_page(request, "channels.html", {"channels": load_all_channels()})
+
+
+@router.get("/videos")
+def videos_page(request: Request, status: str = "drafted"):
+    """Review queue: show the videos that have the given status."""
+    return render_page(request, "videos.html", {
+        "videos": get_videos_by_status(status),
+        "status": status,
+        "statuses": VIDEO_STATUSES,
+    })
+
+
+@router.get("/video/{video_id}")
+def video_detail(request: Request, video_id: int):
+    """Detail view for one video: its script and approve / reject buttons."""
     video = get_video_by_id(video_id)
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    script_html = ""
-    if video["script_path"] and os.path.exists(video["script_path"]):
-        with open(video["script_path"], "r", encoding="utf-8") as f:
-            script_content = f.read()
-        script_html = f'<div class="script-box">{script_content}</div>'
-    else:
-        script_html = '<p style="color:#666">Script file not found.</p>'
+    has_video_file = bool(video["video_path"]) and os.path.exists(video["video_path"])
 
-    video_html = ""
-    if video["video_path"] and os.path.exists(video["video_path"]):
-        video_html = f'<p style="margin:1rem 0;color:#8888cc">Video: {video["video_path"]}</p>'
-
-    action_html = ""
-    if video["status"] == "drafted":
-        action_html = f"""
-        <div style="display:flex;gap:1rem;margin:1rem 0">
-          <form method="post" action="/video/{video_id}/approve">
-            <div class="form-group">
-              <label>Reviewer notes (optional)</label>
-              <input type="text" name="notes" placeholder="Looks good!">
-            </div>
-            <button class="btn btn-green" type="submit">✓ Approve</button>
-          </form>
-          <form method="post" action="/video/{video_id}/reject">
-            <div class="form-group">
-              <label>Reason for rejection (optional)</label>
-              <input type="text" name="notes" placeholder="Inaccurate...">
-            </div>
-            <button class="btn btn-red" type="submit">✗ Reject</button>
-          </form>
-        </div>"""
-
-    notes_html = ""
-    if video["reviewer_notes"]:
-        notes_html = f'<p style="color:#888;font-size:0.85rem">Notes: {video["reviewer_notes"]}</p>'
-
-    # --- Visual plan (Phase V.7) ---
-    visual_plan_html = ""
-    if video["script_path"]:
-        base = os.path.splitext(video["script_path"])[0]
-        plan_path = base + "_visuals.json"
-        if os.path.exists(plan_path):
-            import json as _json
-            with open(plan_path, "r", encoding="utf-8") as f:
-                plan = _json.load(f)
-
-            rows = ""
-            for item in plan:
-                vtype = item.get("visual_type", "text_card")
-                query = item.get("query", "")
-                segment = item.get("segment", "")[:60]
-                badge_color = {
-                    "stock_photo": "#1a3a1a",
-                    "chart":       "#1a2a3a",
-                    "text_card":   "#333",
-                }.get(vtype, "#333")
-                rows += (
-                    f"<tr>"
-                    f"<td class='meta'>{segment}…</td>"
-                    f"<td><span style='background:{badge_color};padding:2px 8px;"
-                    f"border-radius:4px;font-size:0.8rem'>{vtype}</span></td>"
-                    f"<td class='meta'>{query}</td>"
-                    f"</tr>"
-                )
-
-            visual_plan_html = f"""
-            <h2>Visual Plan ({len(plan)} segments)</h2>
-            <p style="color:#666;font-size:0.8rem;margin-bottom:0.5rem">
-              Generated by Claude Haiku. Run
-              <code>--render --visuals</code> to use these visuals.
-            </p>
-            <table>
-              <thead>
-                <tr><th>Spoken segment</th><th>Visual type</th><th>Query / data</th></tr>
-              </thead>
-              <tbody>{rows}</tbody>
-            </table>"""
-
-    body = f"""
-    <h1>{video['story_title']}</h1>
-    <p class="meta" style="margin-bottom:1rem">
-      Channel: {video['channel']} &nbsp;|&nbsp;
-      Status: {_status_badge(video['status'])} &nbsp;|&nbsp;
-      Cost: ${video['total_cost_usd']:.4f} &nbsp;|&nbsp;
-      Created: {video['created_at'][:10]}
-    </p>
-    <p><a href="{video['story_url']}" target="_blank" style="color:#8888cc">Source article ↗</a></p>
-    {notes_html}
-    {action_html}
-    {video_html}
-    <h2>Script</h2>
-    {script_html}
-    {visual_plan_html}
-    """
-    return HTMLResponse(_page(video["story_title"][:40], body))
+    return render_page(request, "video_detail.html", {
+        "video": video,
+        "source_url": safe_web_link(video["story_url"]),
+        "script_text": read_text_file(video["script_path"]),
+        "has_video_file": has_video_file,
+        "visual_plan": load_visual_plan(video["script_path"]),
+    })
 
 
-@app.post("/video/{video_id}/approve")
-def approve(video_id: int, notes: str = Form(default=""),
-            username: str = Depends(_check_auth)):
-    """Approve a drafted video and redirect back to the review queue."""
-    video = get_video_by_id(video_id)
-    if not video:
+@router.post("/video/{video_id}/approve")
+def approve(request: Request, video_id: int, notes: str = Form(default=""),
+            form_token: str = Form(default="")):
+    """Approve a drafted video and go back to the review queue."""
+    require_form_token(request, form_token)
+    if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
     approve_video(video_id, notes=notes)
     return RedirectResponse(url="/videos", status_code=303)
 
 
-@app.post("/video/{video_id}/reject")
-def reject(video_id: int, notes: str = Form(default=""),
-           username: str = Depends(_check_auth)):
-    """Reject a drafted video and redirect back to the review queue."""
-    video = get_video_by_id(video_id)
-    if not video:
+@router.post("/video/{video_id}/reject")
+def reject(request: Request, video_id: int, notes: str = Form(default=""),
+           form_token: str = Form(default="")):
+    """Reject a drafted video and go back to the review queue."""
+    require_form_token(request, form_token)
+    if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
     reject_video(video_id, notes=notes)
     return RedirectResponse(url="/videos", status_code=303)
 
 
-@app.get("/analytics", response_class=HTMLResponse)
-def analytics_page(channel: str = None, username: str = Depends(_check_auth)):
+@router.get("/analytics")
+def analytics_page(request: Request, channel: str = None):
     """
-    Analytics page: shows views, likes, comments and shares per posted video.
+    Analytics: views, likes, comments and shares per posted video.
 
-    If the channel query param is provided, only that channel's videos are shown.
-    Example: /analytics?channel=news
+    Add ?channel=news to the address to show one channel only.
     """
-    rows = get_metrics_summary(channel=channel)
+    summary = get_metrics_summary(channel=channel)
 
-    # Build a simple bar chart using HTML/CSS (no JS library needed).
-    max_views = max((r["total_views"] or 0 for r in rows), default=1) or 1
+    # The longest bar belongs to the video with the most views; the
+    # others are drawn in proportion to it.
+    most_views = 1
+    for item in summary:
+        most_views = max(most_views, item["total_views"] or 0)
 
-    table_rows = ""
-    for r in rows:
-        views = r["total_views"] or 0
-        bar_width = max(1, int((views / max_views) * 200))
-        bar_html = (
-            f'<div style="display:inline-block;height:12px;width:{bar_width}px;'
-            f'background:#8888ff;border-radius:2px;vertical-align:middle"></div>'
-            f' {views:,}'
+    rows = []
+    for item in summary:
+        views = item["total_views"] or 0
+        rows.append({
+            "id": item["id"],
+            "title": item["story_title"][:55],
+            "channel": item["channel"],
+            "views": views,
+            "bar_width": max(1, int(views / most_views * 200)),
+            "likes": item["total_likes"] or 0,
+            "comments": item["total_comments"] or 0,
+            "shares": item["total_shares"] or 0,
+            "date": (item["created_at"] or "")[:10],
+        })
+
+    return render_page(request, "analytics.html", {"rows": rows})
+
+
+# ---------------------------------------------------------------------------
+# Building and starting the app
+# ---------------------------------------------------------------------------
+
+def create_app():
+    """
+    Build the dashboard web app, with the login check switched on.
+
+    The app is built by a function (instead of at the top of the file)
+    so that it reads SESSION_SECRET at the moment it is created. That
+    lets the tests build a fresh app with their own settings.
+
+    Returns:
+        FastAPI: The app, ready to be run by uvicorn.
+
+    Raises:
+        RuntimeError: If SESSION_SECRET is missing or too short. The
+                      dashboard refuses to start rather than run unprotected.
+
+    Example:
+        app = create_app()
+    """
+    session_secret = os.getenv("SESSION_SECRET", "")
+    if len(session_secret) < MINIMUM_SECRET_LENGTH:
+        raise RuntimeError(
+            "Missing SESSION_SECRET in .env (it must be at least "
+            f"{MINIMUM_SECRET_LENGTH} characters). Create one with:\n"
+            '  python -c "import secrets; print(secrets.token_urlsafe(48))"\n'
+            "and add it to .env as SESSION_SECRET=<that value>."
         )
-        table_rows += f"""<tr>
-          <td><a href="/video/{r['id']}" style="color:#8888ff">{r['story_title'][:55]}</a></td>
-          <td>{r['channel']}</td>
-          <td>{bar_html}</td>
-          <td>{r['total_likes'] or 0:,}</td>
-          <td>{r['total_comments'] or 0:,}</td>
-          <td>{r['total_shares'] or 0:,}</td>
-          <td class="meta">{(r['created_at'] or '')[:10]}</td>
-        </tr>"""
 
-    table = f"""<table>
-      <thead>
-        <tr>
-          <th>Story</th><th>Channel</th><th>Views</th>
-          <th>Likes</th><th>Comments</th><th>Shares</th><th>Date</th>
-        </tr>
-      </thead>
-      <tbody>
-        {table_rows or '<tr><td colspan="7" style="color:#666;text-align:center">No posted videos with metrics yet — post videos and run the collector.</td></tr>'}
-      </tbody>
-    </table>"""
+    create_tables()
+    settings = load_login_settings()
 
-    note = (
-        '<p style="color:#666;font-size:0.85rem;margin-top:1rem">'
-        "Run <code>python -m src.analytics.collector</code> daily to collect fresh metrics.</p>"
+    # The automatic API documentation pages are switched off: this is a
+    # private dashboard, not a public API.
+    app = FastAPI(title="ShortsEngine Dashboard",
+                  docs_url=None, redoc_url=None, openapi_url=None)
+
+    # Middleware runs in the reverse of the order it is added: the LAST
+    # one added sees the request FIRST. Sessions must be read before the
+    # login check can look at them, so the session middleware goes last.
+    app.add_middleware(BaseHTTPMiddleware, dispatch=require_login)
+    app.add_middleware(
+        SessionMiddleware,
+        secret_key=session_secret,
+        session_cookie="shortsengine_session",
+        # How long a login lasts, in seconds.
+        max_age=settings["session_days"] * 24 * 60 * 60,
+        # "lax": the cookie is not sent when another website submits a
+        # form to us, which blocks most cross-site attacks on its own.
+        same_site="lax",
+        # On the real server (HTTPS) set SESSION_COOKIE_SECURE=true so
+        # the cookie is never sent over an unencrypted connection.
+        https_only=os.getenv("SESSION_COOKIE_SECURE", "false").lower() == "true",
     )
 
-    body = f"<h1>Analytics</h1>{table}{note}"
-    return HTMLResponse(_page("Analytics", body))
+    app.mount("/static", StaticFiles(directory=STATIC_FOLDER), name="static")
+    app.include_router(router)
+    return app
+
+
+def main():
+    """
+    Start the dashboard web server.
+
+    By default it only listens on this computer (127.0.0.1), so other
+    devices on your Wi-Fi cannot reach it. Set DASHBOARD_HOST=0.0.0.0
+    (as the Docker setup does) to accept connections from outside.
+
+    Example:
+        python -m src.dashboard.app
+    """
+    load_dotenv()
+
+    try:
+        app = create_app()
+    except RuntimeError as error:
+        print(f"ERROR: {error}")
+        raise SystemExit(1)
+
+    if count_users() == 0:
+        print("NOTE: No login exists yet. Create one with:")
+        print("  python -m src.dashboard.set_password")
+
+    host = os.getenv("DASHBOARD_HOST", "127.0.0.1")
+    port = int(os.getenv("DASHBOARD_PORT", "8000"))
+    uvicorn.run(app, host=host, port=port)
 
 
 if __name__ == "__main__":
-    uvicorn.run("src.dashboard.app:app", host="0.0.0.0", port=8000, reload=True)
+    main()

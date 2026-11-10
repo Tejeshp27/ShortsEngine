@@ -1,0 +1,25 @@
+{# templates/channels.html — one row per channel config file. #}
+{% extends "base.html" %}
+{% block title %}Channels{% endblock %}
+{% block content %}
+<h1>Channels</h1>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Key</th><th>Name</th><th>Niche</th><th>Platforms</th><th>Writing model</th></tr></thead>
+  <tbody>
+    {% for channel in channels %}
+    <tr>
+      <td>{{ channel.key }}</td>
+      <td>{{ channel.name }}</td>
+      <td>{{ channel.niche }}</td>
+      <td>{{ channel.platforms }}</td>
+      <td>{{ channel.writing_model }}</td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="empty">No channels found</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+<p class="note">To add a channel, create a new YAML file in the channels/ folder.</p>
+{% endblock %}

@@ -1,0 +1,40 @@
+{# templates/videos.html — the review queue: videos with one status. #}
+{% extends "base.html" %}
+{% block title %}Review Queue{% endblock %}
+{% block content %}
+<h1>Review Queue</h1>
+<p class="filters">
+  {% for name in statuses %}
+  <a href="/videos?status={{ name }}">{{ name }}</a>{% if not loop.last %} | {% endif %}
+  {% endfor %}
+</p>
+<div class="table-wrap">
+<table>
+  <thead><tr><th>Story</th><th>Channel</th><th>Status</th><th>Cost</th><th>Actions</th></tr></thead>
+  <tbody>
+    {% for video in videos %}
+    <tr>
+      <td><a href="/video/{{ video.id }}">{{ video.story_title[:55] }}</a></td>
+      <td>{{ video.channel }}</td>
+      <td><span class="badge badge-{{ video.status }}">{{ video.status }}</span></td>
+      <td>${{ "%.4f"|format(video.total_cost_usd) }}</td>
+      <td>
+        {% if video.status == "drafted" %}
+        <form class="inline" method="post" action="/video/{{ video.id }}/approve">
+          <input type="hidden" name="form_token" value="{{ form_token }}">
+          <button class="btn btn-green" type="submit">Approve</button>
+        </form>
+        <form class="inline" method="post" action="/video/{{ video.id }}/reject">
+          <input type="hidden" name="form_token" value="{{ form_token }}">
+          <button class="btn btn-red" type="submit">Reject</button>
+        </form>
+        {% endif %}
+      </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="5" class="empty">No videos with status "{{ status }}"</td></tr>
+    {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

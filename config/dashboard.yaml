@@ -1,0 +1,21 @@
+# =============================================================
+# config/dashboard.yaml — settings for the web dashboard
+#
+# These are shared settings (not per channel), so they live in
+# config/ next to pricing.yaml. Nothing secret goes in this file:
+# the session secret and API keys stay in .env, and the password
+# is stored (hashed) in the database.
+# =============================================================
+
+login:
+  # How many wrong passwords one network address may enter before it is
+  # locked out. A low number makes guessing a password impractical.
+  max_failed_attempts: 5
+
+  # How long a lockout lasts, in minutes. Failed attempts older than
+  # this no longer count.
+  lockout_minutes: 15
+
+  # How many days you stay logged in on a device before the dashboard
+  # asks for the password again.
+  session_days: 7

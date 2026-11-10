@@ -35,6 +35,17 @@ fastapi>=0.110.0
 # uvicorn — ASGI server that runs FastAPI
 uvicorn>=0.29.0
 
+# Jinja2 — HTML templates for the dashboard pages; the standard template
+#          engine for FastAPI. Escapes text automatically (blocks HTML injection).
+Jinja2>=3.1.0
+
+# bcrypt — hashes the dashboard password; the most widely used
+#          password-hashing library (deliberately slow, so guessing is impractical)
+bcrypt>=4.0.0
+
+# itsdangerous — signs the login cookie; required by Starlette's SessionMiddleware
+itsdangerous>=2.1.0
+
 # pytest — runs the test suite
 pytest>=8.0.0
 

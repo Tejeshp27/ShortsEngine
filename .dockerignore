@@ -1,0 +1,37 @@
+# =============================================================
+# .dockerignore — files Docker must NOT copy into the image
+#
+# The Dockerfile runs "COPY . ." which copies the whole project
+# folder. Anything listed here is skipped. This matters for
+# privacy: without it, your real API keys (.env), your database
+# and all your videos would be baked into the image, and anyone
+# who got hold of the image could read them.
+#
+# Secrets and data reach the container another way instead:
+# docker-compose.yml passes .env in at start-up and mounts the
+# data folders from the server's disk.
+# =============================================================
+
+# --- Secrets ---
+.env
+
+# --- Data (mounted from the server's disk at run time) ---
+output/
+cache/
+data/
+models/
+shortsengine.db
+*.db
+
+# --- Not needed to run the app ---
+.git/
+.github/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+tests/
+docs/
+.DS_Store
+.vscode/
+.idea/

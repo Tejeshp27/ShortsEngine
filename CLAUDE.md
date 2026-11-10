@@ -213,8 +213,13 @@ A-series animated video engine (A.1–A.5) code complete — this is now the mai
 - M.5: Renderer updated to wire all M-series types + `--style` flag ✅
 - M.6: Tests for scene planner, animated frames, stock video ✅
 - A.1–A.5: Animated video engine (`src/video/animation/`, `--render --animated`) ✅
+- C.0: Control center foundation — private login, templates, Docker fixes ✅
+  (C.1–C.6 not started; see "C-series" below)
 
 **Next human steps:**
+- Create the dashboard login: `python -m src.dashboard.set_password`, then run
+  `python -m src.dashboard.app`, log in at http://localhost:8000 and confirm C.0 works
+- Then say which control-center step to build next (C.1 is next in order)
 - Watch the animated render of the impeachment script and give feedback on the look
 - Grow `footage_topics` in `channels/news.yaml` (more approved topics = more variety)
 - Add PEXELS_API_KEY to .env (free at pexels.com/api) — Pexels has far better footage
@@ -346,6 +351,69 @@ and word-by-word captions. There is never a blank or still screen.
 - Sound effects on scene changes (whoosh / pop) and background music by default.
 - More graphic templates (map, quote card) and more approved footage topics.
 
+### C-series — Private control center (browser dashboard)
+
+Goal: one private place in the browser to see and manage everything — every channel
+and account, every video, followers, money made, money spent — and to make new videos
+without the terminal. Reachable from any device, including a phone. Build one step at
+a time; after each step explain how to test it, add tests, update the README, and wait
+for confirmation before starting the next.
+
+**C.0 — Foundation and privacy** ✅ (`src/dashboard/`, `tests/test_dashboard_auth.py`)
+- Every page is private by default: one check (`require_login` in `app.py`) runs before
+  every request; only `/login` and `/static/` are public.
+- Password hashed with bcrypt in the `users` table (`python -m src.dashboard.set_password`).
+  Signed session cookie (`SESSION_SECRET` in `.env`). 5 wrong passwords lock an address
+  out for 15 minutes (`config/dashboard.yaml`). Every form carries a secret token.
+- Pages moved from inline HTML strings to Jinja2 templates (auto-escaped).
+- Docker: `.dockerignore` keeps `.env`, the database and videos out of the image; the
+  database lives in a mounted `data/` folder; port 8000 is bound to the server only.
+- Replaces the old `DASHBOARD_PASSWORD` browser prompt, which was open when left blank.
+
+**C.1 — Home page** (not started)
+- Totals across channels: followers, views, videos made, videos posted, money made,
+  money spent, profit. A card per channel with the same numbers and whether TikTok and
+  Instagram are connected. Simple charts of followers and views over time.
+
+**C.2 — Accounts and channels** (not started)
+- A page per channel: connected accounts, followers per platform, recent videos, best
+  performers. Follower counts collected once a day from the official APIs and saved.
+- Needs building from scratch: there is no OAuth code yet (`tiktok.py` mentions
+  `dashboard/oauth.py`, which does not exist), tokens are two global `.env` values, the
+  metrics collector is a stub, and post IDs are not saved when publishing.
+- APIs: TikTok `user.info.stats` scope gives `follower_count`; Instagram's IG User has
+  `followers_count`. Both need an approved developer app.
+
+**C.3 — Money** (not started)
+- Neither TikTok's nor Instagram's API provides earnings, so payouts are entered by
+  hand (date, channel, platform, amount, note). Show made, spent and profit by month
+  and by channel.
+- Spending is under-counted today: `cost_events` is never written, costs live in
+  `output/cost_log.csv`, and ElevenLabs voice cost is not tracked at all.
+
+**C.4 — Video library** (not started)
+- Thumbnail grid (FFmpeg, cached), newest first, with title, channel, date, length,
+  status, views, cost. Click to watch with script and sources. Filter by channel and
+  status, search by title. Videos in `output/videos` missing from the database are
+  listed and flagged "not in database". Every video file requires login.
+
+**C.5 — Make videos from the browser** (not started)
+- "New video" page: pick a channel, see ranked stories (or paste an article link, or a
+  topic that searches today's stories — never a script without a source), see the
+  estimated cost, optional dry run. Runs in the background with per-step progress and
+  clear errors. Result goes to the review queue as "drafted"; nothing posts without
+  approval. Daily spending limit and max videos in progress, both in config.
+
+**C.6 — Hosting** (waiting for a decision — deploy nothing until chosen)
+- Options compared: (a) Mac + Tailscale, (b) cloud server with public HTTPS + login,
+  (c) cloud server reachable only through Tailscale. Recommended: (c).
+- One animated render peaked at 1.1 GB of memory (measured on the Mac), so a 1 GB
+  server is too small; 4 GB / 2 CPUs is comfortable.
+
+**Decisions so far:** server-rendered pages (FastAPI + Jinja2) rather than React for
+this dashboard, to keep it simple and explainable — these were Claude's recommended
+defaults, accepted by "start" without separate discussion, so revisit if wanted.
+
 **Future: Manim diagrams (M.4b)**
 - Richer data-vis scenes (maps, timelines, motion diagrams) using Manim Community.
 - Requires: `brew install cairo pango && pip install manim`.
@@ -381,6 +449,12 @@ python -m src.main --channel news --render --animated  # fully animated video (~
 python -m src.main --channel news --render             # classic still-picture video (free)
 ```
 To change a graphic, edit `output/<channel>/<script>_storyboard.json` and render again (free).
+
+**Dashboard:**
+```bash
+python -m src.dashboard.set_password   # first time (or to change the password)
+python -m src.dashboard.app            # then open http://localhost:8000
+```
 
 **Tests:**
 ```bash

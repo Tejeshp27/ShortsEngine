@@ -20,9 +20,11 @@
 import os
 import sqlite3
 
-# The database file lives at the project root (next to src/).
-# os.path is used so the path works on any operating system.
-DB_PATH = os.path.join("shortsengine.db")
+# The database file lives at the project root (next to src/) by default.
+# Setting DATABASE_PATH in the environment moves it somewhere else — the
+# Docker setup uses this to keep the file in a folder that is saved
+# outside the container, so the data survives a rebuild.
+DB_PATH = os.getenv("DATABASE_PATH", "shortsengine.db")
 
 
 def get_connection():
@@ -97,6 +99,30 @@ def create_tables():
             output_tokens   INTEGER NOT NULL DEFAULT 0,
             cost_usd        REAL    NOT NULL DEFAULT 0.0,
             created_at      TEXT    NOT NULL
+        )
+    """)
+
+    # --- users table ---
+    # Who may log in to the dashboard. The password itself is never
+    # stored — only a one-way "hash" of it (see src/dashboard/auth.py).
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            username        TEXT    NOT NULL UNIQUE,
+            password_hash   TEXT    NOT NULL,
+            created_at      TEXT    NOT NULL,
+            updated_at      TEXT    NOT NULL
+        )
+    """)
+
+    # --- login_attempts table ---
+    # One row per FAILED login, so the dashboard can lock out an address
+    # that keeps guessing passwords.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address      TEXT    NOT NULL,
+            attempted_at    TEXT    NOT NULL
         )
     """)
 

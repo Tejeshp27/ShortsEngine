@@ -30,11 +30,13 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the rest of the project into the container.
+# .dockerignore keeps secrets (.env), the database and videos out.
 COPY . .
 
 # Create the folders the app writes to at runtime.
 # They are excluded from git but need to exist in the container.
-RUN mkdir -p output cache
+# data/ holds the database (see DATABASE_PATH in docker-compose.yml).
+RUN mkdir -p output cache data
 
 # Tell Docker which port the dashboard listens on.
 EXPOSE 8000
