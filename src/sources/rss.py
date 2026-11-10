@@ -101,14 +101,21 @@ def fetch_all_stories(sources):
     all_stories = []
 
     for source in sources:
-        # Only RSS sources are supported in Phase 1.
-        # Other types (e.g. "twitch") will be added later.
-        if source["type"] != "rss":
-            print(f"  Skipping unsupported source type: {source['type']}")
-            continue
+        source_type = source["type"]
 
-        stories = fetch_stories_from_feed(source["url"], source["name"])
-        all_stories.extend(stories)
+        if source_type == "rss":
+            stories = fetch_stories_from_feed(source["url"], source["name"])
+            all_stories.extend(stories)
+
+        elif source_type == "newsapi":
+            # NewsAPI returns top headlines from 80k+ sources.
+            # Imported here so the dependency is only needed when used.
+            from src.sources.newsapi import fetch_newsapi_stories
+            stories = fetch_newsapi_stories(source)
+            all_stories.extend(stories)
+
+        else:
+            print(f"  Skipping unsupported source type: {source_type}")
 
     return all_stories
 

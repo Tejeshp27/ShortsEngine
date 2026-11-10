@@ -144,6 +144,15 @@ def parse_arguments():
         help="Generate a visual plan (stock photos + charts) for the video (Phase V.2–V.6)",
     )
     parser.add_argument(
+        "--animated",
+        action="store_true",
+        help=(
+            "With --render: make a fully animated video — stock footage playing "
+            "the whole time, an animated graphic for every sentence, and "
+            "word-by-word captions. Costs about 1 cent (one storyboard AI call)."
+        ),
+    )
+    parser.add_argument(
         "--no-paid-visuals",
         action="store_true",
         dest="no_paid_visuals",
@@ -465,6 +474,7 @@ def run_render_pipeline(args, config):
         voice = config["video"]["voice"]
 
     use_visuals = getattr(args, "visuals", False)
+    use_animated = getattr(args, "animated", False)
     no_paid_visuals = getattr(args, "no_paid_visuals", False)
     use_music = getattr(args, "music", False)
 
@@ -474,21 +484,23 @@ def run_render_pipeline(args, config):
     style = getattr(args, "style", "auto")
     if use_visuals:
         print(f"Visuals : enabled (style={style}, paid={'no' if no_paid_visuals else 'yes, Pexels + Pexels Video + Pixabay'})")
+    if use_animated:
+        print("Mode    : animated (stock footage + animated graphics + captions)")
     if use_music:
         print(f"Music   : enabled (Mubert, mood={config['video'].get('music_mood', 'focused')})")
     print()
 
-    # Create an LLM client when visuals are requested (to avoid needing
-    # an API key for plain --render runs).
+    # Create an LLM client when visuals or animation are requested (to
+    # avoid needing an API key for plain --render runs).
     llm = None
-    if use_visuals and not args.dry_run:
+    if (use_visuals or use_animated) and not args.dry_run:
         from src.generation.llm import LLMClient
         llm = LLMClient(dry_run=False,
                         max_calls=config["llm"]["max_calls_per_run"])
 
-    # Pass channel_config whenever visuals or music is requested —
-    # both features read settings from it.
-    needs_config = use_visuals or use_music
+    # Pass channel_config whenever visuals, animation or music is requested —
+    # all three read settings from it.
+    needs_config = use_visuals or use_animated or use_music
     video_path = render_video(
         script_path=script_path,
         story_title=video_row["story_title"],
@@ -502,11 +514,19 @@ def run_render_pipeline(args, config):
         tts_provider=tts_provider,
         style=style,
         use_music=use_music,
+        animated=use_animated,
     )
 
     if not args.dry_run:
         set_video_path(video_row["id"], video_path)
         print(f"Database updated — video path recorded (ID {video_row['id']}).")
+
+    # Log what the render's AI calls cost (scene plan or storyboard),
+    # the same way the script-writing pipeline does.
+    if llm is not None:
+        llm.write_cost_log(args.channel, note=f"render {os.path.basename(script_path)}")
+        print()
+        print_cost_summary(llm)
 
 
 def main():

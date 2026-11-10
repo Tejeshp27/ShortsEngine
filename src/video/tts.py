@@ -25,6 +25,13 @@ import edge_tts
 # Where the generated audio files are cached.
 AUDIO_CACHE_FOLDER = os.path.join("cache", "audio")
 
+# The script sections that are read aloud, in the order they appear.
+# Other sections ("Notes for reviewer", "Sources") are never spoken.
+# The animation storyboard imports this list too, so both always agree
+# on exactly which words are in the video.
+SPOKEN_SECTIONS = ["Hook", "Story", "Why it matters",
+                   "What happens next", "Closing line"]
+
 
 def _extract_spoken_text(script_path):
     """
@@ -45,10 +52,6 @@ def _extract_spoken_text(script_path):
         # Returns the Hook, Story, Why it matters, What happens next,
         # and Closing line paragraphs joined together.
     """
-    # Sections that get spoken aloud in the video.
-    spoken_sections = {"Hook", "Story", "Why it matters",
-                       "What happens next", "Closing line"}
-
     spoken_lines = []
     inside_spoken_section = False
 
@@ -59,7 +62,7 @@ def _extract_spoken_text(script_path):
             # Lines starting with ## are section headings.
             if stripped.startswith("## "):
                 section_name = stripped[3:].strip()
-                inside_spoken_section = section_name in spoken_sections
+                inside_spoken_section = section_name in SPOKEN_SECTIONS
                 continue  # Don't include the heading itself
 
             # Skip separator lines and empty lines at the top.

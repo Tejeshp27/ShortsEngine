@@ -412,5 +412,14 @@ def fetch_stock_photo(query, channel_key="news", api_key=None):
     if pixabay_result:
         return pixabay_result
 
-    # Fallback 2: Wikimedia Commons (completely free, no key needed).
+    # Fallback 2: Stability AI — generates a custom image when no stock photo
+    # matches the query well. Costs ~$0.03/image; results are cached.
+    # Only used when STABILITY_API_KEY is set.
+    if os.getenv("STABILITY_API_KEY"):
+        from src.video.ai_image import generate_ai_image
+        ai_result = generate_ai_image(query)
+        if ai_result:
+            return ai_result
+
+    # Fallback 3: Wikimedia Commons (completely free, no key needed).
     return fetch_wikimedia_photo(query)

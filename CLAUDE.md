@@ -58,7 +58,8 @@ API costs must stay minimal. Always choose the cheapest option that does the job
 
 - **Use the cheapest model that works.** Use a small, cheap model (e.g. Claude Haiku)
   for simple tasks like ranking headlines, tagging topics and short summaries. Use a
-  stronger model (e.g. Claude Sonnet) only for the final script writing. Model names
+  stronger model (e.g. Claude Sonnet) only for words that get published: the final
+  script, and the on-screen text of animated videos (the storyboard). Model names
   live in the channel/config files, not in the code.
 - **Send less text.** Trim articles to the relevant parts, strip HTML, and set a
   `max_tokens` limit on every call.
@@ -149,6 +150,7 @@ shortsengine/
     sources/            # fetching news / clips (rss.py, twitch.py later)
     generation/         # script writing (llm.py, prompts.py)
     video/              # voiceover, captions, rendering
+      animation/        # animated video engine (storyboard, footage, scenes, renderer)
     publishing/         # TikTok / Instagram APIs
     storage/            # database models and queries
     main.py             # command-line entry point
@@ -194,7 +196,8 @@ shortsengine/
 
 ## Current phase
 
-**Phases 1–7 code complete. M-series visual upgrade (M.1–M.6) code complete.**
+**Phases 1–7 code complete. M-series visual upgrade (M.1–M.6) code complete.
+A-series animated video engine (A.1–A.5) code complete — this is now the main way to render.**
 
 - Phase 1: scripts generate for ~$0.013 ✅
 - Phase 2: `--render` produces a real 9:16 MP4 (Pillow + FFmpeg + macOS TTS) ✅
@@ -209,10 +212,13 @@ shortsengine/
 - M.4: Pillow-based animated graphics (`animated_frames.py`) — no extra deps ✅
 - M.5: Renderer updated to wire all M-series types + `--style` flag ✅
 - M.6: Tests for scene planner, animated frames, stock video ✅
+- A.1–A.5: Animated video engine (`src/video/animation/`, `--render --animated`) ✅
 
 **Next human steps:**
-- Add PEXELS_API_KEY to .env (free at pexels.com/api) to enable video B-roll
-- Run `--render --visuals` on a script to test the full M-series pipeline
+- Watch the animated render of the impeachment script and give feedback on the look
+- Grow `footage_topics` in `channels/news.yaml` (more approved topics = more variety)
+- Add PEXELS_API_KEY to .env (free at pexels.com/api) — Pexels has far better footage
+  than Pixabay, but its results must be re-checked before raising the topic counts
 - For Manim animated scenes (richer diagrams): `brew install cairo pango && pip install manim`
 - Post videos by hand, then add API tokens for automated publishing (Phase 4)
 
@@ -305,6 +311,41 @@ The M-series improves video quality without changing the core pipeline.
 - 30 tests covering scene_planner, animated_frames, and stock_video.
 - All run offline (dry_run + mocks) — no API calls needed.
 
+### A-series — Animated video engine (`src/video/animation/`)
+
+Run with `python -m src.main --channel news --render --animated`. Every frame is three
+layers: stock footage playing full-screen, an animated graphic for the current sentence,
+and word-by-word captions. There is never a blank or still screen.
+
+**A.1 — Storyboard** ✅ (`storyboard.py`)
+- Splits the script into beats (a sentence or part of one, max 12 words).
+- One AI call (`models.storyboard`, ~3 cents) picks a footage topic and a graphic per beat.
+- Saved as `<slug>_storyboard.json` next to the script: free to re-render, editable by hand.
+
+**A.2 — Accuracy checks** ✅ (`storyboard.py`)
+- On-screen words must come from the spoken sentence; numbers and names must be in the
+  script; claims must keep "says" / "argues" / "expected". Failures become a plain
+  headline of the spoken words. Every graphic is printed beside its spoken words for review.
+- Haiku was tried first and rejected: it stated claims as facts and ignored the rules.
+
+**A.3 — Footage** ✅ (`footage.py`, `stock_video.get_video_clip`)
+- Clips come only from the channel's hand-checked `video.animation.footage_topics`
+  (free-form Pixabay search returned unusable clips). Dark clips are skipped.
+- Fallback order: chosen topic → general topics → previous clip → moving gradient.
+
+**A.4 — Graphics and overlays** ✅ (`scenes.py`, `overlays.py`)
+- Nine templates: headline, icon_label, person, big_number, versus, bullet_list,
+  timeline, bar_chart, stamp. Icons are Noto Emoji; font is Montserrat (both open licence).
+- Captions highlight the spoken word; progress bar; section label; wipe between sections.
+
+**A.5 — Renderer and tests** ✅ (`renderer.py`, `tests/test_animation.py`)
+- Draws ~30 frames per second with Pillow and pipes them to FFmpeg (no PNG files).
+- 54 offline tests.
+
+**Future ideas for the A-series**
+- Sound effects on scene changes (whoosh / pop) and background music by default.
+- More graphic templates (map, quote card) and more approved footage topics.
+
 **Future: Manim diagrams (M.4b)**
 - Richer data-vis scenes (maps, timelines, motion diagrams) using Manim Community.
 - Requires: `brew install cairo pango && pip install manim`.
@@ -332,6 +373,14 @@ python -m src.main --channel news --dry-run      # full pipeline, no paid API ca
 python -m src.main --channel news                # AI picks a story and writes a script
 python -m src.main --channel news --pick 3       # write about story #3 from --list
 ```
+
+**Making a video:**
+```bash
+python -m src.main --channel news --review             # approve a drafted script
+python -m src.main --channel news --render --animated  # fully animated video (~3 cents)
+python -m src.main --channel news --render             # classic still-picture video (free)
+```
+To change a graphic, edit `output/<channel>/<script>_storyboard.json` and render again (free).
 
 **Tests:**
 ```bash
