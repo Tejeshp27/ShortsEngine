@@ -1,5 +1,10 @@
 # CLAUDE.md — ShortsEngine Project Instructions
 
+## Session instructions
+
+Read this file at the start of every session before reviewing or changing code.
+Update this file whenever significant behavior or architecture changes.
+
 ## What this project is
 
 **ShortsEngine** is a multi-channel content automation platform. It finds news and other
@@ -215,6 +220,22 @@ A-series animated video engine (A.1–A.5) code complete — this is now the mai
 - A.1–A.5: Animated video engine (`src/video/animation/`, `--render --animated`) ✅
 - C.0: Control center foundation — private login, templates, Docker fixes ✅
   (C.1–C.6 not started; see "C-series" below)
+
+**Review fixes (November 2026):**
+- Scheduler stores one video per channel/time slot in `publishing_slots` and upload
+  results/returned IDs per video/platform in `publishing_deliveries`. Named time zones
+  use Python's built-in `zoneinfo`, including daylight saving and midnight windows.
+- Failed uploads never mark a video posted. Successful destinations are skipped.
+  Network failures and interrupted sends remain `uncertain` or `sending`: check the
+  platform manually before retrying, since the platform may already have accepted it.
+  After confirming no upload exists, delete only that video's platform delivery row
+  in SQLite to permit retry. Never clear a succeeded delivery to retry another platform.
+- TikTok success means delivery to its inbox, not a confirmed public post. Instagram
+  publishing remains unimplemented; mixed-platform videos remain approved until all
+  configured destinations succeed. Automatic analytics collection remains a stub.
+- Dashboard and ranking feedback sum only the latest cumulative snapshot per platform.
+- Render AI costs add to each video's database total even on render failure, and are
+  logged to CSV. Voice-service costs and per-call cost_events remain future work.
 
 **Next human steps:**
 - Create the dashboard login: `python -m src.dashboard.set_password`, then run

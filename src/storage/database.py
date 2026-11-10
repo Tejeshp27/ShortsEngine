@@ -86,6 +86,26 @@ def create_tables():
         )
     """)
 
+    # A slot keeps its chosen video even when only some uploads succeed.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS publishing_slots (
+            channel TEXT NOT NULL,
+            slot TEXT NOT NULL,
+            video_id INTEGER NOT NULL REFERENCES videos(id),
+            PRIMARY KEY (channel, slot)
+        )
+    """)
+    # Claim each upload before contacting a platform to prevent duplicate sends.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS publishing_deliveries (
+            video_id INTEGER NOT NULL REFERENCES videos(id),
+            platform TEXT NOT NULL,
+            status TEXT NOT NULL,
+            post_id TEXT,
+            PRIMARY KEY (video_id, platform)
+        )
+    """)
+
     # --- cost_events table ---
     # One row per individual AI call so we can break down what each step cost.
     conn.execute("""

@@ -20,7 +20,7 @@
 import os
 
 from src.storage.database import get_connection
-from src.analytics.collector import _ensure_metrics_table
+from src.analytics.collector import _ensure_metrics_table, LATEST_METRICS_JOIN
 
 
 def _load_top_and_bottom_stories(channel, limit=5):
@@ -39,11 +39,11 @@ def _load_top_and_bottom_stories(channel, limit=5):
     """
     _ensure_metrics_table()
     conn = get_connection()
-    query = """
+    query = f"""
         SELECT v.story_title, v.channel,
                COALESCE(SUM(m.views), 0) AS total_views
         FROM videos v
-        LEFT JOIN metrics m ON m.video_id = v.id
+        {LATEST_METRICS_JOIN}
         WHERE v.status = 'posted' AND v.channel = ?
         GROUP BY v.id
         HAVING total_views > 0

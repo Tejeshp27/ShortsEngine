@@ -177,6 +177,18 @@ def collect_all_metrics():
             print("  TikTok: TIKTOK_ACCESS_TOKEN not set, skipping.")
 
 
+# Keep only the latest cumulative snapshot for each video and platform.
+# The ID breaks ties when two collections happened in the same second.
+LATEST_METRICS_JOIN = """
+    LEFT JOIN metrics m ON m.video_id = v.id
+    AND m.id = (
+        SELECT latest.id FROM metrics latest
+        WHERE latest.video_id = m.video_id AND latest.platform = m.platform
+        ORDER BY latest.collected_at DESC, latest.id DESC LIMIT 1
+    )
+"""
+
+
 def get_metrics_summary(channel=None):
     """
     Return aggregated metrics for all posted videos.
@@ -189,14 +201,14 @@ def get_metrics_summary(channel=None):
     """
     _ensure_metrics_table()
     conn = get_connection()
-    query = """
+    query = f"""
         SELECT v.id, v.story_title, v.channel, v.created_at,
                SUM(m.views) AS total_views,
                SUM(m.likes) AS total_likes,
                SUM(m.comments) AS total_comments,
                SUM(m.shares) AS total_shares
         FROM videos v
-        LEFT JOIN metrics m ON m.video_id = v.id
+        {LATEST_METRICS_JOIN}
         WHERE v.status = 'posted'
     """
     params = ()

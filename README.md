@@ -36,8 +36,8 @@ RSS feeds ──► dedupe + filter ──► Claude Haiku (rank) ──► Clau
 5. **Renders** a fully animated 9:16 MP4: stock footage playing full-screen the whole time,
    an animated graphic for every sentence, and word-by-word captions (see below)
 6. **Approves** scripts and videos through a FastAPI web dashboard
-7. **Publishes** to TikTok (file upload → drafts) and Instagram Reels
-8. **Tracks** views, likes, comments and shares; feeds performance data back into the ranker
+7. **Uploads** to TikTok drafts; Instagram publishing still needs implementation
+8. **Displays saved metrics** and feeds them back into ranking; automatic collection is not wired up yet
 
 A typical full run costs **$0.04–$0.06** in AI API calls (script ≈ 1–3¢, animated storyboard ≈ 3¢).
 
@@ -54,7 +54,7 @@ A typical full run costs **$0.04–$0.06** in AI API calls (script ≈ 1–3¢, 
 | Database | SQLite (Postgres upgrade path) | Zero-setup for development; easy migration |
 | Video | edge-tts, Pillow, FFmpeg | Fully free local stack; no paid voice API |
 | Publishing | TikTok Content Posting API, Instagram Graph API | Official APIs only |
-| Auth | OAuth 2.0 (TikTok, Instagram), HTTP Basic (dashboard) | Standard industry patterns |
+| Auth | bcrypt passwords and signed dashboard sessions | Platform OAuth remains future work |
 | Testing | pytest | Industry standard Python test framework |
 | CI/CD | GitHub Actions | Runs tests on every push; green checkmarks on the repo |
 | Deployment | Docker + Docker Compose | Same setup locally and on the server |
@@ -252,7 +252,7 @@ sources:
 | 1 | ✅ Done | News script generator (Claude AI) |
 | 2 | ✅ Done | Video production (TTS + Pillow + FFmpeg) |
 | 3 | ✅ Done | SQLite database + human review queue |
-| 4 | ✅ Done | TikTok + Instagram publishing |
+| 4 | Partial | TikTok draft uploads; Instagram publishing not implemented |
 | 5 | ✅ Done | FastAPI dashboard |
 | 6 | ✅ Done | Analytics + feedback loop + Twitch channel |
 | 7 | ✅ Done | Docker deploy + GitHub Actions CI + portfolio polish |
@@ -278,4 +278,39 @@ $6/month DigitalOcean server with Docker, cron scheduling, and optional HTTPS.
 ```bash
 docker compose up -d dashboard
 docker compose run --rm pipeline --channel news
+```
+
+## Scheduler and spending safeguards
+
+The scheduler reserves one video per channel and scheduled time slot in SQLite.
+Repeated runs reuse that reservation and skip destinations that already succeeded.
+Set `schedule.timezone` to a named zone such as `America/New_York`; daylight saving
+changes and posting windows across midnight are handled automatically. Existing
+`utc_offset_hours` settings still work when no named zone is supplied.
+
+A video is marked `posted` only when every configured destination succeeds. For
+TikTok this means uploaded to the inbox, not publicly posted. Instagram publishing
+is unfinished, so configuring it leaves the video approved. Returned upload IDs are
+saved, but automatic metrics collection and OAuth are still unfinished.
+
+Uploads with uncertain outcomes are not automatically repeated: check the platform
+first. `publishing_deliveries` records `sending`, `uncertain`, or `succeeded`. After
+confirming that an upload did not arrive, delete only its video/platform delivery row
+using SQLite to allow a later scheduler run to retry. Interrupted `sending` rows need
+the same check. Successful destinations must be kept to prevent duplicate uploads.
+A dry run prints the slot without reserving it or uploading anything:
+
+```bash
+python -c 'from src.publishing.scheduler import run_scheduler; run_scheduler(dry_run=True)'
+```
+
+Analytics totals use the latest cumulative snapshot per video/platform, rather than
+adding daily snapshots. Render AI spending is added to the video's database total
+even if rendering fails. ElevenLabs voice spending is not yet tracked.
+
+Run the offline regression tests with the virtual environment activated:
+
+```bash
+python -m pytest tests/test_review_fixes.py -q
+python -m pytest -q
 ```

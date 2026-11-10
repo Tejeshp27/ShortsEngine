@@ -249,3 +249,19 @@ def get_all_videos(channel=None):
         ).fetchall()
     conn.close()
     return rows
+
+
+def add_video_cost(video_id, cost_usd):
+    """Add cost_usd dollars to video_id's total; return nothing.
+
+    Adding in SQL preserves earlier script and render costs on repeated runs.
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE videos SET total_cost_usd = total_cost_usd + ? WHERE id = ?",
+            (cost_usd, video_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()

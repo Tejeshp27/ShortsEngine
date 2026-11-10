@@ -47,6 +47,7 @@ from src.sources.rss import fetch_all_stories, filter_recent, remove_duplicates
 from src.storage.database import create_tables
 from src.storage.history import load_processed, mark_processed, remove_processed
 from src.storage.queries import (
+    add_video_cost,
     get_videos_by_status,
     save_cost_event,
     save_video,
@@ -501,32 +502,32 @@ def run_render_pipeline(args, config):
     # Pass channel_config whenever visuals, animation or music is requested —
     # all three read settings from it.
     needs_config = use_visuals or use_animated or use_music
-    video_path = render_video(
-        script_path=script_path,
-        story_title=video_row["story_title"],
-        channel_key=args.channel,
-        voice=voice,
-        font_size=config["video"].get("font_size", 90),
-        dry_run=args.dry_run,
-        llm=llm,
-        channel_config=config if needs_config else None,
-        no_paid_visuals=no_paid_visuals,
-        tts_provider=tts_provider,
-        style=style,
-        use_music=use_music,
-        animated=use_animated,
-    )
+    try:
+        video_path = render_video(
+            script_path=script_path,
+            story_title=video_row["story_title"],
+            channel_key=args.channel,
+            voice=voice,
+            font_size=config["video"].get("font_size", 90),
+            dry_run=args.dry_run,
+            llm=llm,
+            channel_config=config if needs_config else None,
+            no_paid_visuals=no_paid_visuals,
+            tts_provider=tts_provider,
+            style=style,
+            use_music=use_music,
+            animated=use_animated,
+        )
 
-    if not args.dry_run:
-        set_video_path(video_row["id"], video_path)
-        print(f"Database updated — video path recorded (ID {video_row['id']}).")
-
-    # Log what the render's AI calls cost (scene plan or storyboard),
-    # the same way the script-writing pipeline does.
-    if llm is not None:
-        llm.write_cost_log(args.channel, note=f"render {os.path.basename(script_path)}")
-        print()
-        print_cost_summary(llm)
+        if not args.dry_run:
+            set_video_path(video_row["id"], video_path)
+            print(f"Database updated — video path recorded (ID {video_row['id']}).")
+    finally:
+        # Paid storyboard work still counts if FFmpeg fails afterwards.
+        if llm is not None:
+            add_video_cost(video_row["id"], llm.total_cost)
+            llm.write_cost_log(args.channel, note=f"render {os.path.basename(script_path)}")
+            print_cost_summary(llm)
 
 
 def main():
