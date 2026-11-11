@@ -178,7 +178,18 @@ def find_channel_card(channel):
 
 @router.get("/channels/{channel}")
 def channel_page(request: Request, channel: str):
-    """Show one channel: its accounts, totals, charts and best/recent videos."""
+    """Show one channel's page.
+
+    The page lists the channel's connected accounts, its totals, follower
+    and view charts, its five most viewed videos and its eight newest ones.
+
+    Inputs:
+        request: the incoming browser request.
+        channel: the channel's file name without ".yaml", for example "news".
+
+    Returns:
+        The rendered channel page, or an error if the channel does not exist.
+    """
     config = channel_config(channel)
     videos = data.video_rows(channel)
     return render_page(request, "channel.html", {
@@ -197,7 +208,18 @@ def channel_page(request: Request, channel: str):
 @router.post("/channels/{channel}/sync")
 def sync_accounts(request: Request, channel: str, form_token: str = Form(""),
                   submission_id: str = Form("")):
-    """Start a job that collects today's statistics for one channel."""
+    """Start a background job that collects today's statistics for a channel.
+
+    Inputs:
+        request: the incoming browser request.
+        channel: the channel's file name without ".yaml", for example "news".
+        form_token: the secret token that proves the form came from our page.
+        submission_id: a one-time number from the form, so a double click
+            does not start the same job twice.
+
+    Returns:
+        A redirect to the new job's progress page.
+    """
     require_form_token(request, form_token)
     return queue(channel, "sync", {}, False, submission_id)
 
@@ -341,7 +363,16 @@ def oauth_callback(request: Request, platform: str, state: str = "", code: str =
 
 @router.get("/money")
 def money_page(request: Request, channel: str = ""):
-    """Show money made and spent, for one channel or all channels."""
+    """Show money made and money spent.
+
+    Inputs:
+        request: the incoming browser request.
+        channel: optional channel name from the address bar, for example
+            /money?channel=news. Empty means "all channels".
+
+    Returns:
+        The rendered money page with monthly totals and the full ledger.
+    """
     context = money_summary(channel or None)
     context.update({
         "channel": channel,
@@ -356,7 +387,22 @@ def money_page(request: Request, channel: str = ""):
 def save_money(request: Request, channel: str = Form(...), platform: str = Form(...),
                kind: str = Form(...), amount: str = Form(...), entry_date: str = Form(...),
                note: str = Form(""), submission_id: str = Form(""), form_token: str = Form("")):
-    """Save a payout or expense typed in on the Money page."""
+    """Save a payout or expense that was typed into the Money page form.
+
+    Inputs:
+        request: the incoming browser request.
+        channel: which channel the money belongs to.
+        platform: where it came from or went to, for example "tiktok".
+        kind: "payout" for money made or "expense" for money spent.
+        amount: the amount in US dollars, as typed, for example "12.50".
+        entry_date: the day it happened, as YYYY-MM-DD.
+        note: an optional note.
+        submission_id: a one-time number so a double click saves only once.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect back to the Money page for that channel.
+    """
     require_form_token(request, form_token)
     channel_config(channel)
     add_money_entry(channel, platform, kind, amount, entry_date, note, submission_id)
@@ -365,7 +411,19 @@ def save_money(request: Request, channel: str = Form(...), platform: str = Form(
 
 @router.post("/money/{entry_id}/delete")
 def delete_money(request: Request, entry_id: int, form_token: str = Form("")):
-    """Delete a payout or expense that was typed in by hand."""
+    """Delete a payout or expense that was typed in by hand.
+
+    Only hand-typed entries can be deleted here; costs recorded
+    automatically by AI calls are never removed.
+
+    Inputs:
+        request: the incoming browser request.
+        entry_id: the entry's number in the money_entries table.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect back to the Money page.
+    """
     require_form_token(request, form_token)
     connection = get_connection()
     try:
@@ -382,7 +440,18 @@ def delete_money(request: Request, entry_id: int, form_token: str = Form("")):
 
 @router.get("/library")
 def library_page(request: Request, channel: str = "", status: str = "", q: str = "", page: int = 1):
-    """Show the video library, filtered by channel, status and title search."""
+    """Show the video library, one page at a time.
+
+    Inputs:
+        request: the incoming browser request.
+        channel: optional channel to show only, for example "news".
+        status: optional status to show only, for example "approved".
+        q: optional words to look for in video titles (cut to 200 letters).
+        page: which page of results to show, starting at 1.
+
+    Returns:
+        The rendered library page.
+    """
     search = q[:200]
     context = media.library(channel, status, search, page)
     context.update({
@@ -398,7 +467,16 @@ def library_page(request: Request, channel: str = "", status: str = "", q: str =
 
 @router.get("/library/untracked")
 def untracked_video(request: Request, path: str):
-    """Play an MP4 found in output/ that is not in the database."""
+    """Play a video file found in output/ that the database does not know about.
+
+    Inputs:
+        request: the incoming browser request.
+        path: the file's location inside output/, for example
+            "news/2026-11-10-budget-vote.mp4". Paths outside output/ are refused.
+
+    Returns:
+        The rendered player page, or a "not found" error (404).
+    """
     video = media.requested_video(path)
     if video is None:
         raise HTTPException(404, "Video not found")
@@ -423,7 +501,16 @@ def video_file(path: str):
 
 @router.get("/media/thumbnail/{path:path}")
 def video_thumbnail(path: str):
-    """Send a video's preview image, or an empty answer (204) if none can be made."""
+    """Send the small preview picture for a video.
+
+    Inputs:
+        path: the video's location inside output/. Paths outside output/
+            are refused.
+
+    Returns:
+        The JPEG preview picture, an empty answer (code 204) if no picture
+        could be made, or a "not found" error (404).
+    """
     video = media.requested_video(path)
     if video is None:
         raise HTTPException(404, "Video not found")
@@ -464,7 +551,20 @@ def stories_from_job(job_id, channel):
 
 @router.get("/new")
 def new_video_page(request: Request, channel: str = "", source_job: str = ""):
-    """Show the "make a video" page: choose stories, see cost allowances."""
+    """Show the "make a video" page.
+
+    Here the user picks a channel, finds stories (or pastes an article
+    link), and sees what writing and rendering would cost.
+
+    Inputs:
+        request: the incoming browser request.
+        channel: which channel to make a video for. Defaults to the first one.
+        source_job: optional id of a finished "find stories" job; its
+            stories are listed on the page.
+
+    Returns:
+        The rendered "new video" page.
+    """
     channels = list_channels()
     if not channel and channels:
         channel = channels[0]["key"]
@@ -493,7 +593,22 @@ def new_video_page(request: Request, channel: str = "", source_job: str = ""):
 def find_stories(request: Request, channel: str = Form(...), topic: str = Form(""),
                  rank: bool = Form(False), dry_run: bool = Form(False),
                  submission_id: str = Form(""), form_token: str = Form("")):
-    """Start a job that finds current stories, optionally by topic or AI-ranked."""
+    """Start a background job that finds current stories for a channel.
+
+    Inputs:
+        request: the incoming browser request.
+        channel: which channel to find stories for.
+        topic: optional words such as "NVIDIA". Stories must mention them,
+            and web news is searched too when the channel allows it.
+        rank: True to let the cheap AI model put the best stories first
+            (costs a little money).
+        dry_run: True to practise without any paid AI call.
+        submission_id: a one-time number so a double click starts one job.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the new job's progress page.
+    """
     require_form_token(request, form_token)
     payload = {"topic": topic[:200], "rank": rank}
     return queue(channel, "discover", payload, dry_run, submission_id)
@@ -534,7 +649,20 @@ def create_video(request: Request, channel: str = Form(...), story_id: int = For
 def render_video(request: Request, video_id: int, free_voice: bool = Form(True),
                  dry_run: bool = Form(False), submission_id: str = Form(""),
                  form_token: str = Form("")):
-    """Start a job that renders a saved script into an animated video."""
+    """Start a background job that turns a saved script into an animated video.
+
+    Inputs:
+        request: the incoming browser request.
+        video_id: the video's number in the database.
+        free_voice: True for the free voice, False for the paid voice.
+        dry_run: True to practise without any paid call.
+        submission_id: a one-time number so a double click starts one job.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the new job's progress page. Refuses videos that do
+        not exist or that were already posted.
+    """
     require_form_token(request, form_token)
     video = get_video_by_id(video_id)
     if not video:
@@ -635,14 +763,32 @@ def record_public_post(request: Request, video_id: int, platform: str = Form(...
 
 @router.get("/jobs")
 def jobs_page(request: Request):
-    """List recent jobs (after marking any silent workers as interrupted)."""
+    """List the most recent background jobs.
+
+    Jobs whose worker stopped sending heartbeats are marked as interrupted
+    first, so the list never shows a dead job as still running.
+
+    Inputs:
+        request: the incoming browser request.
+
+    Returns:
+        The rendered jobs page.
+    """
     jobs.recover_stale_jobs()
     return render_page(request, "jobs.html", {"jobs": jobs.recent_jobs()})
 
 
 @router.get("/jobs/{job_id}")
 def job_page(request: Request, job_id: str):
-    """Show one job's progress, result or error."""
+    """Show one background job's progress, result or error.
+
+    Inputs:
+        request: the incoming browser request.
+        job_id: the job's id, from the address, for example /jobs/abc123.
+
+    Returns:
+        The rendered job page, or a "not found" error (404).
+    """
     jobs.recover_stale_jobs()
     job = jobs.job_record(job_id)
     if not job:

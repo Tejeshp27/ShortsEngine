@@ -356,7 +356,16 @@ def safe_web_link(url):
 
 @router.get("/login")
 def login_page(request: Request):
-    """Show the login form (or go straight to the dashboard if logged in)."""
+    """Show the login form, or skip it if this browser is already logged in.
+
+    Inputs:
+        request: the incoming browser request (holds the session cookie).
+
+    Returns:
+        The login page, or a redirect to the overview page when the person
+        is already logged in. If no password has been set yet, the page
+        explains which terminal command creates one.
+    """
     if get_logged_in_user(request.session) is not None:
         return RedirectResponse(url="/", status_code=303)
 
@@ -399,7 +408,16 @@ def login_submit(request: Request, username: str = Form(default=""),
 
 @router.post("/logout")
 def logout(request: Request, form_token: str = Form(default="")):
-    """Log this browser out and return to the login page."""
+    """Log this browser out and send it back to the login page.
+
+    Inputs:
+        request: the incoming browser request (holds the session cookie).
+        form_token: the secret token from the form, which proves the click
+            came from our own page and not from another website.
+
+    Returns:
+        A redirect to /login after the session has been cleared.
+    """
     require_form_token(request, form_token)
     request.session.clear()
     return RedirectResponse(url="/login", status_code=303)
@@ -411,7 +429,17 @@ def logout(request: Request, form_token: str = Form(default="")):
 
 @router.get("/")
 def dashboard_home(request: Request):
-    """Overview page: totals for every channel, history charts and recent jobs."""
+    """Show the overview page for all channels together.
+
+    The page shows totals for every channel, follower and view history
+    charts, and the four most recent background jobs.
+
+    Inputs:
+        request: the incoming browser request.
+
+    Returns:
+        The rendered home page.
+    """
     # Imported here because data.py and jobs.py import from this file's
     # neighbours; importing them at the top would create an import loop.
     from src.dashboard.data import history_chart, overview
@@ -426,14 +454,30 @@ def dashboard_home(request: Request):
 
 @router.get("/channels")
 def channels_page(request: Request):
-    """List every channel config found in the channels/ folder."""
+    """Show a card for every channel config found in the channels/ folder.
+
+    Inputs:
+        request: the incoming browser request.
+
+    Returns:
+        The rendered channels page.
+    """
     from src.dashboard.data import overview
     return render_page(request, "channels.html", overview())
 
 
 @router.get("/videos")
 def videos_page(request: Request, status: str = "drafted"):
-    """Review queue: show the videos that have the given status."""
+    """Show the review queue: every video that has one chosen status.
+
+    Inputs:
+        request: the incoming browser request.
+        status: which videos to list, taken from the address bar, for
+            example /videos?status=approved. Defaults to "drafted".
+
+    Returns:
+        The rendered review queue page.
+    """
     return render_page(request, "videos.html", {
         "videos": get_videos_by_status(status),
         "status": status,
@@ -489,7 +533,20 @@ def render_estimates(channel):
 
 @router.get("/video/{video_id}")
 def video_detail(request: Request, video_id: int):
-    """Detail view for one video: player, script, review buttons and post history."""
+    """Show everything about one video so it can be reviewed.
+
+    The page has the video player, the script, the source link, the
+    approve/reject buttons, cost estimates for rendering and the history
+    of uploads and public posts.
+
+    Inputs:
+        request: the incoming browser request.
+        video_id: the video's number in the database, from the address,
+            for example /video/12.
+
+    Returns:
+        The rendered video page, or a "not found" error (404).
+    """
     from src.dashboard.media import relative_video
 
     video = get_video_by_id(video_id)
@@ -518,7 +575,21 @@ def video_detail(request: Request, video_id: int):
 @router.post("/video/{video_id}/approve")
 def approve(request: Request, video_id: int, notes: str = Form(default=""),
             form_token: str = Form(default="")):
-    """Approve a drafted video and go back to the review queue."""
+    """Approve a video and go back to the review queue.
+
+    A drafted video can be approved, and so can one that was rejected
+    earlier (a change of mind). Approving never publishes anything.
+
+    Inputs:
+        request: the incoming browser request.
+        video_id: the video's number in the database.
+        notes: optional review notes typed into the form.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the review queue. Shows an error instead if the video
+        does not exist, is being rendered, or could not be changed.
+    """
     require_form_token(request, form_token)
     if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
@@ -534,7 +605,18 @@ def approve(request: Request, video_id: int, notes: str = Form(default=""),
 @router.post("/video/{video_id}/reject")
 def reject(request: Request, video_id: int, notes: str = Form(default=""),
            form_token: str = Form(default="")):
-    """Reject a drafted video and go back to the review queue."""
+    """Reject a video and go back to the review queue.
+
+    Inputs:
+        request: the incoming browser request.
+        video_id: the video's number in the database.
+        notes: optional review notes, for example why it was rejected.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the review queue. Shows an error instead if the video
+        does not exist, is being rendered, or could not be changed.
+    """
     require_form_token(request, form_token)
     if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
