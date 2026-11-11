@@ -169,10 +169,13 @@ jobs. The interface uses warm neutral colors and a restrained olive accent.
 **Restart the dashboard after upgrading** and install the updated requirements.
 Your existing login and videos remain intact. New tables are added automatically.
 
-- Open **New video** to find stories or paste an article URL. Choose a script or
+- Open **New video** to find stories or paste an article URL. Typing a topic (e.g.
+  "NVIDIA") searches recent news across the web as well as the channel's feeds,
+  using free services (GDELT, and NewsAPI when a key is set). Choose a script or
   an animated video; every result stays drafted until you review it.
 - Browser jobs default to a free voice, show a conservative cost allowance, and
-  support a free dry run. Default limits: **$2 per UTC day**, **one job in progress**.
+  support a free dry run. Default limits: **$2 per UTC day**, **one video being written or rendered at a
+  time** (finding stories and collecting statistics can run alongside it).
 - Open **Channels** to connect verified TikTok/Instagram accounts. New tokens are
   encrypted per channel. Live OAuth still needs your approved developer apps.
 - Open **Money** to record payouts and expenses. New AI/voice estimates are tracked
@@ -336,3 +339,11 @@ Run the offline regression tests with the virtual environment activated:
 python -m pytest tests/test_review_fixes.py -q
 python -m pytest -q
 ```
+
+## How this project is built
+
+I design and direct ShortsEngine and review every change. **Claude Code is the main
+AI coding assistant**; **Codex is used occasionally** for smaller tasks. Both follow the
+same rules in [`CLAUDE.md`](CLAUDE.md): `AGENTS.md`, the file Codex reads, simply points
+there. Every change needs tests and plain-English documentation so I can explain any
+part of the code.

@@ -22,8 +22,19 @@ It has two goals:
 
 ## About the developer
 
-I am a CS & Data Science student directing this project with Claude Code. I must be
-able to read, understand and **explain every part of it in an interview**.
+I am a CS & Data Science student directing this project. I must be able to read,
+understand and **explain every part of it in an interview**.
+
+## AI assistants on this project
+
+- **Claude Code is the main assistant.** It does most of the building, reviews any
+  changes made elsewhere, and keeps this file up to date.
+- **Codex is used now and then** for smaller tasks. `AGENTS.md` (the file Codex reads)
+  only points here, so both assistants follow exactly the same rules. Do not copy
+  these instructions into `AGENTS.md`; edit this file instead.
+- Whichever assistant makes a change must follow the code style below and add tests.
+  Claude Code should review Codex-made changes against this file at the start of the
+  next session (run the tests, check the style rules, update the docs).
 
 ## How to write code
 
@@ -223,6 +234,26 @@ A-series animated video engine (A.1–A.5) code complete — this is now the mai
   C.0 login confirmed working by the user.
 - C.1–C.5: Local control center implemented (see docs/control-center.md).
 - C.6: Hosting still awaits the user’s choice; nothing deployed.
+
+**Topic search (2026-11-11, Claude Code):** `src/sources/news_search.py`. A topic on
+the New video page also searches recent web news when the channel YAML has a
+`search:` section: GDELT (free, no key, 1 request / 5 s) plus NewsAPI `everything`
+(only with NEWS_API_KEY; free plan is development-only). Results cached 15 min in
+cache/search/. Google News rejected: its links can't be resolved to article text.
+GDELT returned HTTP 429 for every request from the user's network during testing;
+NewsAPI works. If GDELT stays blocked, consider dropping it.
+
+**Control-center review fixes (2026-11-11, Claude Code):**
+- Readability pass on all C-series modules (full docstrings, small single-purpose
+  functions, constants instead of magic numbers). Behaviour unchanged except below.
+- Only heavy jobs (generate, render) count toward `max_in_progress`; finding stories
+  and collecting statistics run beside them (one of each per channel at a time).
+- A rejected video can be approved again; approve/reject report when nothing changed.
+- A public post can only be recorded for an approved (or already posted) video.
+- Startup converts old local-time timestamps to UTC (`control_schema.py`), so
+  sorting, the library and history charts compare like with like.
+- `accounts.token_expires_at` records when a token expires; tokens pasted by hand
+  show "expiry unknown" on the channel page.
 
 **Review fixes (November 2026):**
 - Scheduler stores one video per channel/time slot in `publishing_slots` and upload

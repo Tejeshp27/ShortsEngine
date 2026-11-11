@@ -18,14 +18,14 @@
 <div class="split">
 <section class="panel">
 <h2>Find a current story</h2>
-<p class="note">{{ config.name }} · Reads this channel's configured feeds. A topic filters those stories; it never invents source material.</p>
+<p class="note">{{ config.name }} · Reads this channel's configured feeds.{% if config.search %} A topic also searches recent news across the web (free).{% else %} A topic filters those stories.{% endif %} Every story links to a real article; nothing is invented.</p>
 <form method="post" action="/new/discover">
 <input type="hidden" name="form_token" value="{{ form_token }}">
 <input type="hidden" name="submission_id" value="{{ submission_id }}-find">
 <input type="hidden" name="channel" value="{{ channel }}">
 <div class="form-group">
 <label for="topic">Topic or phrase (optional)</label>
-<input id="topic" name="topic" maxlength="200" placeholder="e.g. education">
+<input id="topic" name="topic" maxlength="200" placeholder="e.g. NVIDIA, student loans">
 </div>
 <label class="checkbox">
 <input type="checkbox" name="rank" value="true"> Rank headlines with AI · allowance ${{ '%.2f'|format(ranking_estimate) }}</label>
@@ -58,9 +58,9 @@
 {% if stories %}<section class="panel">
 <ol class="story-list">{% for story in stories %}<li>
 <h3>{{ loop.index }}. {{ story.title }}</h3>
-<div class="story-source">{{ story.source }} · <a href="{{ story.url }}" target="_blank" rel="noopener noreferrer">Read source ↗</a>
+<div class="story-source">{{ story.source }}{% if story.published %} · {{ story.published[:10] }}{% endif %} · <a href="{{ story.url }}" target="_blank" rel="noopener noreferrer">Read source ↗</a>
 </div>
-<p class="note">{{ story.summary[:280] }}</p>
+<p class="note">{% if story.summary %}{{ story.summary[:280] }}{% else %}Headline only. The full article is downloaded and checked when you create a draft.{% endif %}</p>
 <details>
 <summary>Create a draft from this story</summary>
 <form method="post" action="/new/generate">

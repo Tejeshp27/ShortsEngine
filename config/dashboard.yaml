@@ -23,7 +23,7 @@ login:
 # Background work launched from the browser. All dollar amounts are estimates.
 jobs:
   daily_limit_usd: 2.00       # maximum recorded spend plus active reservations per UTC day
-  max_in_progress: 1         # total queued/running jobs; one render fits this Mac comfortably
+  max_in_progress: 1         # heavy jobs (write/render) at once; finding stories and syncing stats are not limited
   max_job_minutes: 60        # stop an unresponsive job after this many minutes
   stale_after_seconds: 90    # mark a stopped worker interrupted after its heartbeat disappears
   max_source_chars: 20000    # largest article limit a channel may use from the browser

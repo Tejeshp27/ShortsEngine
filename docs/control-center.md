@@ -46,7 +46,11 @@ outside `output/` cannot be served through these routes.
 ## Create a video
 
 1. Open **New video**, choose a channel, and find recent stories. A topic filters
-   the channel's current feed results; it does not create a source-free script.
+   the channel's current feed results and, if the channel has a `search:` section,
+   also searches recent news across the web (GDELT, plus NewsAPI when
+   `NEWS_API_KEY` is set). Both are free; results are saved for 15 minutes.
+   Every result links to a real article; nothing creates a source-free script.
+   Google News was tested and left out: its links don't lead to the article text.
    Optional AI ranking shows its spending allowance before submission.
 2. Choose a story or paste a public article URL. The worker checks that meaningful
    source text is available before asking the writing model for a script.
@@ -67,13 +71,17 @@ it does not implement a Twitch clip editor.
 No browser job publishes content. Posting can still be done manually in the
 platform apps. On a video's detail page, record its actual numeric public post ID
 after posting; the account collector can then query that video's statistics.
-A TikTok `publish_id` from inbox upload is a different identifier.
+A TikTok `publish_id` from inbox upload is a different identifier. Only an
+approved video can be recorded as posted, and a rejected draft can be approved
+again from its detail page if you change your mind.
 
 ## Spending and worker behavior
 
-`config/dashboard.yaml` contains the daily dollar limit, number of jobs allowed
-in progress, job timeout and heartbeat timeout. Defaults are **$2 per UTC day**,
-**one job in progress**, and **60 minutes per job**.
+`config/dashboard.yaml` contains the daily dollar limit, number of heavy jobs
+allowed in progress, job timeout and heartbeat timeout. Defaults are **$2 per UTC
+day**, **one heavy job (writing or rendering) in progress**, and **60 minutes per
+job**. Finding stories and collecting statistics are light jobs: they can run
+while a video renders, one of each per channel at a time.
 
 Each paid job reserves a conservative allowance calculated from the configured
 models, token ceilings and optional voice characters. The actual amount is often

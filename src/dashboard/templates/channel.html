@@ -25,7 +25,8 @@
 <h2>{{ platform|title }}</h2>{% set matches = accounts|selectattr('platform','equalto',platform)|list %}
 {% if matches %}{% set account = matches[0] %}<h3>{{ account.display_name }}</h3>
 <p>{{ '{:,}'.format(account.followers) if account.followers is not none else '—' }} followers</p>
-<p class="meta">Last collected: {{ account.last_synced_at or 'Not yet collected' }}</p>{% if account.last_error %}<div class="alert">{{ account.last_error }}</div>{% endif %}
+<p class="meta">Last collected: {{ account.last_synced_at or 'Not yet collected' }}</p>
+<p class="meta">{{ account.token_note }}</p>{% if account.last_error %}<div class="alert">{{ account.last_error }}</div>{% endif %}
 <details>
 <summary>Disconnect account</summary>
 <p class="note">Removes this account's saved credentials and follower history from ShortsEngine. Remove the app in your platform settings too if you want to revoke its permissions.</p>

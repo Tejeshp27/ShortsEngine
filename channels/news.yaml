@@ -67,6 +67,17 @@ sources:
     category: "general"
     page_size: 30
 
+# Topic search on the dashboard's "New video" page. When you type a topic, the
+# channel's feeds above are filtered AND recent news across the web is searched,
+# so topics these feeds don't cover (e.g. "NVIDIA") can still be found. Free.
+# Remove this whole section to make the topic box filter the feeds only.
+search:
+  gdelt: true          # GDELT news search: free, no key; allows one search every 5 seconds
+  newsapi: true        # NewsAPI search: only used when NEWS_API_KEY is set (free plan: 100/day, development only)
+  hours_back: 48       # only show articles published in the last N hours
+  max_results: 30      # most web search results to show
+  cache_minutes: 15    # repeating a search within this time reuses saved results (instant, avoids rate limits)
+
 # Video production settings (Phase 2)
 video:
   # Which TTS engine to use:

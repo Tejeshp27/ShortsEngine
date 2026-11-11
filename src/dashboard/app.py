@@ -8,6 +8,8 @@
 #   /videos       → review queue (approve / reject in browser)
 #   /video/<id>   → detail view for one video
 #   /analytics    → views, likes, comments and shares
+# The control-center pages (money, library, new videos, jobs,
+# channel accounts) live in routes.py and are added in create_app().
 #
 # Privacy: every page is locked by default. A check runs before
 # EVERY request, and anything that is not the login page or the
@@ -32,7 +34,6 @@ import threading
 from contextlib import asynccontextmanager
 
 import uvicorn
-import yaml
 from dotenv import load_dotenv
 from fastapi import APIRouter, FastAPI, Form, HTTPException, Request
 from fastapi.responses import PlainTextResponse, RedirectResponse
@@ -95,15 +96,24 @@ router = APIRouter()
 
 @asynccontextmanager
 async def app_lifespan(app):
-    """Start daily statistics checks while app runs, then stop them on shutdown.
+    """
+    Run start-up and shut-down work for the dashboard.
 
-    FastAPI requires this context-manager pattern for startup and shutdown work.
-    The collector thread waits for network responses without blocking pages.
+    On start-up, a background thread begins collecting daily follower
+    and view statistics (unless DASHBOARD_AUTO_COLLECT=false). On
+    shut-down, the thread is told to stop.
+
+    FastAPI requires this "lifespan" pattern: everything before "yield"
+    runs at start-up, everything after it runs at shut-down. The
+    @asynccontextmanager decorator is what makes that pattern work.
+
+    Args:
+        app (FastAPI): The app (FastAPI passes it in; not used here).
     """
     from src.analytics.accounts import daily_collection_loop
     stopped = threading.Event()
-    thread = threading.Thread(target=daily_collection_loop, args=(stopped,), daemon=True)
     if os.getenv("DASHBOARD_AUTO_COLLECT", "true").lower() == "true":
+        thread = threading.Thread(target=daily_collection_loop, args=(stopped,), daemon=True)
         thread.start()
     try:
         yield
@@ -265,35 +275,6 @@ def get_client_address(request):
     return request.client.host
 
 
-def load_all_channels():
-    """
-    Read every channel config in the channels/ folder.
-
-    Returns:
-        list[dict]: One dict per channel with "key", "name", "niche",
-                    "platforms" and "writing_model", ready for display.
-    """
-    channels = []
-    folder = "channels"
-    if not os.path.isdir(folder):
-        return channels
-
-    for filename in sorted(os.listdir(folder)):
-        if not filename.endswith(".yaml"):
-            continue
-        with open(os.path.join(folder, filename), "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f) or {}
-        key = filename.replace(".yaml", "")
-        channels.append({
-            "key": key,
-            "name": config.get("name", key),
-            "niche": config.get("niche", "—"),
-            "platforms": ", ".join(config.get("platforms", [])),
-            "writing_model": config.get("models", {}).get("writing", "—"),
-        })
-    return channels
-
-
 def read_text_file(path):
     """
     Read a text file, or return "" if it does not exist.
@@ -430,13 +411,16 @@ def logout(request: Request, form_token: str = Form(default="")):
 
 @router.get("/")
 def dashboard_home(request: Request):
-    """Return the private overview, latest cumulative totals and history charts."""
-    from src.dashboard.data import overview, history_chart
+    """Overview page: totals for every channel, history charts and recent jobs."""
+    # Imported here because data.py and jobs.py import from this file's
+    # neighbours; importing them at the top would create an import loop.
+    from src.dashboard.data import history_chart, overview
     from src.dashboard.jobs import recent_jobs, recover_stale_jobs
     recover_stale_jobs()
     context = overview()
-    context.update({"followers_chart": history_chart("followers"),
-                    "views_chart": history_chart("views"), "jobs": recent_jobs(4)})
+    context["followers_chart"] = history_chart("followers")
+    context["views_chart"] = history_chart("views")
+    context["jobs"] = recent_jobs(4)
     return render_page(request, "home.html", context)
 
 
@@ -457,41 +441,76 @@ def videos_page(request: Request, status: str = "drafted"):
     })
 
 
+def publishing_history(video_id):
+    """
+    Get a video's confirmed public posts and its upload attempts.
+
+    Args:
+        video_id (int): The video.
+
+    Returns:
+        tuple: (list of platform_posts rows, list of publishing_deliveries rows)
+    """
+    from src.storage.database import get_connection
+    connection = get_connection()
+    try:
+        public_posts = connection.execute(
+            "SELECT * FROM platform_posts WHERE video_id = ?", (video_id,)
+        ).fetchall()
+        deliveries = connection.execute(
+            "SELECT * FROM publishing_deliveries WHERE video_id = ?", (video_id,)
+        ).fetchall()
+    finally:
+        connection.close()
+    return public_posts, deliveries
+
+
+def render_estimates(channel):
+    """
+    Work out what re-rendering a video would cost, with each voice option.
+
+    Args:
+        channel (str): The video's channel.
+
+    Returns:
+        tuple: (free-voice allowance, channel-voice allowance) in dollars,
+               or (None, None) if the channel's settings are missing.
+    """
+    from src.dashboard.jobs import estimate_job
+    from src.dashboard.settings import channel_config
+    try:
+        config = channel_config(channel)
+        free_voice = estimate_job(config, "render", {"free_voice": True, "animated": True})
+        channel_voice = estimate_job(config, "render", {"free_voice": False, "animated": True})
+    except (ValueError, KeyError):
+        return None, None
+    return free_voice, channel_voice
+
+
 @router.get("/video/{video_id}")
 def video_detail(request: Request, video_id: int):
-    """Detail view for one video: its script and approve / reject buttons."""
+    """Detail view for one video: player, script, review buttons and post history."""
+    from src.dashboard.media import relative_video
+
     video = get_video_by_id(video_id)
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    from src.dashboard.media import relative_video
-    from src.storage.database import get_connection
     relative = relative_video(video["video_path"])
-    connection = get_connection()
-    try:
-        public_posts = connection.execute("SELECT * FROM platform_posts WHERE video_id = ?", (video_id,)).fetchall()
-        deliveries = connection.execute("SELECT * FROM publishing_deliveries WHERE video_id = ?", (video_id,)).fetchall()
-    finally:
-        connection.close()
-
-    from src.dashboard.jobs import estimate_job
-    from src.dashboard.settings import channel_config
-    try:
-        config = channel_config(video["channel"])
-        render_estimate = estimate_job(config, "render", {"free_voice": True, "animated": True})
-        channel_estimate = estimate_job(config, "render", {"free_voice": False, "animated": True})
-    except (ValueError, KeyError):
-        render_estimate = None
-        channel_estimate = None
+    public_posts, deliveries = publishing_history(video_id)
+    render_estimate, channel_estimate = render_estimates(video["channel"])
 
     return render_page(request, "video_detail.html", {
         "video": video,
         "source_url": safe_web_link(video["story_url"]),
         "script_text": read_text_file(video["script_path"]),
-        "has_video_file": bool(relative), "relative": relative,
-        "public_posts": public_posts, "deliveries": deliveries,
+        "has_video_file": bool(relative),
+        "relative": relative,
+        "public_posts": public_posts,
+        "deliveries": deliveries,
         "submission_id": secrets.token_urlsafe(24),
-        "render_estimate": render_estimate, "channel_estimate": channel_estimate,
+        "render_estimate": render_estimate,
+        "channel_estimate": channel_estimate,
         "visual_plan": load_visual_plan(video["script_path"]),
     })
 
@@ -504,7 +523,11 @@ def approve(request: Request, video_id: int, notes: str = Form(default=""),
     if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
     ensure_review_available(video_id)
-    approve_video(video_id, notes=notes)
+    # approve_video() reports False if the video could not be changed
+    # (for example a job started in the meantime). Say so instead of
+    # silently returning to the queue.
+    if not approve_video(video_id, notes=notes):
+        raise ValueError("This video could not be approved. Reload it and check its status.")
     return RedirectResponse(url="/videos", status_code=303)
 
 
@@ -516,24 +539,38 @@ def reject(request: Request, video_id: int, notes: str = Form(default=""),
     if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
     ensure_review_available(video_id)
-    reject_video(video_id, notes=notes)
+    if not reject_video(video_id, notes=notes):
+        raise ValueError("This video could not be rejected. Reload it and check its status.")
     return RedirectResponse(url="/videos", status_code=303)
 
 
 def ensure_review_available(video_id):
-    """Refuse a review decision while video_id has work in progress or is posted."""
+    """
+    Refuse an approve/reject decision that is not allowed right now.
+
+    Args:
+        video_id (int): The video being reviewed.
+
+    Raises:
+        ValueError: If a job is still writing/rendering the video (its
+                    output isn't final yet), or it was already published.
+    """
     from src.storage.database import get_connection
     connection = get_connection()
     try:
-        active = connection.execute("SELECT 1 FROM jobs WHERE video_id=? AND status IN ('queued', 'running')",
-                                    (video_id,)).fetchone()
-        posted = connection.execute("SELECT 1 FROM platform_posts WHERE video_id=?", (video_id,)).fetchone()
-        if active:
-            raise ValueError("Wait for this video's job to finish before reviewing its output.")
-        if posted or get_video_by_id(video_id)["status"] == "posted":
-            raise ValueError("This video already has publishing history. Its review decision is locked.")
+        active = connection.execute(
+            "SELECT 1 FROM jobs WHERE video_id = ? AND status IN ('queued', 'running')", (video_id,)
+        ).fetchone()
+        posted = connection.execute(
+            "SELECT 1 FROM platform_posts WHERE video_id = ?", (video_id,)
+        ).fetchone()
     finally:
         connection.close()
+
+    if active:
+        raise ValueError("Wait for this video's job to finish before reviewing its output.")
+    if posted or get_video_by_id(video_id)["status"] == "posted":
+        raise ValueError("This video already has publishing history. Its review decision is locked.")
 
 
 @router.get("/analytics")
@@ -636,13 +673,38 @@ def create_app():
 
 
 async def input_error_page(request, error):
-    """Show a useful HTML error for request when user input raises ValueError."""
+    """
+    Show a friendly error page when a page raises ValueError.
+
+    Pages raise ValueError for problems the user can fix (a bad amount,
+    a job already running...). This turns the message into a page
+    instead of a crash.
+
+    Args:
+        request (Request): The current request.
+        error (ValueError): The problem.
+
+    Returns:
+        The error page, with status 400 ("bad request").
+    """
     from src.dashboard.accounts import safe_error
     return render_page(request, "error.html", {"message": safe_error(error)}, status_code=400)
 
 
 async def database_conflict_page(request, error):
-    """Explain duplicate records without exposing SQL or private submitted values."""
+    """
+    Show a friendly page when saving would break a database "unique" rule.
+
+    The raw database message is not shown, because it can include SQL
+    or values from the form.
+
+    Args:
+        request (Request): The current request.
+        error (sqlite3.IntegrityError): The database error.
+
+    Returns:
+        The error page, with status 409 ("conflict").
+    """
     return render_page(request, "error.html", {
         "message": "This record is already connected elsewhere or conflicts with saved data. Check the existing entry first."
     }, status_code=409)

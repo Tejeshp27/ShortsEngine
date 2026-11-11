@@ -529,12 +529,13 @@ def test_free_jobs_work_after_daily_spending_limit(portal):
 
 
 def test_concurrent_requests_reserve_only_one_worker_slot(portal):
-    """Two simultaneous browser requests cannot bypass the capacity guard."""
+    """Two simultaneous heavy jobs cannot bypass the capacity guard."""
     from concurrent.futures import ThreadPoolExecutor
     def submit(number):
         """Attempt a uniquely named request and return whether it was accepted."""
         try:
-            jobs.enqueue_job("news", "discover", {}, False, f"parallel-{number}")
+            jobs.enqueue_job("news", "generate", {"url": f"https://example.com/story-{number}"},
+                             True, f"parallel-{number}")
             return True
         except ValueError:
             return False
@@ -641,6 +642,7 @@ def test_record_public_post_updates_status_without_upload(portal):
     """Recording a manually published video updates its state without sending content."""
     client, root = portal
     video_id = draft(root)
+    approve_video(video_id)
     response = client.post(f"/video/{video_id}/published", data={"form_token": token(client),
         "platform": "tiktok", "post_id": "123456789", "confirmed": "true"}, follow_redirects=False)
     assert response.status_code == 303
@@ -673,3 +675,96 @@ def test_history_carries_latest_snapshot_forward(portal):
     assert chart["points"][0]["value"] is None
     assert chart["points"][-1]["value"] == 15
     assert chart["points"][-2]["value"] == 15
+
+
+# ---------------------------------------------------------------------------
+# Review fixes (November 2026)
+# ---------------------------------------------------------------------------
+
+def test_free_jobs_run_beside_a_heavy_job(portal):
+    """Finding stories and collecting statistics still work while a video renders."""
+    _, root = portal
+    video_id = draft(root)
+    jobs.enqueue_job("news", "render", {"video_id": video_id, "free_voice": True}, True, "busy-render")
+    jobs.enqueue_job("news", "discover", {}, False, "find-while-rendering")
+    jobs.enqueue_job("news", "sync", {}, False, "sync-while-rendering")
+    with pytest.raises(ValueError, match="already being written or rendered"):
+        jobs.enqueue_job("news", "generate", {"url": "https://example.com/other"}, True, "second-heavy")
+    with pytest.raises(ValueError, match="already in progress"):
+        jobs.enqueue_job("news", "discover", {}, False, "second-find")
+
+
+def test_rejected_video_can_be_approved_again(portal):
+    """Rejecting is not final: a rejected draft can be approved later."""
+    from src.storage.queries import reject_video
+    _, root = portal
+    video_id = draft(root)
+    assert reject_video(video_id) is True
+    assert get_video_by_id(video_id)["status"] == "failed"
+    assert approve_video(video_id) is True
+    assert get_video_by_id(video_id)["status"] == "approved"
+
+
+def test_approve_reports_when_nothing_changed(portal):
+    """approve_video returns False instead of silently ignoring a posted video."""
+    _, root = portal
+    video_id = draft(root)
+    execute("UPDATE videos SET status = 'posted' WHERE id = ?", (video_id,))
+    assert approve_video(video_id) is False
+
+
+def test_unapproved_video_cannot_be_recorded_as_posted(portal):
+    """A draft that was never reviewed cannot be marked as publicly posted."""
+    client, root = portal
+    video_id = draft(root)
+    response = client.post(f"/video/{video_id}/published", data={"form_token": token(client),
+        "platform": "tiktok", "post_id": "123456789", "confirmed": "true"})
+    assert response.status_code == 400
+    assert "Approve this video" in response.text
+    assert get_video_by_id(video_id)["status"] == "drafted"
+    assert execute("SELECT * FROM platform_posts") == []
+
+
+def test_old_local_times_are_converted_to_utc(portal):
+    """Startup converts old timezone-less timestamps so sorting and charts agree."""
+    _, root = portal
+    video_id = draft(root)
+    execute("UPDATE videos SET created_at = '2026-11-09T23:44:21' WHERE id = ?", (video_id,))
+    create_tables()
+    saved = get_video_by_id(video_id)["created_at"]
+    assert saved.endswith("+00:00")
+    assert len(saved) == 25
+    create_tables()
+    assert get_video_by_id(video_id)["created_at"] == saved
+
+
+def test_pasted_token_shows_unknown_expiry(portal):
+    """A token pasted by hand is flagged on the channel page; a login token is not."""
+    client, _ = portal
+    connect()
+    account = data.account_rows("news")[0]
+    assert account["token_expires_at"] is None
+    assert "expiry unknown" in account["token_note"]
+    assert "expiry unknown" in client.get("/channels/news").text
+    accounts.save_connection("news", "tiktok", {"id": "person-1", "name": "Test", "followers": 5},
+                             {"access_token": "token", "expires_at": time.time() + 3600})
+    assert "renews automatically" in data.account_rows("news")[0]["token_note"]
+
+
+def test_topic_search_adds_web_news_to_feed_matches(portal, monkeypatch):
+    """A topic the feeds don't mention is still found through web news search."""
+    feed = [{"title": "Election update", "url": "https://feed.example/1", "source": "NPR",
+             "summary": "Votes counted", "published_ts": 0.0}]
+    found = [{"title": "Nvidia shares rise", "url": "https://web.example/2", "source": "example.com",
+              "summary": "", "published_ts": time.time()}]
+    monkeypatch.setattr("src.main.get_candidate_stories", Mock(return_value=feed))
+    search = Mock(return_value=(found, []))
+    monkeypatch.setattr("src.sources.news_search.search_news", search)
+    job_id, _ = jobs.enqueue_job("news", "discover", {"topic": "NVIDIA"}, False, "topic-search")
+    worker.run_job(job_id)
+    job = jobs.job_record(job_id)
+    assert job["status"] == "succeeded", job["error"]
+    assert "0 from this channel's feeds and 1 from web news search" in job["result"]["reason"]
+    story = worker.saved_story("news", job["result"]["story_ids"][0])
+    assert story["url"] == "https://web.example/2"
+    assert story["published"].endswith("+00:00")

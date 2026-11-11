@@ -38,6 +38,17 @@
 <button class="btn btn-red">Reject draft</button>
 </form>
 </details>{% endif %}
+{% if video.status == 'failed' %}<details>
+<summary>Changed your mind? Approve this rejected draft</summary>
+<form method="post" action="/video/{{ video.id }}/approve">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<div class="form-group">
+<label for="reapprove-notes">Review notes (optional)</label>
+<input id="reapprove-notes" name="notes" maxlength="2000">
+</div>
+<button class="btn btn-primary">Approve {{ 'video' if has_video_file else 'script' }}</button>
+</form>
+</details>{% endif %}
 {% if video.status != 'posted' and render_estimate is not none %}<details>
 <summary>{{ 'Render again' if has_video_file else 'Make an animated video' }}</summary>
 <p class="note">The finished video returns to the review queue. Re-rendering replaces the current MP4.</p>
@@ -67,7 +78,7 @@
 <p class="note">Record a post after you publish it in the platform app. A TikTok inbox upload is not a public post. These IDs let the daily collector find the video's statistics.</p>
 {% for post in public_posts %}<p>{{ post.platform|title }} · {{ post.post_id }} <span class="badge">Confirmed public</span>
 </p>{% endfor %}
-<details>
+{% if video.status in ['approved', 'posted'] %}<details>
 <summary>Record an already-published post</summary>
 <form method="post" action="/video/{{ video.id }}/published">
 <input type="hidden" name="form_token" value="{{ form_token }}">
@@ -88,7 +99,7 @@
 <input type="checkbox" name="confirmed" value="true" required> I have already published this video and checked this post ID.</label>
 <button class="btn">Save public post ID</button>
 </form>
-</details>
+</details>{% else %}<p class="muted">Approve this video before recording a public post.</p>{% endif %}
 {% if deliveries %}<details>
 <summary>Upload history</summary>{% for delivery in deliveries %}<p class="meta">{{ delivery.platform|title }} · {{ delivery.status }} · {{ delivery.post_id or 'No returned ID' }}</p>{% endfor %}</details>{% endif %}</section>
 {% if visual_plan %}<details class="panel">

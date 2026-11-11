@@ -116,36 +116,51 @@ def approve_video(video_id, notes=""):
     """
     Mark a video as approved and record the reviewer's notes.
 
+    A rejected video ("failed") may be approved again if you change your
+    mind. A posted video, or one a job is still writing/rendering, is
+    left unchanged.
+
     Args:
         video_id (int): The video row to approve.
         notes (str): Any notes the reviewer left (optional).
+
+    Returns:
+        bool: True if the video was approved, False if it was left unchanged.
     """
     conn = get_connection()
-    conn.execute(
+    cursor = conn.execute(
         """
         UPDATE videos
         SET status = 'approved',
             reviewer_notes = ?,
             approved_at = ?
-        WHERE id = ? AND status IN ('drafted', 'approved')
+        WHERE id = ? AND status IN ('drafted', 'approved', 'failed')
           AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id = videos.id AND status IN ('queued', 'running'))
         """,
         (notes, datetime.now(timezone.utc).isoformat(timespec="seconds"), video_id),
     )
     conn.commit()
     conn.close()
+    # rowcount is how many rows the UPDATE changed: 1 or 0 here.
+    return cursor.rowcount == 1
 
 
 def reject_video(video_id, notes=""):
     """
     Mark a video as rejected and record the reviewer's notes.
 
+    A posted video, or one a job is still writing/rendering, is left
+    unchanged.
+
     Args:
         video_id (int): The video row to reject.
         notes (str): The reason for rejection (optional but helpful).
+
+    Returns:
+        bool: True if the video was rejected, False if it was left unchanged.
     """
     conn = get_connection()
-    conn.execute(
+    cursor = conn.execute(
         """
         UPDATE videos
         SET status = 'failed',
@@ -158,6 +173,7 @@ def reject_video(video_id, notes=""):
     )
     conn.commit()
     conn.close()
+    return cursor.rowcount == 1
 
 
 def mark_posted(video_id):
