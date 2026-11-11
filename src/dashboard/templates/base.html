@@ -1,44 +1,48 @@
-{# =============================================================
-   templates/base.html — the frame every dashboard page sits in
-
-   Other templates "extend" this one and fill in the blocks:
-     title   — the text in the browser tab
-     content — the page itself
-   Jinja2 automatically escapes every {{ value }}, so text from
-   the database (story titles, scripts) can never run as HTML.
-   ============================================================= #}
+{# Shared private workspace frame. All assets are local; text is auto-escaped. #}
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
-  {# Ask search engines not to list this private site. #}
+<meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
-  <title>{% block title %}Dashboard{% endblock %} — ShortsEngine</title>
+  <title>{% block title %}Overview{% endblock %} — ShortsEngine</title>
   <link rel="stylesheet" href="/static/style.css">
+  {% block head %}{% endblock %}
 </head>
 <body>
-  {% if username %}
-  <nav>
-    <a href="/">Dashboard</a>
-    <a href="/channels">Channels</a>
-    <a href="/videos">Review Queue</a>
-    <a href="/videos?status=approved">Approved</a>
-    <a href="/videos?status=posted">Posted</a>
-    <a href="/analytics">Analytics</a>
-    <span class="nav-user">
-      <span class="meta">{{ username }}</span>
-      {# Logging out is a form, not a link, so that another website
-         cannot log you out just by linking to it. #}
-      <form class="inline" method="post" action="/logout">
-        <input type="hidden" name="form_token" value="{{ form_token }}">
-        <button class="btn btn-plain" type="submit">Log out</button>
-      </form>
-    </span>
+{% if username %}
+<aside class="sidebar">
+  <a class="brand" href="/">
+<span class="brand-mark">SE</span> ShortsEngine</a>
+  <div class="nav-label">Workspace</div>
+  <nav class="nav-links" aria-label="Main navigation">
+    {% for path, label in [('/', 'Overview'), ('/channels', 'Channels'), ('/library', 'Video library'), ('/videos', 'Review queue'), ('/money', 'Money'), ('/analytics', 'Analytics'), ('/jobs', 'Activity'), ('/new', 'New video')] %}
+    <a href="{{ path }}" {% if request.url.path == path or (path != '/' and request.url.path.startswith(path + '/')) %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
   </nav>
-  {% endif %}
-  <div class="container">
-    {% block content %}{% endblock %}
-  </div>
+  <div class="nav-user">
+<div class="meta">Signed in as {{ username }}</div>
+<form class="inline" method="post" action="/logout">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<button class="btn btn-plain" type="submit">Log out</button>
+</form>
+</div>
+</aside>
+<div class="workspace">
+  <header class="topbar">
+<span>Content workspace</span>
+<span class="private-label">Private workspace</span>
+    <form class="inline" method="post" action="/logout">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<button class="btn btn-plain" type="submit">Log out</button>
+</form>
+  </header>
+  <main class="container" id="main">{% block content %}{% endblock %}</main>
+</div>
+{% else %}
+<main class="login-container">{% block login_content %}{% endblock %}{% if self.login_content()|trim == '' %}{{ self.content() }}{% endif %}</main>
+{% endif %}
+<script src="/static/dashboard.js" defer>
+</script>
 </body>
 </html>

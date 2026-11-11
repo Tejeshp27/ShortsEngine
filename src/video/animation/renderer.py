@@ -321,6 +321,15 @@ def render_animated_video(script_path, channel_config, audio_path, word_timings,
         encoder.wait()
 
     finally:
+        # A browser job can time out or fail while drawing. Close the pipe and
+        # stop FFmpeg too, so a failed job does not leave a hidden encoder alive.
+        if encoder.poll() is None:
+            encoder.terminate()
+            try:
+                encoder.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                encoder.kill()
+                encoder.wait()
         if reader is not None:
             reader.close()
         log_file.close()

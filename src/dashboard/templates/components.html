@@ -1,0 +1,116 @@
+{# Reusable summary rows, channel cards, charts and recent-video tables. #}
+{% macro metric(label, value, detail='', money=false) %}
+<div class="card">
+<div class="card-label">{{ label }}</div>
+<div class="card-value">{% if value is none %}—{% elif money %}${{ '%.2f'|format(value) }}{% else %}{{ '{:,}'.format(value) }}{% endif %}</div>
+<div class="card-detail">{{ detail }}</div>
+</div>
+{% endmacro %}
+{% macro totals(values) %}
+<div class="cards">
+{{ metric('Followers', values.followers, 'Latest connected-account counts') }}
+{{ metric('Video views', values.views, 'Latest recorded totals') }}
+{{ metric('Videos made', values.made, values.scripts|string + ' scripts in the library') }}
+{{ metric('Videos published', values.posted, 'Confirmed public posts') }}
+{{ metric('Money received', values.income, 'Manually recorded payouts', true) }}
+{{ metric('Recorded spending', values.expense, 'API estimates + added expenses', true) }}
+{{ metric('Recorded profit', values.profit, 'Received minus recorded spending', true) }}
+{{ metric('Awaiting review', values.drafted, 'Your approval is required') }}
+</div>
+{% endmacro %}
+{% macro chart(title, chart, empty_text) %}
+<section class="panel">
+<h2>{{ title }}</h2>
+{% if chart.has_data %}
+<div class="meta">Cumulative total · scale to {{ '{:,}'.format(chart.maximum) }}</div>
+<svg class="chart" viewBox="0 0 560 150" role="img" aria-label="{{ title }} over the last 30 days">
+<line x1="12" y1="130" x2="548" y2="130"/>
+<line x1="12" y1="75" x2="548" y2="75"/>
+<line x1="12" y1="20" x2="548" y2="20"/>
+<polyline points="{{ chart.coordinates }}"/>
+</svg>
+<div class="chart-labels">
+<span>{{ chart.start }}</span>
+<span>{{ chart.end }}</span>
+</div>
+<details>
+<summary>View daily values</summary>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Total</th>
+</tr>
+</thead>
+<tbody>{% for point in chart.points %}<tr>
+<td>{{ point.day }}</td>
+<td>{{ point.value if point.value is not none else 'Not collected' }}</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>
+</details>
+{% else %}<div class="chart-empty">No history yet<span>{{ empty_text }}</span>
+</div>{% endif %}
+</section>
+{% endmacro %}
+{% macro channel_card(channel) %}
+<article class="panel channel-card">
+<div class="eyebrow">Channel</div>
+<h3>
+<a href="/channels/{{ channel.key }}">{{ channel.name }} ↗</a>
+</h3>
+<p class="niche">{{ channel.niche }}</p>
+<div class="channel-stats">{% for label,key in [('Followers','followers'),('Views','views'),('Videos','made'),('Published','posted')] %}<div>
+<strong>{{ '{:,}'.format(channel.totals[key]) if channel.totals[key] is not none else '—' }}</strong>
+<span>{{ label }}</span>
+</div>{% endfor %}<div>
+<strong>${{ '%.2f'|format(channel.totals.income) }}</strong>
+<span>Received</span>
+</div>
+<div>
+<strong>${{ '%.2f'|format(channel.totals.expense) }}</strong>
+<span>Spent</span>
+</div>
+<div>
+<strong>${{ '%.2f'|format(channel.totals.profit) }}</strong>
+<span>Profit</span>
+</div>
+</div>
+<div class="account-line">{% for platform in ['tiktok','instagram'] %}{% set connected = channel.accounts|selectattr('platform','equalto',platform)|list %}<span>{{ platform|title }} · {{ 'Connected' if connected else 'Not connected' }}</span>{% endfor %}</div>
+{% if channel.error %}<p class="note">{{ channel.error }}</p>{% endif %}</article>
+{% endmacro %}
+{% macro video_table(videos) %}
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Video</th>
+<th>Channel</th>
+<th>Status</th>
+<th>Views</th>
+<th>Cost</th>
+<th>Created</th>
+</tr>
+</thead>
+<tbody>
+{% for video in videos %}<tr>
+<td>
+<a href="/video/{{ video.id }}">{{ video.story_title }}</a>
+</td>
+<td>{{ video.channel }}</td>
+<td>
+<span class="badge badge-{{ video.status }}">{{ video.status }}</span>
+</td>
+<td>{{ '{:,}'.format(video.views) if video.views is defined and video.views is not none else '—' }}</td>
+<td>${{ '%.3f'|format(video.total_cost_usd) }}</td>
+<td class="meta">{{ video.created_at[:10] }}</td>
+</tr>
+{% else %}<tr>
+<td colspan="6" class="empty">
+<strong>No videos here yet</strong>Create a sourced draft to get started.</td>
+</tr>{% endfor %}
+</tbody>
+</table>
+</div>
+{% endmacro %}

@@ -1,0 +1,122 @@
+{# Manual payouts/expenses and a ledger that avoids duplicate API charges. #}
+{% extends 'base.html' %}{% import 'components.html' as ui %}{% block title %}Money{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">Income & expenses</div>
+<h1>Money</h1>
+<p>Record payouts, keep track of spending, and see what's left.</p>
+</div>
+</div>
+<form class="filter-form" method="get">
+<div class="form-group">
+<label for="filter-channel">Channel</label>
+<select id="filter-channel" name="channel">
+<option value="">All channels</option>{% for item in channels %}<option value="{{ item.key }}" {% if channel == item.key %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
+</div>
+<button class="btn">Apply</button>
+</form>
+<div class="cards">{{ ui.metric('Received', totals.income, 'Recorded payouts', true) }}{{ ui.metric('Spent', totals.expense, 'Estimated API costs + expenses', true) }}{{ ui.metric('Profit', totals.profit, 'Received minus spending', true) }}{{ ui.metric('Entries', entries|length, 'Includes earlier saved video costs') }}</div>
+<div class="notice subtle">Amounts are recorded in USD. API costs are estimates, including voice characters. An “uncertain” charge means a request ended without a confirmed usage response. Earlier untracked costs can be added as expenses.</div>
+<div class="split">
+<section class="panel">
+<h2>Add a payout or expense</h2>
+<form method="post" action="/money">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}">
+<div class="form-row">
+<div class="form-group">
+<label for="entry-kind">Type</label>
+<select id="entry-kind" name="kind">
+<option value="income">Payout received</option>
+<option value="expense">Expense paid</option>
+</select>
+</div>
+<div class="form-group">
+<label for="entry-channel">Channel</label>
+<select id="entry-channel" name="channel" required>{% for item in channels %}<option value="{{ item.key }}" {% if channel == item.key %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
+</div>
+</div>
+<div class="form-row">
+<div class="form-group">
+<label for="amount">Amount (USD)</label>
+<input id="amount" type="number" name="amount" step="0.01" min="0.01" max="1000000" placeholder="0.00" required>
+</div>
+<div class="form-group">
+<label for="entry-date">Date received or paid</label>
+<input id="entry-date" type="date" name="entry_date" value="{{ today }}" required>
+</div>
+</div>
+<div class="form-group">
+<label for="platform">Platform / source</label>
+<select id="platform" name="platform">
+<option value="tiktok">TikTok</option>
+<option value="instagram">Instagram</option>
+<option value="other">Other / production costs</option>
+</select>
+</div>
+<div class="form-group">
+<label for="note">Note (optional)</label>
+<input id="note" name="note" maxlength="1000" placeholder="e.g. October creator payout">
+</div>
+<button class="btn btn-primary">Save entry</button>
+</form>
+</section>
+<section class="panel">
+<h2>By month</h2>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Month</th>
+<th>Received</th>
+<th>Spent</th>
+<th>Profit</th>
+</tr>
+</thead>
+<tbody>{% for month in months %}<tr>
+<td>{{ month.month }}</td>
+<td>${{ '%.2f'|format(month.income) }}</td>
+<td>${{ '%.2f'|format(month.expense) }}</td>
+<td>${{ '%.2f'|format(month.profit) }}</td>
+</tr>{% else %}<tr>
+<td colspan="4" class="empty">No recorded money yet.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>
+</section>
+</div>
+<div class="section-heading">
+<h2>Ledger</h2>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>Date</th>
+<th>Channel</th>
+<th>Details</th>
+<th>Received</th>
+<th>Spent</th>
+<th>
+</th>
+</tr>
+</thead>
+<tbody>{% for entry in entries %}<tr>
+<td>{{ entry.day }}</td>
+<td>{{ entry.channel }}</td>
+<td>{{ entry.note or entry.kind }} {% if entry.state != 'recorded' %}<span class="badge">{{ entry.state }}</span>{% endif %}</td>
+<td>${{ '%.2f'|format(entry.income) }}</td>
+<td>${{ '%.4f'|format(entry.expense) }}</td>
+<td>{% if entry.kind in ['income','expense'] %}<details>
+<summary>Remove</summary>
+<form method="post" action="/money/{{ entry.id }}/delete">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<button class="btn btn-red">Delete this manual entry</button>
+</form>
+</details>{% endif %}</td>
+</tr>{% else %}<tr>
+<td colspan="6" class="empty">Your first payout or cost will appear here.</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>
+{% endblock %}

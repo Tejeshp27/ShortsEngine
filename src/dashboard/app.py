@@ -26,6 +26,10 @@
 
 import json
 import os
+import secrets
+import sqlite3
+import threading
+from contextlib import asynccontextmanager
 
 import uvicorn
 import yaml
@@ -69,8 +73,8 @@ STATIC_FOLDER = os.path.join(DASHBOARD_FOLDER, "static")
 # possible: everything not listed here is private.
 PUBLIC_PATHS = ["/login"]
 
-# Folders whose files are served without a login. Only the stylesheet
-# lives here — never put anything private in static/.
+# Folders whose files are served without a login. Only public styles and
+# browser JavaScript live here — never put anything private in static/.
 PUBLIC_PREFIXES = ["/static/"]
 
 # The session secret must be long enough that it cannot be guessed.
@@ -87,6 +91,24 @@ templates = Jinja2Templates(directory=TEMPLATES_FOLDER)
 # A router collects the page functions below. create_app() attaches
 # them to the app.
 router = APIRouter()
+
+
+@asynccontextmanager
+async def app_lifespan(app):
+    """Start daily statistics checks while app runs, then stop them on shutdown.
+
+    FastAPI requires this context-manager pattern for startup and shutdown work.
+    The collector thread waits for network responses without blocking pages.
+    """
+    from src.analytics.accounts import daily_collection_loop
+    stopped = threading.Event()
+    thread = threading.Thread(target=daily_collection_loop, args=(stopped,), daemon=True)
+    if os.getenv("DASHBOARD_AUTO_COLLECT", "true").lower() == "true":
+        thread.start()
+    try:
+        yield
+    finally:
+        stopped.set()
 
 
 # ---------------------------------------------------------------------------
@@ -282,9 +304,11 @@ def read_text_file(path):
     Returns:
         str: The file's contents, or "" if there is no such file.
     """
-    if not path or not os.path.exists(path):
+    from src.dashboard.media import output_file
+    safe_path = output_file(path, ".md")
+    if safe_path is None:
         return ""
-    with open(path, "r", encoding="utf-8") as f:
+    with open(safe_path, "r", encoding="utf-8") as f:
         return f.read()
 
 
@@ -302,14 +326,23 @@ def load_visual_plan(script_path):
     if not script_path:
         return []
     plan_path = os.path.splitext(script_path)[0] + "_visuals.json"
-    if not os.path.exists(plan_path):
+    from src.dashboard.media import output_file
+    plan_path = output_file(plan_path, ".json")
+    if plan_path is None:
         return []
 
-    with open(plan_path, "r", encoding="utf-8") as f:
-        plan = json.load(f)
+    try:
+        with open(plan_path, "r", encoding="utf-8") as f:
+            plan = json.load(f)
+    except (ValueError, OSError):
+        return []
+    if not isinstance(plan, list):
+        return []
 
     rows = []
     for item in plan:
+        if not isinstance(item, dict):
+            continue
         rows.append({
             "segment": item.get("segment", "")[:60],
             "visual_type": item.get("visual_type", "text_card"),
@@ -397,36 +430,21 @@ def logout(request: Request, form_token: str = Form(default="")):
 
 @router.get("/")
 def dashboard_home(request: Request):
-    """Main dashboard: number cards and a table of the newest videos."""
-    all_videos = get_all_videos()
-
-    drafted = 0
-    approved = 0
-    posted = 0
-    total_cost = 0.0
-    for video in all_videos:
-        if video["status"] == "drafted":
-            drafted += 1
-        elif video["status"] == "approved":
-            approved += 1
-        elif video["status"] == "posted":
-            posted += 1
-        total_cost += video["total_cost_usd"]
-
-    return render_page(request, "home.html", {
-        "total_videos": len(all_videos),
-        "drafted": drafted,
-        "approved": approved,
-        "posted": posted,
-        "total_cost": total_cost,
-        "recent_videos": all_videos[:20],
-    })
+    """Return the private overview, latest cumulative totals and history charts."""
+    from src.dashboard.data import overview, history_chart
+    from src.dashboard.jobs import recent_jobs, recover_stale_jobs
+    recover_stale_jobs()
+    context = overview()
+    context.update({"followers_chart": history_chart("followers"),
+                    "views_chart": history_chart("views"), "jobs": recent_jobs(4)})
+    return render_page(request, "home.html", context)
 
 
 @router.get("/channels")
 def channels_page(request: Request):
     """List every channel config found in the channels/ folder."""
-    return render_page(request, "channels.html", {"channels": load_all_channels()})
+    from src.dashboard.data import overview
+    return render_page(request, "channels.html", overview())
 
 
 @router.get("/videos")
@@ -446,13 +464,34 @@ def video_detail(request: Request, video_id: int):
     if not video:
         raise HTTPException(status_code=404, detail="Video not found")
 
-    has_video_file = bool(video["video_path"]) and os.path.exists(video["video_path"])
+    from src.dashboard.media import relative_video
+    from src.storage.database import get_connection
+    relative = relative_video(video["video_path"])
+    connection = get_connection()
+    try:
+        public_posts = connection.execute("SELECT * FROM platform_posts WHERE video_id = ?", (video_id,)).fetchall()
+        deliveries = connection.execute("SELECT * FROM publishing_deliveries WHERE video_id = ?", (video_id,)).fetchall()
+    finally:
+        connection.close()
+
+    from src.dashboard.jobs import estimate_job
+    from src.dashboard.settings import channel_config
+    try:
+        config = channel_config(video["channel"])
+        render_estimate = estimate_job(config, "render", {"free_voice": True, "animated": True})
+        channel_estimate = estimate_job(config, "render", {"free_voice": False, "animated": True})
+    except (ValueError, KeyError):
+        render_estimate = None
+        channel_estimate = None
 
     return render_page(request, "video_detail.html", {
         "video": video,
         "source_url": safe_web_link(video["story_url"]),
         "script_text": read_text_file(video["script_path"]),
-        "has_video_file": has_video_file,
+        "has_video_file": bool(relative), "relative": relative,
+        "public_posts": public_posts, "deliveries": deliveries,
+        "submission_id": secrets.token_urlsafe(24),
+        "render_estimate": render_estimate, "channel_estimate": channel_estimate,
         "visual_plan": load_visual_plan(video["script_path"]),
     })
 
@@ -464,6 +503,7 @@ def approve(request: Request, video_id: int, notes: str = Form(default=""),
     require_form_token(request, form_token)
     if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
+    ensure_review_available(video_id)
     approve_video(video_id, notes=notes)
     return RedirectResponse(url="/videos", status_code=303)
 
@@ -475,8 +515,25 @@ def reject(request: Request, video_id: int, notes: str = Form(default=""),
     require_form_token(request, form_token)
     if not get_video_by_id(video_id):
         raise HTTPException(status_code=404, detail="Video not found")
+    ensure_review_available(video_id)
     reject_video(video_id, notes=notes)
     return RedirectResponse(url="/videos", status_code=303)
+
+
+def ensure_review_available(video_id):
+    """Refuse a review decision while video_id has work in progress or is posted."""
+    from src.storage.database import get_connection
+    connection = get_connection()
+    try:
+        active = connection.execute("SELECT 1 FROM jobs WHERE video_id=? AND status IN ('queued', 'running')",
+                                    (video_id,)).fetchone()
+        posted = connection.execute("SELECT 1 FROM platform_posts WHERE video_id=?", (video_id,)).fetchone()
+        if active:
+            raise ValueError("Wait for this video's job to finish before reviewing its output.")
+        if posted or get_video_by_id(video_id)["status"] == "posted":
+            raise ValueError("This video already has publishing history. Its review decision is locked.")
+    finally:
+        connection.close()
 
 
 @router.get("/analytics")
@@ -548,7 +605,7 @@ def create_app():
 
     # The automatic API documentation pages are switched off: this is a
     # private dashboard, not a public API.
-    app = FastAPI(title="ShortsEngine Dashboard",
+    app = FastAPI(title="ShortsEngine Dashboard", lifespan=app_lifespan,
                   docs_url=None, redoc_url=None, openapi_url=None)
 
     # Middleware runs in the reverse of the order it is added: the LAST
@@ -571,7 +628,24 @@ def create_app():
 
     app.mount("/static", StaticFiles(directory=STATIC_FOLDER), name="static")
     app.include_router(router)
+    from src.dashboard.routes import router as control_router
+    app.include_router(control_router)
+    app.add_exception_handler(ValueError, input_error_page)
+    app.add_exception_handler(sqlite3.IntegrityError, database_conflict_page)
     return app
+
+
+async def input_error_page(request, error):
+    """Show a useful HTML error for request when user input raises ValueError."""
+    from src.dashboard.accounts import safe_error
+    return render_page(request, "error.html", {"message": safe_error(error)}, status_code=400)
+
+
+async def database_conflict_page(request, error):
+    """Explain duplicate records without exposing SQL or private submitted values."""
+    return render_page(request, "error.html", {
+        "message": "This record is already connected elsewhere or conflicts with saved data. Check the existing entry first."
+    }, status_code=409)
 
 
 def main():

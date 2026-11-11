@@ -25,6 +25,11 @@ models:
   writing: "claude-sonnet-4-6"   # better writer: produces the final script
 
 # Settings for each AI step
+publishing:
+  use_legacy_env_tokens: false  # use this channel's verified encrypted connection, not global tokens
+  hashtags: ["#news", "#politics", "#currentevents", "#explained"]  # captions for this channel only
+
+# Settings for each AI step
 llm:
   ranking_max_tokens: 2000       # hard cap on how much the ranking model may write
   writing_max_tokens: 6000       # hard cap on how much the writing model may write
@@ -81,6 +86,8 @@ video:
   # Use a voice name (e.g. "Rachel", "Josh") or paste a voice ID from your account.
   # Browse voices at elevenlabs.io/voice-library.
   elevenlabs_voice: "onwK4e9ZLuTAKqWW03F9"  # Daniel - Steady Broadcaster
+  elevenlabs_model: "eleven_turbo_v2_5"   # voice model sent to ElevenLabs
+  elevenlabs_usd_per_1000_chars: 0.30     # conservative estimate; adjust to your plan's actual rate
 
   # Kokoro voice — used when tts_provider = "kokoro".
   # American female: af_heart (warm), af_sarah (clear), af_bella (expressive)

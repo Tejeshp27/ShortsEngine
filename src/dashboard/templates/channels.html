@@ -1,25 +1,13 @@
-{# templates/channels.html — one row per channel config file. #}
-{% extends "base.html" %}
-{% block title %}Channels{% endblock %}
-{% block content %}
-<h1>Channels</h1>
-<div class="table-wrap">
-<table>
-  <thead><tr><th>Key</th><th>Name</th><th>Niche</th><th>Platforms</th><th>Writing model</th></tr></thead>
-  <tbody>
-    {% for channel in channels %}
-    <tr>
-      <td>{{ channel.key }}</td>
-      <td>{{ channel.name }}</td>
-      <td>{{ channel.niche }}</td>
-      <td>{{ channel.platforms }}</td>
-      <td>{{ channel.writing_model }}</td>
-    </tr>
-    {% else %}
-    <tr><td colspan="5" class="empty">No channels found</td></tr>
-    {% endfor %}
-  </tbody>
-</table>
+{# Per-channel overview and account connection status. #}
+{% extends 'base.html' %}{% import 'components.html' as ui %}
+{% block title %}Channels{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">Accounts & content</div>
+<h1>Your channels</h1>
+<p>Each channel has its own sources, voice, accounts, and performance.</p>
 </div>
-<p class="note">To add a channel, create a new YAML file in the channels/ folder.</p>
+</div>
+<div class="channel-grid">{% for channel in channel_cards %}{{ ui.channel_card(channel) }}{% else %}<div class="panel empty">No channels configured yet.</div>{% endfor %}</div>
+<p class="footer-note">Add a YAML file in channels/ to create another channel. Channel settings stay in one place.</p>
 {% endblock %}

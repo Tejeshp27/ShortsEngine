@@ -190,7 +190,8 @@ async def _synthesize(text, voice, audio_path, timing_path):
         json.dump(word_boundaries, f, indent=2)
 
 
-def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
+def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False,
+                  cost_tracker=None, voice_settings=None):
     """
     Generate (or load from cache) a voiceover audio file and word-timing data.
 
@@ -211,6 +212,8 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
                             Defaults to "edge".
         dry_run (bool): If True, skip the actual TTS call and return
                         placeholder paths.
+        cost_tracker: Optional database tracker for a paid voice call.
+        voice_settings (dict or None): Per-channel model and character price.
 
     Returns:
         tuple[str, list[dict]]:
@@ -225,7 +228,14 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
     """
     # kokoro and macos produce WAV; edge-tts and elevenlabs produce MP3.
     extension = ".wav" if tts_provider in ("kokoro", "macos") else ".mp3"
-    audio_path, timing_path = _audio_cache_path(script_path, voice, extension)
+    voice_settings = voice_settings or {}
+    # Preserve the existing default-model cache so this upgrade does not pay
+    # to regenerate old voiceovers. Other models receive a distinct cache key.
+    cache_voice = voice
+    model = voice_settings.get("elevenlabs_model", "eleven_turbo_v2_5")
+    if tts_provider == "elevenlabs" and model != "eleven_turbo_v2_5":
+        cache_voice = f"{tts_provider}:{voice}:{model}"
+    audio_path, timing_path = _audio_cache_path(script_path, cache_voice, extension)
 
     # Already cached? Use the saved files.
     if os.path.exists(audio_path) and os.path.exists(timing_path):
@@ -258,7 +268,8 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False):
     elif tts_provider == "elevenlabs":
         # ElevenLabs — best quality, paid API; requires ELEVENLABS_API_KEY in .env.
         from src.video.tts_elevenlabs import synthesize_elevenlabs
-        synthesize_elevenlabs(text, voice, audio_path, timing_path)
+        synthesize_elevenlabs(text, voice, audio_path, timing_path,
+                             cost_tracker=cost_tracker, settings=voice_settings)
 
     else:
         # edge-tts — free Microsoft Edge neural TTS (online).

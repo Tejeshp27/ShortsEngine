@@ -1,70 +1,113 @@
-{# templates/video_detail.html — one video: details, script, approve / reject. #}
-{% extends "base.html" %}
-{% block title %}{{ video.story_title[:40] }}{% endblock %}
-{% block content %}
+{# Review one script/video, render it, and record already-published platform IDs. #}
+{% extends 'base.html' %}{% block title %}{{ video.story_title[:50] }}{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">
+<a href="/library">Video library</a> / {{ video.channel }}</div>
 <h1>{{ video.story_title }}</h1>
-<p class="meta">
-  Channel: {{ video.channel }} &nbsp;|&nbsp;
-  Status: <span class="badge badge-{{ video.status }}">{{ video.status }}</span> &nbsp;|&nbsp;
-  Cost: ${{ "%.4f"|format(video.total_cost_usd) }} &nbsp;|&nbsp;
-  Created: {{ video.created_at[:10] }}
-</p>
-
-{% if source_url %}
-<p class="note"><a href="{{ source_url }}" target="_blank" rel="noopener noreferrer">Source article ↗</a></p>
-{% endif %}
-
-{% if video.reviewer_notes %}
-<p class="note">Notes: {{ video.reviewer_notes }}</p>
-{% endif %}
-
-{% if video.status == "drafted" %}
-<div class="actions">
-  <form method="post" action="/video/{{ video.id }}/approve">
-    <input type="hidden" name="form_token" value="{{ form_token }}">
-    <div class="form-group">
-      <label>Reviewer notes (optional)</label>
-      <input type="text" name="notes" placeholder="Looks good!">
-    </div>
-    <button class="btn btn-green" type="submit">✓ Approve</button>
-  </form>
-  <form method="post" action="/video/{{ video.id }}/reject">
-    <input type="hidden" name="form_token" value="{{ form_token }}">
-    <div class="form-group">
-      <label>Reason for rejection (optional)</label>
-      <input type="text" name="notes" placeholder="Inaccurate...">
-    </div>
-    <button class="btn btn-red" type="submit">✗ Reject</button>
-  </form>
+<p>
+<span class="badge badge-{{ video.status }}">{{ video.status }}</span> · Created {{ video.created_at[:10] }} · Recorded cost ${{ '%.4f'|format(video.total_cost_usd) }}</p>
 </div>
-{% endif %}
-
-{% if has_video_file %}
-<p class="note">Video file: {{ video.video_path }}</p>
-{% endif %}
-
-<h2>Script</h2>
-{% if script_text %}
-<div class="script-box">{{ script_text }}</div>
-{% else %}
-<p class="note">Script file not found.</p>
-{% endif %}
-
-{% if visual_plan %}
-<h2>Visual plan ({{ visual_plan|length }} segments)</h2>
+</div>
+<div class="video-review">
+<section class="panel">{% if has_video_file %}<video class="player" controls preload="metadata" src="/media/video/{{ relative|urlencode }}">
+</video>{% else %}<div class="empty">
+<strong>No rendered video yet</strong>Review the script, then make the video below.</div>{% endif %}
+{% if source_url %}<p class="note">
+<a href="{{ source_url }}" target="_blank" rel="noopener noreferrer">Read source article ↗</a>
+</p>{% endif %}
+{% if video.reviewer_notes %}<div class="notice">Review notes: {{ video.reviewer_notes }}</div>{% endif %}
+{% if video.status == 'drafted' %}<h2>Review decision</h2>
+<p class="note">Check the source, script, and on-screen claims. Approval does not publish anything from this page.</p>
+<form method="post" action="/video/{{ video.id }}/approve">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<div class="form-group">
+<label for="approve-notes">Review notes (optional)</label>
+<input id="approve-notes" name="notes" maxlength="2000">
+</div>
+<button class="btn btn-primary">Approve {{ 'video' if has_video_file else 'script' }}</button>
+</form>
+<details>
+<summary>Reject this draft</summary>
+<form method="post" action="/video/{{ video.id }}/reject">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<div class="form-group">
+<label for="reject-notes">Reason</label>
+<input id="reject-notes" name="notes" maxlength="2000">
+</div>
+<button class="btn btn-red">Reject draft</button>
+</form>
+</details>{% endif %}
+{% if video.status != 'posted' and render_estimate is not none %}<details>
+<summary>{{ 'Render again' if has_video_file else 'Make an animated video' }}</summary>
+<p class="note">The finished video returns to the review queue. Re-rendering replaces the current MP4.</p>
+<form method="post" action="/video/{{ video.id }}/render">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}">
+<div class="form-group">
+<label for="render-voice">Voice and spending allowance</label>
+<select id="render-voice" name="free_voice">
+<option value="true">Free voice · allowance ${{ '%.2f'|format(render_estimate) }}</option>
+<option value="false">Channel voice · allowance ${{ '%.2f'|format(channel_estimate) }}</option>
+</select>
+</div>
+<label class="checkbox">
+<input type="checkbox" name="dry_run" value="true"> Dry run — no paid calls</label>
+<button class="btn">Start rendering</button>
+</form>
+</details>{% endif %}
+</section>
+<section>
+<h2>Script and sources</h2>{% if script_text %}<div class="script-box">{{ script_text }}</div>{% else %}<div class="panel empty">The script file could not be found.</div>{% endif %}</section>
+</div>
+<div class="section-heading">
+<h2>Public posts</h2>
+</div>
+<section class="panel">
+<p class="note">Record a post after you publish it in the platform app. A TikTok inbox upload is not a public post. These IDs let the daily collector find the video's statistics.</p>
+{% for post in public_posts %}<p>{{ post.platform|title }} · {{ post.post_id }} <span class="badge">Confirmed public</span>
+</p>{% endfor %}
+<details>
+<summary>Record an already-published post</summary>
+<form method="post" action="/video/{{ video.id }}/published">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<div class="form-row">
+<div class="form-group">
+<label for="post-platform">Platform</label>
+<select id="post-platform" name="platform">
+<option value="tiktok">TikTok</option>
+<option value="instagram">Instagram</option>
+</select>
+</div>
+<div class="form-group">
+<label for="post-id">Numeric public video / media ID</label>
+<input id="post-id" name="post_id" inputmode="numeric" required>
+</div>
+</div>
+<label class="checkbox">
+<input type="checkbox" name="confirmed" value="true" required> I have already published this video and checked this post ID.</label>
+<button class="btn">Save public post ID</button>
+</form>
+</details>
+{% if deliveries %}<details>
+<summary>Upload history</summary>{% for delivery in deliveries %}<p class="meta">{{ delivery.platform|title }} · {{ delivery.status }} · {{ delivery.post_id or 'No returned ID' }}</p>{% endfor %}</details>{% endif %}</section>
+{% if visual_plan %}<details class="panel">
+<summary>Visual plan</summary>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Spoken segment</th><th>Visual type</th><th>Query / data</th></tr></thead>
-  <tbody>
-    {% for item in visual_plan %}
-    <tr>
-      <td class="meta">{{ item.segment }}…</td>
-      <td><span class="badge">{{ item.visual_type }}</span></td>
-      <td class="meta">{{ item.query }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
+<thead>
+<tr>
+<th>Spoken segment</th>
+<th>Visual type</th>
+<th>Query / data</th>
+</tr>
+</thead>
+<tbody>{% for item in visual_plan %}<tr>
+<td>{{ item.segment }}</td>
+<td>{{ item.visual_type }}</td>
+<td>{{ item.query }}</td>
+</tr>{% endfor %}</tbody>
 </table>
 </div>
-{% endif %}
+</details>{% endif %}
 {% endblock %}

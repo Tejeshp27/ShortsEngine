@@ -44,7 +44,7 @@ def get_connection():
         conn.execute("SELECT * FROM videos")
         conn.close()
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
 
     # row_factory makes every row behave like a dict (column name → value).
     # Without this, rows come back as plain tuples and you have to remember
@@ -146,5 +146,7 @@ def create_tables():
         )
     """)
 
+    from src.storage.control_schema import create_control_tables
+    create_control_tables(conn)
     conn.commit()
     conn.close()

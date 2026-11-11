@@ -188,8 +188,9 @@ shortsengine/
 
 ## How to work
 
-1. Build **one small feature at a time**. Tell me how to run it, then wait for me to
-   confirm it works.
+1. Default to small, explainable features. When the user authorizes a broader pass,
+   complete that scope without waiting between roadmap steps. Explain how to run
+   and test the finished work.
 2. Prefer simple, working code over a big framework.
 3. Handle errors with clear messages (for example, "Missing ANTHROPIC_API_KEY in .env").
 4. Add a basic test for any core logic you write.
@@ -219,7 +220,9 @@ A-series animated video engine (A.1–A.5) code complete — this is now the mai
 - M.6: Tests for scene planner, animated frames, stock video ✅
 - A.1–A.5: Animated video engine (`src/video/animation/`, `--render --animated`) ✅
 - C.0: Control center foundation — private login, templates, Docker fixes ✅
-  (C.1–C.6 not started; see "C-series" below)
+  C.0 login confirmed working by the user.
+- C.1–C.5: Local control center implemented (see docs/control-center.md).
+- C.6: Hosting still awaits the user’s choice; nothing deployed.
 
 **Review fixes (November 2026):**
 - Scheduler stores one video per channel/time slot in `publishing_slots` and upload
@@ -232,21 +235,44 @@ A-series animated video engine (A.1–A.5) code complete — this is now the mai
   in SQLite to permit retry. Never clear a succeeded delivery to retry another platform.
 - TikTok success means delivery to its inbox, not a confirmed public post. Instagram
   publishing remains unimplemented; mixed-platform videos remain approved until all
-  configured destinations succeed. Automatic analytics collection remains a stub.
+  configured destinations succeed. Account-aware daily analytics now uses the
+  control center’s encrypted connections and confirmed public post IDs.
 - Dashboard and ranking feedback sum only the latest cumulative snapshot per platform.
-- Render AI costs add to each video's database total even on render failure, and are
-  logged to CSV. Voice-service costs and per-call cost_events remain future work.
+- AI and configured voice estimates now write per-call cost_events and video totals,
+  including failed renders. CSV remains an additional run log; old missing costs
+  require manual reconciliation.
+
+**Control-center update (November 2026):**
+- Neutral light theme: warm off-white, charcoal text, muted olive; no neon UI.
+- Overview/channel pages use latest cumulative metrics. Public post counts use
+  explicit `platform_posts`, not TikTok inbox delivery IDs.
+- Encrypted per-channel accounts, one-use OAuth state, TikTok refresh rotation,
+  Instagram via Facebook Login, and once-a-day account/post snapshots. Live
+  platform flows need approved apps and real credentials for validation.
+- Money ledger combines new per-call costs, manual payouts/expenses and legacy
+  video totals without double-counting. New voice costs use configured character
+  estimates. Historical unrecorded costs can be entered manually.
+- Browser jobs run in separate processes, with SQLite capacity/spending reservations,
+  heartbeats, source checks, duplicate protection and free dry runs. Renders return
+  to drafted. No browser job publishes. Active renders cannot be approved.
+- Video library has private playback, cached thumbnails/durations, search, filters
+  and an explicit untracked-file state. Paths outside output/ are refused.
+- New code lives in dashboard/{routes,data,settings,accounts,jobs,worker,media}.py,
+  storage/{control_schema,finance}.py, analytics/accounts.py and sources/public_web.py.
+- No new paid service. The only new dependency is PyCA cryptography for tokens.
+- Daily spending caps apply to browser jobs; independent CLI runs still log costs
+  but are not subject to that dashboard cap. Unknown request outcomes retain an
+  uncertain estimate rather than being silently retried.
 
 **Next human steps:**
-- Create the dashboard login: `python -m src.dashboard.set_password`, then run
-  `python -m src.dashboard.app`, log in at http://localhost:8000 and confirm C.0 works
-- Then say which control-center step to build next (C.1 is next in order)
-- Watch the animated render of the impeachment script and give feedback on the look
-- Grow `footage_topics` in `channels/news.yaml` (more approved topics = more variety)
-- Add PEXELS_API_KEY to .env (free at pexels.com/api) — Pexels has far better footage
-  than Pixabay, but its results must be re-checked before raising the topic counts
-- For Manim animated scenes (richer diagrams): `brew install cairo pango && pip install manim`
-- Post videos by hand, then add API tokens for automated publishing (Phase 4)
+- Restart the dashboard and try the new pages; see docs/control-center.md.
+- Configure approved developer apps/account credentials to validate real OAuth
+  and statistics. Existing .env tokens can be explicitly imported per channel.
+- Watch an animated render and give visual feedback; no paid render was needed
+  for the control-center implementation tests.
+- Choose a hosting approach for C.6 before any deployment.
+- Instagram automatic uploading still needs a supported hosting/upload integration;
+  manual posting and recording the public post ID work with the new collector.
 
 ## Roadmap
 
@@ -376,9 +402,9 @@ and word-by-word captions. There is never a blank or still screen.
 
 Goal: one private place in the browser to see and manage everything — every channel
 and account, every video, followers, money made, money spent — and to make new videos
-without the terminal. Reachable from any device, including a phone. Build one step at
-a time; after each step explain how to test it, add tests, update the README, and wait
-for confirmation before starting the next.
+without the terminal. The responsive UI supports phones; reaching it from another
+device still requires the C.6 hosting/network choice. The user authorized completing
+C.1–C.5 together after confirming the C.0 login works.
 
 **C.0 — Foundation and privacy** ✅ (`src/dashboard/`, `tests/test_dashboard_auth.py`)
 - Every page is private by default: one check (`require_login` in `app.py`) runs before
@@ -391,39 +417,33 @@ for confirmation before starting the next.
   database lives in a mounted `data/` folder; port 8000 is bound to the server only.
 - Replaces the old `DASHBOARD_PASSWORD` browser prompt, which was open when left blank.
 
-**C.1 — Home page** (not started)
-- Totals across channels: followers, views, videos made, videos posted, money made,
-  money spent, profit. A card per channel with the same numbers and whether TikTok and
-  Instagram are connected. Simple charts of followers and views over time.
+**C.1 — Home page** ✅ (local implementation)
+- Cross-channel totals, per-channel cards, recent content/activity, cumulative
+  follower/view history. Unavailable metrics display a dash, not an invented zero.
 
-**C.2 — Accounts and channels** (not started)
-- A page per channel: connected accounts, followers per platform, recent videos, best
-  performers. Follower counts collected once a day from the official APIs and saved.
-- Needs building from scratch: there is no OAuth code yet (`tiktok.py` mentions
-  `dashboard/oauth.py`, which does not exist), tokens are two global `.env` values, the
-  metrics collector is a stub, and post IDs are not saved when publishing.
-- APIs: TikTok `user.info.stats` scope gives `follower_count`; Instagram's IG User has
-  `followers_count`. Both need an approved developer app.
+**C.2 — Accounts and channels** ✅ (live credentials still required)
+- Channel details, verified encrypted account connections, OAuth state validation,
+  TikTok token refresh, Instagram Facebook Login, daily snapshots and best videos.
+- Collector uses confirmed public post IDs. Tokens are no longer implicitly shared
+  across channels. The dashboard collects missing daily snapshots while running;
+  `python -m src.analytics.accounts` can also run from a server scheduler.
 
-**C.3 — Money** (not started)
-- Neither TikTok's nor Instagram's API provides earnings, so payouts are entered by
-  hand (date, channel, platform, amount, note). Show made, spent and profit by month
-  and by channel.
-- Spending is under-counted today: `cost_events` is never written, costs live in
-  `output/cost_log.csv`, and ElevenLabs voice cost is not tracked at all.
+**C.3 — Money** ✅ (estimates, with historical gaps disclosed)
+- Manual USD payouts/expenses, monthly/channel totals and a unified ledger.
+- AI calls and ElevenLabs character estimates are tracked, including failures.
+  Legacy video totals remain visible without counting the same event twice.
 
-**C.4 — Video library** (not started)
-- Thumbnail grid (FFmpeg, cached), newest first, with title, channel, date, length,
-  status, views, cost. Click to watch with script and sources. Filter by channel and
-  status, search by title. Videos in `output/videos` missing from the database are
-  listed and flagged "not in database". Every video file requires login.
+**C.4 — Video library** ✅
+- Private MP4 playback and cached FFmpeg thumbnails/durations; title search,
+  channel/status filters, script/source review and untracked-file flags.
 
-**C.5 — Make videos from the browser** (not started)
-- "New video" page: pick a channel, see ranked stories (or paste an article link, or a
-  topic that searches today's stories — never a script without a source), see the
-  estimated cost, optional dry run. Runs in the background with per-step progress and
-  clear errors. Result goes to the review queue as "drafted"; nothing posts without
-  approval. Daily spending limit and max videos in progress, both in config.
+**C.5 — Make videos from the browser** ✅ (article-based channels)
+- Choose current sources, optionally rank them, filter by topic or paste a URL.
+  Source text is required before paid writing. Script-only and animated outputs.
+- Separate background processes, progress/error history, free dry runs, default
+  $2/day reservation limit and one job in progress. Results remain drafted.
+- Twitch example stays disabled until configured with permission; there is no
+  browser Twitch clip editor. See docs/control-center.md for operating limits.
 
 **C.6 — Hosting** (waiting for a decision — deploy nothing until chosen)
 - Options compared: (a) Mac + Tailscale, (b) cloud server with public HTTPS + login,

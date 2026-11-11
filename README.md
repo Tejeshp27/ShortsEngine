@@ -1,8 +1,10 @@
 # ShortsEngine
 
 An end-to-end content automation pipeline that finds breaking news, uses Claude AI
-to write neutral short-form video scripts, renders captioned MP4s, runs them through
-a human review queue, and publishes to TikTok and Instagram.
+to write neutral short-form video scripts, renders captioned MP4s, and runs them
+through a human review queue. A private dashboard manages channels, accounts,
+production, spending and performance. TikTok draft uploads are supported;
+Instagram automatic publishing remains unfinished.
 
 Built as a portfolio project demonstrating real-world software engineering: REST APIs,
 AI integration, OAuth, database design, data pipelines, Docker, and CI/CD.
@@ -37,7 +39,8 @@ RSS feeds ──► dedupe + filter ──► Claude Haiku (rank) ──► Clau
    an animated graphic for every sentence, and word-by-word captions (see below)
 6. **Approves** scripts and videos through a FastAPI web dashboard
 7. **Uploads** to TikTok drafts; Instagram publishing still needs implementation
-8. **Displays saved metrics** and feeds them back into ranking; automatic collection is not wired up yet
+8. **Collects daily account and public-post metrics** from connected accounts and
+   feeds saved performance back into ranking; live connections require approved platform access
 
 A typical full run costs **$0.04–$0.06** in AI API calls (script ≈ 1–3¢, animated storyboard ≈ 3¢).
 
@@ -52,9 +55,9 @@ A typical full run costs **$0.04–$0.06** in AI API calls (script ≈ 1–3¢, 
 | News | RSS + feedparser | Free; no scraping ToS issues |
 | Web framework | FastAPI + uvicorn | Industry standard, async, auto-docs, used at scale |
 | Database | SQLite (Postgres upgrade path) | Zero-setup for development; easy migration |
-| Video | edge-tts, Pillow, FFmpeg | Fully free local stack; no paid voice API |
+| Video | edge-tts, Pillow, FFmpeg; optional ElevenLabs | Free voice/rendering path, with tracked estimates for optional paid voice |
 | Publishing | TikTok Content Posting API, Instagram Graph API | Official APIs only |
-| Auth | bcrypt passwords and signed dashboard sessions | Platform OAuth remains future work |
+| Auth | bcrypt passwords, signed sessions and encrypted per-channel OAuth tokens | Platform flows still need approved apps and live credential testing |
 | Testing | pytest | Industry standard Python test framework |
 | CI/CD | GitHub Actions | Runs tests on every push; green checkmarks on the repo |
 | Deployment | Docker + Docker Compose | Same setup locally and on the server |
@@ -158,11 +161,30 @@ python -m src.dashboard.app
 # Open http://localhost:8000 and log in
 ```
 
-Features: stats cards, review queue (approve/reject in browser), per-channel analytics,
-channel list.
+Features: an overview with channel totals and history charts, per-channel account
+connections, daily statistics, a private searchable video library with playback,
+a review queue, payouts and spending, and source-based video creation in background
+jobs. The interface uses warm neutral colors and a restrained olive accent.
+
+**Restart the dashboard after upgrading** and install the updated requirements.
+Your existing login and videos remain intact. New tables are added automatically.
+
+- Open **New video** to find stories or paste an article URL. Choose a script or
+  an animated video; every result stays drafted until you review it.
+- Browser jobs default to a free voice, show a conservative cost allowance, and
+  support a free dry run. Default limits: **$2 per UTC day**, **one job in progress**.
+- Open **Channels** to connect verified TikTok/Instagram accounts. New tokens are
+  encrypted per channel. Live OAuth still needs your approved developer apps.
+- Open **Money** to record payouts and expenses. New AI/voice estimates are tracked
+  in the database; earlier untracked costs may require manual reconciliation.
+- Open **Video library** to search, watch, and review files. MP4s without database
+  records are flagged. Videos and thumbnails require login.
+
+[Full control-center setup, spending rules, account requirements and architecture](docs/control-center.md).
+No hosting was enabled, and no videos are published by browser jobs.
 
 **The dashboard is private by default.** A single check runs before every request, and
-anything other than the login page and the stylesheet is refused unless the browser is
+anything other than the login page and public static assets is refused unless the browser is
 logged in — so a page added later is protected automatically.
 
 | Protection | How |

@@ -10,13 +10,25 @@
 </p>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Story</th><th>Channel</th><th>Status</th><th>Cost</th><th>Actions</th></tr></thead>
+  <thead>
+<tr>
+<th>Story</th>
+<th>Channel</th>
+<th>Status</th>
+<th>Cost</th>
+<th>Actions</th>
+</tr>
+</thead>
   <tbody>
     {% for video in videos %}
     <tr>
-      <td><a href="/video/{{ video.id }}">{{ video.story_title[:55] }}</a></td>
+      <td>
+<a href="/video/{{ video.id }}">{{ video.story_title[:55] }}</a>
+</td>
       <td>{{ video.channel }}</td>
-      <td><span class="badge badge-{{ video.status }}">{{ video.status }}</span></td>
+      <td>
+<span class="badge badge-{{ video.status }}">{{ video.status }}</span>
+</td>
       <td>${{ "%.4f"|format(video.total_cost_usd) }}</td>
       <td>
         {% if video.status == "drafted" %}
@@ -32,7 +44,9 @@
       </td>
     </tr>
     {% else %}
-    <tr><td colspan="5" class="empty">No videos with status "{{ status }}"</td></tr>
+    <tr>
+<td colspan="5" class="empty">No videos with status "{{ status }}"</td>
+</tr>
     {% endfor %}
   </tbody>
 </table>

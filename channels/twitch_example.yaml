@@ -13,6 +13,9 @@
 # Display name shown in the dashboard and cost reports.
 name: "Twitch Highlights"
 
+# Keep this example inactive until the channel and streamer permissions are ready.
+enabled: false
+
 # What the channel covers — used in AI prompts.
 niche: "Funny and exciting moments from popular Twitch streams"
 

@@ -446,7 +446,7 @@ def render_video(script_path, story_title, channel_key, voice,
                  font_size=90, dry_run=False, llm=None,
                  channel_config=None, no_paid_visuals=False,
                  tts_provider="edge", style="auto", use_music=False,
-                 animated=False):
+                 animated=False, cost_tracker=None):
     """
     Turn an approved script into a ready-to-post 9:16 MP4 video.
 
@@ -478,6 +478,7 @@ def render_video(script_path, story_title, channel_key, voice,
                          playing behind animated graphics) instead of the
                          classic one-picture-per-caption video. Needs
                          channel_config.
+        cost_tracker: Optional database tracker for paid voice generation.
 
     Returns:
         str: Path to the finished .mp4 file.
@@ -496,7 +497,8 @@ def render_video(script_path, story_title, channel_key, voice,
     # --- Step 1: Voiceover ---
     print("  Generating voiceover...")
     audio_path, word_timings = get_voiceover(
-        script_path, voice, tts_provider=tts_provider, dry_run=dry_run
+        script_path, voice, tts_provider=tts_provider, dry_run=dry_run,
+        cost_tracker=cost_tracker, voice_settings=(channel_config or {}).get("video", {})
     )
 
     if dry_run:

@@ -1,0 +1,76 @@
+{# Source-first creation with explicit cost allowances and free dry runs. #}
+{% extends 'base.html' %}{% block title %}New video{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">Create content</div>
+<h1>Start with a source.</h1>
+<p>Choose a recent story or bring an article. Every result comes back to you for review.</p>
+</div>
+</div>
+<form method="get" class="filter-form">
+<div class="form-group">
+<label for="choose-channel">Channel</label>
+<select id="choose-channel" name="channel">{% for item in channels %}<option value="{{ item.key }}" {% if channel == item.key %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
+</div>
+<button class="btn">Choose channel</button>
+</form>
+<div class="notice subtle">Daily spending limit: ${{ '%.2f'|format(settings.daily_limit_usd) }}. Allowances below reserve the maximum estimated cost before a job starts. Cached answers are free; actual usage is saved on the Money page.</div>
+<div class="split">
+<section class="panel">
+<h2>Find a current story</h2>
+<p class="note">{{ config.name }} · Reads this channel's configured feeds. A topic filters those stories; it never invents source material.</p>
+<form method="post" action="/new/discover">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}-find">
+<input type="hidden" name="channel" value="{{ channel }}">
+<div class="form-group">
+<label for="topic">Topic or phrase (optional)</label>
+<input id="topic" name="topic" maxlength="200" placeholder="e.g. education">
+</div>
+<label class="checkbox">
+<input type="checkbox" name="rank" value="true"> Rank headlines with AI · allowance ${{ '%.2f'|format(ranking_estimate) }}</label>
+<label class="checkbox">
+<input type="checkbox" name="dry_run" value="true"> Dry run — skip any paid ranking</label>
+<button class="btn btn-primary">Find stories</button>
+</form>
+</section>
+<section class="panel">
+<h2>Use an article link</h2>
+<form method="post" action="/new/generate">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}-url">
+<input type="hidden" name="channel" value="{{ channel }}">
+<div class="form-group">
+<label for="url">Public article URL</label>
+<input id="url" name="url" type="url" required placeholder="https://…">
+</div>
+<div class="form-group">
+<label for="title">Article title (optional)</label>
+<input id="title" name="title" maxlength="300">
+</div>{% include 'creation_options.html' %}<button class="btn btn-primary">Create draft</button>
+</form>
+</section>
+</div>
+<div class="section-heading">
+<h2>Available stories</h2>
+</div>
+<p class="note">{{ reason }}</p>
+{% if stories %}<section class="panel">
+<ol class="story-list">{% for story in stories %}<li>
+<h3>{{ loop.index }}. {{ story.title }}</h3>
+<div class="story-source">{{ story.source }} · <a href="{{ story.url }}" target="_blank" rel="noopener noreferrer">Read source ↗</a>
+</div>
+<p class="note">{{ story.summary[:280] }}</p>
+<details>
+<summary>Create a draft from this story</summary>
+<form method="post" action="/new/generate">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}-{{ story.id }}">
+<input type="hidden" name="channel" value="{{ channel }}">
+<input type="hidden" name="story_id" value="{{ story.id }}">{% include 'creation_options.html' %}<button class="btn btn-primary">Create draft</button>
+</form>
+</details>
+</li>{% endfor %}</ol>
+</section>{% else %}<div class="panel empty">
+<strong>No stories loaded</strong>Use “Find stories” above, or paste an article link.</div>{% endif %}
+{% endblock %}

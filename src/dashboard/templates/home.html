@@ -1,34 +1,45 @@
-{# templates/home.html — overview: number cards and the newest videos. #}
-{% extends "base.html" %}
-{% block title %}Dashboard{% endblock %}
+{# Overview: real totals and historical snapshots across all channels. #}
+{% extends 'base.html' %}{% import 'components.html' as ui %}
+{% block title %}Overview{% endblock %}
 {% block content %}
-<h1>ShortsEngine Dashboard</h1>
-
-<div class="cards">
-  <div class="card"><div class="card-value">{{ total_videos }}</div><div class="card-label">Total videos</div></div>
-  <div class="card"><div class="card-value">{{ drafted }}</div><div class="card-label">Awaiting review</div></div>
-  <div class="card"><div class="card-value">{{ approved }}</div><div class="card-label">Approved</div></div>
-  <div class="card"><div class="card-value">{{ posted }}</div><div class="card-label">Posted</div></div>
-  <div class="card"><div class="card-value">${{ "%.3f"|format(total_cost) }}</div><div class="card-label">Total AI cost</div></div>
+<div class="page-heading">
+<div>
+<div class="eyebrow">Your workspace at a glance</div>
+<h1>Overview</h1>
+<p>A clear view of your channels, content, and costs.</p>
 </div>
-
-<h2>Recent videos</h2>
+<div class="heading-actions">
+<a class="btn btn-primary" href="/new">+ New video</a>
+</div>
+</div>
+{{ ui.totals(totals) }}
+<p class="note">Audience totals cover connected accounts and posts with collected data. A dash means no data has been collected. Inbox deliveries are not counted as public posts.</p>
+<div class="split">{{ ui.chart('Followers · last 30 days', followers_chart, 'Connect an account to begin tracking growth.') }}{{ ui.chart('Views · last 30 days', views_chart, 'Record public post IDs and collect their statistics.') }}</div>
+<div class="section-heading">
+<h2>Your channels</h2>
+<a href="/channels">Manage channels →</a>
+</div>
+<div class="channel-grid">{% for channel in channel_cards %}{{ ui.channel_card(channel) }}{% else %}<div class="panel empty">Add a channel YAML file to get started.</div>{% endfor %}</div>
+<div class="section-heading">
+<h2>Recent content</h2>
+<a href="/library">Open library →</a>
+</div>{{ ui.video_table(recent_videos) }}
+{% if jobs %}<div class="section-heading">
+<h2>Recent activity</h2>
+<a href="/jobs">All activity →</a>
+</div>
 <div class="table-wrap">
 <table>
-  <thead><tr><th>Story</th><th>Channel</th><th>Status</th><th>Cost</th><th>Date</th></tr></thead>
-  <tbody>
-    {% for video in recent_videos %}
-    <tr>
-      <td><a href="/video/{{ video.id }}">{{ video.story_title[:60] }}</a></td>
-      <td>{{ video.channel }}</td>
-      <td><span class="badge badge-{{ video.status }}">{{ video.status }}</span></td>
-      <td>${{ "%.4f"|format(video.total_cost_usd) }}</td>
-      <td class="meta">{{ video.created_at[:10] }}</td>
-    </tr>
-    {% else %}
-    <tr><td colspan="5" class="empty">No videos yet</td></tr>
-    {% endfor %}
-  </tbody>
+<tbody>{% for job in jobs %}<tr>
+<td>
+<a href="/jobs/{{ job.id }}">{{ job.kind|capitalize }} · {{ job.channel }}</a>
+</td>
+<td>{{ job.stage }}</td>
+<td>
+<span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+</td>
+</tr>{% endfor %}</tbody>
 </table>
-</div>
+</div>{% endif %}
+<p class="footer-note">Recorded spending includes estimates. Older voice charges and failed runs may need to be entered on the Money page.</p>
 {% endblock %}

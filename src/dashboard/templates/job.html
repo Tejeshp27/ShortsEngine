@@ -1,0 +1,23 @@
+{# Live progress and durable outcomes. Polling is in the local dashboard.js. #}
+{% extends 'base.html' %}{% block title %}{{ job.kind|capitalize }} progress{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">
+<a href="/jobs">Activity</a> / {{ job.channel }}</div>
+<h1>{{ job.kind|capitalize }}{% if job.dry_run %} · dry run{% endif %}</h1>
+<p>The work continues if you leave this page. Refresh to check progress if JavaScript is disabled.</p>
+</div>
+<span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+</div>
+<section class="panel" data-job-id="{{ job.id }}" data-job-status="{{ job.status }}">
+<h2 id="job-stage" aria-live="polite">{{ job.stage }}</h2>
+<progress id="job-progress" class="progress" max="100" value="{{ job.progress }}" aria-label="Job progress">{{ job.progress }}%</progress>
+<p class="meta">Allowance: ${{ '%.2f'|format(job.budget_usd) }} · Recorded spending: ${{ '%.4f'|format(job.cost_usd) }}</p>
+{% if job.error %}<div class="alert">{{ job.error }}</div>{% endif %}{% if job.result.message %}<div class="notice">{{ job.result.message }}</div>{% endif %}
+{% if job.video_id %}<a class="btn btn-primary" href="/video/{{ job.video_id }}">Open saved draft</a>{% endif %}
+{% if job.kind == 'discover' and job.status == 'succeeded' %}<a class="btn btn-primary" href="/new?channel={{ job.channel }}&source_job={{ job.id }}">Choose from {{ job.result.story_ids|length }} stories</a>{% endif %}
+{% if job.result.source_title %}<p>{{ job.result.source_title }} · {{ job.result.source_words }} source words checked</p>{% endif %}
+<ol class="job-events">{% for event in job.events %}<li>{{ event.message }} <span class="meta">{{ event.created_at[11:19] }} UTC</span>
+</li>{% endfor %}</ol>
+</section>
+{% endblock %}

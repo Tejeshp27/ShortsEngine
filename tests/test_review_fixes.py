@@ -31,7 +31,8 @@ def video_setup(tmp_path, monkeypatch):
 
 def configure_scheduler(monkeypatch, platforms):
     """Set a fixed posting slot and fake credentials for the supplied platforms."""
-    config = {"platforms": platforms, "schedule": {"post_times": ["09:00"]}}
+    config = {"platforms": platforms, "schedule": {"post_times": ["09:00"]},
+              "publishing": {"use_legacy_env_tokens": True}}
     monkeypatch.setattr(scheduler, "_load_all_channels", Mock(return_value=[("news", config)]))
     monkeypatch.setattr(scheduler, "find_posting_slot", Mock(return_value="2026-11-10T09:00:00+00:00"))
     monkeypatch.setenv("TIKTOK_ACCESS_TOKEN", "fake-test-token")

@@ -40,6 +40,9 @@ services:
       - ./output:/app/output
       - ./cache:/app/cache
       - ./data:/app/data
+      # Read live channel/settings edits without rebuilding the image.
+      - ./channels:/app/channels:ro
+      - ./config:/app/config:ro
     restart: unless-stopped
 
   # Pipeline — a one-shot job, run manually or on a cron schedule.
@@ -56,6 +59,9 @@ services:
       - ./output:/app/output
       - ./cache:/app/cache
       - ./data:/app/data
+      # Use the same channel settings and price list as the dashboard.
+      - ./channels:/app/channels:ro
+      - ./config:/app/config:ro
     # The default entrypoint runs the news channel pipeline.
     # Override on the command line with --channel or --dry-run.
     command: ["python", "-m", "src.main", "--channel", "news"]

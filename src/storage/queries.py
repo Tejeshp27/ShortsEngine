@@ -9,7 +9,7 @@
 # Functions here use the connection from database.py.
 # =============================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.storage.database import get_connection
 
@@ -41,7 +41,7 @@ def save_video(channel, story_title, story_url, script_path, cost_usd):
         VALUES (?, ?, ?, ?, 'drafted', ?, ?)
         """,
         (channel, story_title, story_url, script_path, cost_usd,
-         datetime.now().isoformat(timespec="seconds")),
+         datetime.now(timezone.utc).isoformat(timespec="seconds")),
     )
     video_id = cursor.lastrowid
     conn.commit()
@@ -72,7 +72,7 @@ def save_cost_event(video_id, channel, purpose, model,
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (video_id, channel, purpose, model, input_tokens, output_tokens,
-         cost_usd, datetime.now().isoformat(timespec="seconds")),
+         cost_usd, datetime.now(timezone.utc).isoformat(timespec="seconds")),
     )
     conn.commit()
     conn.close()
@@ -127,9 +127,10 @@ def approve_video(video_id, notes=""):
         SET status = 'approved',
             reviewer_notes = ?,
             approved_at = ?
-        WHERE id = ?
+        WHERE id = ? AND status IN ('drafted', 'approved')
+          AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id = videos.id AND status IN ('queued', 'running'))
         """,
-        (notes, datetime.now().isoformat(timespec="seconds"), video_id),
+        (notes, datetime.now(timezone.utc).isoformat(timespec="seconds"), video_id),
     )
     conn.commit()
     conn.close()
@@ -150,9 +151,10 @@ def reject_video(video_id, notes=""):
         SET status = 'failed',
             reviewer_notes = ?,
             approved_at = ?
-        WHERE id = ?
+        WHERE id = ? AND status != 'posted'
+          AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id = videos.id AND status IN ('queued', 'running'))
         """,
-        (notes, datetime.now().isoformat(timespec="seconds"), video_id),
+        (notes, datetime.now(timezone.utc).isoformat(timespec="seconds"), video_id),
     )
     conn.commit()
     conn.close()
@@ -172,7 +174,7 @@ def mark_posted(video_id):
         SET status = 'posted', posted_at = ?
         WHERE id = ?
         """,
-        (datetime.now().isoformat(timespec="seconds"), video_id),
+        (datetime.now(timezone.utc).isoformat(timespec="seconds"), video_id),
     )
     conn.commit()
     conn.close()

@@ -1,0 +1,50 @@
+{# Searchable, private video library including files missing from the database. #}
+{% extends 'base.html' %}{% block title %}Video library{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">Your content</div>
+<h1>Video library</h1>
+<p>{{ total }} item{{ '' if total == 1 else 's' }} · Scripts, finished videos, and files awaiting a record.</p>
+</div>
+<a class="btn btn-primary" href="/new">+ New video</a>
+</div>
+<form class="filter-form" method="get">
+<div class="form-group search">
+<label for="search">Search titles</label>
+<input id="search" name="q" value="{{ q }}" placeholder="Find a story…" maxlength="200">
+</div>
+<div class="form-group">
+<label for="channel">Channel</label>
+<select id="channel" name="channel">
+<option value="">All channels</option>{% for item in channels %}<option value="{{ item.key }}" {% if channel == item.key %}selected{% endif %}>{{ item.name }}</option>{% endfor %}</select>
+</div>
+<div class="form-group">
+<label for="status">Status</label>
+<select id="status" name="status">
+<option value="">All statuses</option>{% for state in ['drafted','approved','posted','failed','untracked'] %}<option value="{{ state }}" {% if status == state %}selected{% endif %}>{{ 'Not in database' if state == 'untracked' else state|capitalize }}</option>{% endfor %}</select>
+</div>
+<button class="btn">Filter</button>
+</form>
+<div class="video-grid">{% for video in items %}{% set link = '/video/' ~ video.id if video.id else '/library/untracked?path=' ~ (video.relative|urlencode) %}
+<article class="video-card">
+<a class="video-preview" href="{{ link }}" aria-label="Open {{ video.story_title }}">{% if video.relative %}<img loading="lazy" src="/media/thumbnail/{{ video.relative|urlencode }}" alt="Preview of {{ video.story_title }}">{% else %}<span>Script awaiting a render</span>{% endif %}<span class="badge badge-{{ video.status }}">{{ 'Not in database' if video.status == 'untracked' else video.status }}</span>
+</a>
+<div class="video-info">
+<h3>
+<a href="{{ link }}">{{ video.story_title }}</a>
+</h3>
+<div class="meta">
+<span>{{ video.channel }}</span>
+<span>{{ video.created_at[:10] }}</span>
+</div>
+<div class="meta">
+<span>{{ ('%.0f'|format(video.duration)) ~ ' sec' if video.duration is not none else '—' }}</span>
+<span>{{ '{:,}'.format(video.views) ~ ' views' if video.views is not none else 'No view data' }}</span>
+</div>
+<div class="meta">{{ '$%.3f'|format(video.total_cost_usd) if video.total_cost_usd is not none else 'Cost unknown' }}</div>
+</div>
+</article>
+{% else %}<div class="panel empty">
+<strong>No matching content</strong>Try another filter or create your first video.</div>{% endfor %}</div>
+<div class="pagination">{% if page > 1 %}<a class="btn" href="/library?{{ filter_query }}&page={{ page - 1 }}">Previous</a>{% endif %}<span class="meta">Page {{ page }} of {{ page_count }}</span>{% if page < page_count %}<a class="btn" href="/library?{{ filter_query }}&page={{ page + 1 }}">Next</a>{% endif %}</div>
+{% endblock %}

@@ -143,6 +143,14 @@ def claim_delivery(video_id, platform):
     """
     conn = get_connection()
     try:
+        conn.execute("BEGIN IMMEDIATE")
+        ready = conn.execute("""
+            SELECT id FROM videos WHERE id=? AND status='approved'
+            AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id=videos.id AND status IN ('queued', 'running'))
+            AND NOT EXISTS (SELECT 1 FROM platform_posts WHERE video_id=videos.id AND platform=?)
+        """, (video_id, platform)).fetchone()
+        if not ready:
+            return False
         cursor = conn.execute(
             "INSERT OR IGNORE INTO publishing_deliveries VALUES (?, ?, 'sending', NULL)",
             (video_id, platform),
@@ -204,18 +212,31 @@ def run_scheduler(dry_run=False):
         for platform in platforms:
             # Missing credentials and the unfinished Instagram publisher must not
             # consume an upload reservation: these are safe to retry later.
-            if not os.getenv("TIKTOK_ACCESS_TOKEN") and platform == "tiktok":
-                print(f"[{channel_key}] Missing TIKTOK_ACCESS_TOKEN; leaving approved.")
-                continue
             if platform == "instagram":
                 print(f"[{channel_key}] Instagram publishing is not implemented; leaving approved.")
+                continue
+            from src.dashboard.accounts import access_token, get_account, safe_error
+            account = get_account(channel_key, platform)
+            token = None
+            if account:
+                try:
+                    token = access_token(account)
+                except ValueError as error:
+                    print(f"[{channel_key}] {safe_error(error)}")
+                    continue
+            elif config.get("publishing", {}).get("use_legacy_env_tokens", False):
+                # Legacy globals are only used when this particular channel
+                # explicitly opts in. Otherwise two channels could share a token.
+                token = os.getenv("TIKTOK_ACCESS_TOKEN")
+            if not token:
+                print(f"[{channel_key}] Connect this channel's TikTok account first; leaving approved.")
                 continue
             if not claim_delivery(video["id"], platform):
                 continue
             try:
                 from src.publishing.tiktok import upload_to_drafts, build_caption
                 caption = build_caption(video["story_title"], video["story_url"], config)
-                post_id = upload_to_drafts(video["video_path"], caption)
+                post_id = upload_to_drafts(video["video_path"], caption, access_token=token)
                 finish_delivery(video["id"], platform, "succeeded", post_id)
             except Exception as error:
                 finish_delivery(video["id"], platform, "uncertain")
@@ -223,8 +244,9 @@ def run_scheduler(dry_run=False):
         conn = get_connection()
         try:
             rows = conn.execute(
-                "SELECT platform, status FROM publishing_deliveries WHERE video_id = ?",
-                (video["id"],),
+                "SELECT platform, status FROM publishing_deliveries WHERE video_id = ? "
+                "UNION ALL SELECT platform, 'succeeded' FROM platform_posts WHERE video_id = ?",
+                (video["id"], video["id"]),
             ).fetchall()
         finally:
             conn.close()

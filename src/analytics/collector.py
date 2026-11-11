@@ -18,7 +18,7 @@ import json
 import os
 import urllib.request
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.storage.database import get_connection
 from src.storage.queries import get_videos_by_status
@@ -73,7 +73,7 @@ def save_metrics(video_id, platform, views=0, likes=0,
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (video_id, platform, platform_post_id, views, likes, comments,
-         shares, watch_time_sec, datetime.now().isoformat(timespec="seconds")),
+         shares, watch_time_sec, datetime.now(timezone.utc).isoformat(timespec="seconds")),
     )
     conn.commit()
     conn.close()
@@ -135,46 +135,17 @@ def fetch_tiktok_metrics(video_id_tiktok, access_token):
 
 
 def collect_all_metrics():
+    """Collect daily statistics for connected channels and return nothing.
+
+    Kept as the original CLI entry point; the account-aware collector handles
+    per-channel tokens, confirmed post IDs and repeated-run protection.
     """
-    Collect metrics for every posted video and save a daily snapshot.
-
-    Reads posted videos from the database, checks each platform,
-    and saves one metrics row per video per platform.
-
-    Call this once a day from a cron job.
-    """
-    _ensure_metrics_table()
-    posted_videos = get_videos_by_status("posted")
-
-    if not posted_videos:
-        print("No posted videos to collect metrics for.")
-        return
-
-    ig_token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
-    tt_token = os.getenv("TIKTOK_ACCESS_TOKEN")
-
-    for video in posted_videos:
-        print(f"Collecting metrics for: {video['story_title'][:50]}")
-
-        # We store the platform post IDs in the metrics table on first insert.
-        # For now we skip if tokens aren't set, with a clear message.
-        if ig_token:
-            try:
-                # In production, we'd store the IG post ID when publishing.
-                # For now, skip if no post ID is available.
-                print("  Instagram: (post ID not stored yet — publish first)")
-            except Exception as err:
-                print(f"  Instagram error: {err}")
-        else:
-            print("  Instagram: INSTAGRAM_ACCESS_TOKEN not set, skipping.")
-
-        if tt_token:
-            try:
-                print("  TikTok: (post ID not stored yet — publish first)")
-            except Exception as err:
-                print(f"  TikTok error: {err}")
-        else:
-            print("  TikTok: TIKTOK_ACCESS_TOKEN not set, skipping.")
+    from dotenv import load_dotenv
+    from src.storage.database import create_tables
+    from src.analytics.accounts import sync_channel
+    load_dotenv()
+    create_tables()
+    print(sync_channel())
 
 
 # Keep only the latest cumulative snapshot for each video and platform.
@@ -209,7 +180,7 @@ def get_metrics_summary(channel=None):
                SUM(m.shares) AS total_shares
         FROM videos v
         {LATEST_METRICS_JOIN}
-        WHERE v.status = 'posted'
+        WHERE (v.status = 'posted' OR EXISTS (SELECT 1 FROM platform_posts p WHERE p.video_id = v.id))
     """
     params = ()
     if channel:
