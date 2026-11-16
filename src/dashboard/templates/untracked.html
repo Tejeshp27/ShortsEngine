@@ -1,0 +1,14 @@
+{# Preview an output MP4 that has no database record; no inferred approval. #}
+{% extends 'base.html' %}{% block title %}Untracked video{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">
+<a href="/library">Video library</a>
+</div>
+<h1>{{ title }}</h1>
+<p>This file is not in the database. Its source, review status, and cost are unknown.</p>
+</div>
+</div>
+<video class="player" controls preload="metadata" src="/media/video/{{ relative|urlencode }}">
+</video>
+{% endblock %}

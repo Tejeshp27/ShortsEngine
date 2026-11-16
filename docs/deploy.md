@@ -61,23 +61,45 @@ cp .env.example .env
 nano .env   # fill in your API keys
 ```
 
+The dashboard also needs a `SESSION_SECRET` (it signs the login cookie).
+Create a random one and paste it into `.env`:
+
+```bash
+python3 -c "import secrets; print(secrets.token_urlsafe(48))"
+```
+
 **Never commit .env to git.**
 
 ---
 
-## Step 5 — Start the dashboard
+## Step 5 — Create your login and start the dashboard
 
 ```bash
 cd /opt/shortsengine
+
+# Create your username and password (stored hashed in the database).
+docker compose run --rm dashboard python -m src.dashboard.set_password
+
 docker compose up -d dashboard
 ```
 
-The dashboard is now running at `http://YOUR_SERVER_IP:8000`.
+The dashboard now runs on the server, but on purpose it is **not** reachable
+from the internet: it only listens on the server itself (`127.0.0.1:8000`), so
+your password never crosses the internet unencrypted. To open it from your
+laptop, use an encrypted tunnel:
 
-To set a password, add `DASHBOARD_PASSWORD=yourpassword` to `.env` and restart:
 ```bash
-docker compose restart dashboard
+# On your own computer — then open http://localhost:8000
+ssh -L 8000:localhost:8000 root@YOUR_SERVER_IP
 ```
+
+For always-on access from your phone, put it behind HTTPS (Caddy, below) and set
+`SESSION_COOKIE_SECURE=true` in `.env`, or use a private network such as Tailscale.
+
+> **Server size:** rendering an animated video peaked at about 1.1 GB of memory
+> when measured on a Mac, so the 1 GB server above is too small to render videos.
+> Use a server with at least 2 GB (4 GB is comfortable), or render on your own
+> computer. The database lives in `data/` and videos in `output/` on the server's disk.
 
 ---
 

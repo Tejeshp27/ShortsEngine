@@ -1,0 +1,12 @@
+{# Clear, private form errors without revealing submitted secrets. #}
+{% extends 'base.html' %}{% block title %}Action needed{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">Action needed</div>
+<h1>We couldn’t finish that.</h1>
+</div>
+</div>
+<div class="alert">{{ message }}</div>
+<p>Return to the relevant page, check the details, and try again.</p>
+<a class="btn" href="/">Back to overview</a>
+{% endblock %}

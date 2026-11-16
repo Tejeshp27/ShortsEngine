@@ -159,8 +159,8 @@ def build_caption(story_title, story_url, channel_config):
     Returns:
         str: TikTok caption text.
     """
-    hashtags = "#news #politics #currentevents #learnontiktok #fyp"
-    caption = f"{story_title}\n\n{hashtags}"
+    hashtags = " ".join(channel_config.get("publishing", {}).get("hashtags", []))
+    caption = f"{story_title}\n\n{hashtags}".strip()
     if len(caption) > 2200:
         caption = caption[:2197] + "..."
     return caption

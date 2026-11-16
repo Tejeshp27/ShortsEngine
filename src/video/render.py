@@ -18,6 +18,11 @@
 # Using Pillow for text rendering means we don't need FFmpeg's
 # optional drawtext/subtitles filters (which require libfreetype
 # and libass to be compiled in — not always available).
+#
+# Animated mode (--render --animated) skips steps 2–4 above and
+# hands over to src/video/animation/renderer.py, which draws every
+# frame itself: stock footage playing full-screen, an animated
+# graphic per sentence, and word-by-word captions on top.
 # =============================================================
 
 import hashlib
@@ -33,6 +38,124 @@ VIDEO_OUTPUT_FOLDER = os.path.join("output", "videos")
 
 # Temporary files produced mid-render (frames, concat script) go here.
 RENDER_TEMP_FOLDER = os.path.join("cache", "render")
+
+
+def _build_ffmpeg_command(concat_path, audio_path, video_path, duration,
+                          sfx_path=None, music_path=None, music_volume=0.12,
+                          video_input_flags=None):
+    """
+    Build the FFmpeg command to encode the final video.
+
+    Handles all combinations of optional audio tracks (hook sound effect
+    and background music) by adding them as extra inputs and using the
+    amix filter to blend them at the right volumes.
+
+    Input numbering:
+      0 = frame sequence (always)
+      1 = voiceover (always)
+      2 = hook sound effect (if sfx_path is provided)
+      3 = background music (if music_path is provided; may be 2 if no sfx)
+
+    Args:
+        concat_path (str): Path to the FFmpeg concat script listing the frames.
+        audio_path (str): Path to the voiceover .mp3 file.
+        video_path (str): Where to write the finished .mp4.
+        duration (float): Video length in seconds (from the voiceover).
+        sfx_path (str or None): Path to the hook sound effect .mp3, or None.
+        music_path (str or None): Path to the background music .mp3, or None.
+        music_volume (float): Music volume as a fraction of the voiceover (0–1).
+        video_input_flags (list[str] or None): FFmpeg flags describing where
+            the pictures come from. Leave as None to read the frame list in
+            concat_path. The animated renderer passes its own flags here so
+            FFmpeg reads frames straight from Python instead.
+
+    Returns:
+        list[str]: The FFmpeg command as a list of arguments, ready for subprocess.
+    """
+    # Input 0 is always the pictures. By default they come from the
+    # concat script written by frames.py.
+    if video_input_flags is None:
+        video_input_flags = ["-f", "concat", "-safe", "0", "-i", concat_path]
+
+    # Shared output encoding settings — same regardless of audio configuration.
+    output_flags = [
+        "-c:v", "libx264",
+        "-preset", "fast",
+        "-crf", "23",
+        "-pix_fmt", "yuv420p",
+        "-c:a", "aac",
+        "-b:a", "192k",
+        "-t", str(duration),
+        "-movflags", "+faststart",
+        video_path,
+    ]
+
+    # Decide which optional audio tracks are actually available.
+    has_sfx = sfx_path and os.path.exists(sfx_path)
+    has_music = music_path and os.path.exists(music_path)
+
+    if not has_sfx and not has_music:
+        # Simple case: just voiceover. No filter needed.
+        return [
+            "ffmpeg", "-y",
+        ] + video_input_flags + [
+            "-i", audio_path,
+            "-map", "0:v",
+            "-map", "1:a",
+        ] + output_flags
+
+    # Build the input list and figure out which input index each track gets.
+    inputs = video_input_flags + [                           # input 0: frames
+        "-i", audio_path,                                    # input 1: voiceover
+    ]
+
+    # Track which amix input index each audio stream occupies.
+    next_index = 2
+    sfx_index = None
+    music_index = None
+
+    if has_sfx:
+        inputs += ["-i", sfx_path]
+        sfx_index = next_index
+        next_index += 1
+        print("  Mixing hook sound effect.")
+
+    if has_music:
+        # -stream_loop -1 makes the music loop if shorter than the video.
+        inputs += ["-stream_loop", "-1", "-i", music_path]
+        music_index = next_index
+        next_index += 1
+        print(f"  Mixing background music at volume={music_volume}.")
+
+    # Build the amix filter string.
+    # amix blends N audio streams. We set weights so the voiceover stays
+    # at full volume and the other tracks are quieter.
+    # normalize=0 prevents FFmpeg from lowering the voiceover to average all streams.
+    audio_count = next_index - 1   # number of audio inputs (voiceover + extras)
+    audio_labels = "[1:a]"         # voiceover is always input 1
+    weights = ["1"]                # voiceover weight = 1 (full volume)
+
+    if sfx_index is not None:
+        audio_labels += f"[{sfx_index}:a]"
+        weights.append("0.6")      # SFX at 60% — punchy but doesn't drown voice
+
+    if music_index is not None:
+        audio_labels += f"[{music_index}:a]"
+        weights.append(str(music_volume))
+
+    weight_str = " ".join(weights)
+    filter_complex = (
+        f"{audio_labels}amix=inputs={audio_count}:"
+        f"weights={weight_str}:normalize=0[aout]"
+    )
+
+    return [
+        "ffmpeg", "-y",
+    ] + inputs + [
+        "-filter_complex", filter_complex,
+        "-map", "0:v",
+        "-map", "[aout]",
+    ] + output_flags
 
 
 def _check_ffmpeg():
@@ -121,6 +244,56 @@ def _output_video_path(channel_key, script_path):
         path = os.path.join(folder, f"{base_name}-{counter}.mp4")
         counter += 1
     return path
+
+
+def _prepare_extra_audio(channel_config, channel_key, duration, use_music):
+    """
+    Get the optional extra sound tracks: the hook sound effect and music.
+
+    Both render modes (classic and animated) mix the same extra audio, so
+    the work of fetching it lives in this one function.
+
+    Args:
+        channel_config (dict or None): The channel config. If None, no
+                                       extra audio is used.
+        channel_key (str): The channel key, e.g. "news".
+        duration (float): Video length in seconds (music is made to fit).
+        use_music (bool): If True, generate background music via Mubert.
+
+    Returns:
+        tuple: (sfx_path, music_path, music_volume). Either path is None
+               when that track is not available.
+    """
+    sfx_path = None
+    music_path = None
+    music_volume = 0.12  # default: music at 12% of voiceover volume
+
+    if channel_config is None:
+        return sfx_path, music_path, music_volume
+
+    video_settings = channel_config.get("video", {})
+    music_volume = video_settings.get("music_volume", 0.12)
+
+    # Background music: a Mubert track matching the channel's music_mood,
+    # mixed under the voiceover at the channel's music_volume level.
+    if use_music:
+        from src.video.music import get_background_music
+        music_path = get_background_music(
+            duration,
+            mood=video_settings.get("music_mood", "focused"),
+            channel_key=channel_key,
+        )
+
+    # Hook sound effect: a short punchy sound from Freesound, played at the
+    # very start of the video to grab attention in the first second.
+    from src.video.sound_effects import get_hook_sound
+    sfx_path = get_hook_sound(
+        video_settings.get("hook_sound_query", "news intro impact hit")
+    )
+    if sfx_path:
+        print("  Hook sound effect ready.")
+
+    return sfx_path, music_path, music_volume
 
 
 def _build_visual_frames(scene_plan, word_timings, channel_key,
@@ -272,7 +445,8 @@ def _build_visual_frames(scene_plan, word_timings, channel_key,
 def render_video(script_path, story_title, channel_key, voice,
                  font_size=90, dry_run=False, llm=None,
                  channel_config=None, no_paid_visuals=False,
-                 tts_provider="edge", style="auto", use_music=False):
+                 tts_provider="edge", style="auto", use_music=False,
+                 animated=False, cost_tracker=None):
     """
     Turn an approved script into a ready-to-post 9:16 MP4 video.
 
@@ -300,6 +474,11 @@ def render_video(script_path, story_title, channel_key, voice,
                      "footage" (prefer video), or "animated" (prefer graphics).
         use_music (bool): If True, generate background music via Mubert and
                           mix it under the voiceover at the channel's music_volume.
+        animated (bool): If True, make a fully animated video (stock footage
+                         playing behind animated graphics) instead of the
+                         classic one-picture-per-caption video. Needs
+                         channel_config.
+        cost_tracker: Optional database tracker for paid voice generation.
 
     Returns:
         str: Path to the finished .mp4 file.
@@ -318,12 +497,42 @@ def render_video(script_path, story_title, channel_key, voice,
     # --- Step 1: Voiceover ---
     print("  Generating voiceover...")
     audio_path, word_timings = get_voiceover(
-        script_path, voice, tts_provider=tts_provider, dry_run=dry_run
+        script_path, voice, tts_provider=tts_provider, dry_run=dry_run,
+        cost_tracker=cost_tracker, voice_settings=(channel_config or {}).get("video", {})
     )
 
     if dry_run:
         video_path = _output_video_path(channel_key, script_path)
         print(f"  [DRY RUN] Would save video to: {video_path}")
+        return video_path
+
+    # --- Animated mode: hand over to the animation engine ---
+    if animated:
+        if channel_config is None:
+            raise ValueError("Animated rendering needs the channel config.")
+
+        from src.video.animation.renderer import render_animated_video
+
+        duration = _get_audio_duration(audio_path)
+        video_path = _output_video_path(channel_key, script_path)
+        sfx_path, music_path, music_volume = _prepare_extra_audio(
+            channel_config, channel_key, duration, use_music
+        )
+        render_animated_video(
+            script_path=script_path,
+            channel_config=channel_config,
+            audio_path=audio_path,
+            word_timings=word_timings,
+            video_path=video_path,
+            llm=llm,
+            font_size=font_size,
+            sfx_path=sfx_path,
+            music_path=music_path,
+            music_volume=music_volume,
+            use_footage=not no_paid_visuals,
+        )
+        size_mb = os.path.getsize(video_path) / (1024 * 1024)
+        print(f"  Video saved: {video_path} ({size_mb:.1f} MB, {duration:.1f}s)")
         return video_path
 
     # --- Step 2: Scene plan (optional — requires llm) ---
@@ -369,68 +578,24 @@ def render_video(script_path, story_title, channel_key, voice,
     duration = _get_audio_duration(audio_path)
     video_path = _output_video_path(channel_key, script_path)
 
-    # --- Step 3.5: Background music (optional) ---
-    # Generates a Mubert track matching the channel's music_mood setting,
-    # then mixes it under the voiceover at the channel's music_volume level.
-    music_path = None
-    if use_music and channel_config is not None:
-        from src.video.music import get_background_music
-        music_mood = channel_config.get("video", {}).get("music_mood", "focused")
-        music_path = get_background_music(
-            duration, mood=music_mood, channel_key=channel_key
-        )
+    # --- Step 3.5: Hook sound effect and background music (optional) ---
+    sfx_path, music_path, music_volume = _prepare_extra_audio(
+        channel_config, channel_key, duration, use_music
+    )
 
-    music_volume = 0.12  # default: music at 12% of voiceover volume
-    if channel_config:
-        music_volume = channel_config.get("video", {}).get("music_volume", 0.12)
-
-    # FFmpeg reads the frames from the concat script and mixes in audio.
-    # -safe 0 is required because the concat script uses absolute paths.
-    if music_path and os.path.exists(music_path):
-        # Three inputs: frames, voiceover, music.
-        # amix blends voiceover (weight=1) and music (weight=music_volume).
-        # normalize=0 keeps the voiceover at full volume rather than
-        # averaging both streams down.
-        # -stream_loop -1 on the music input loops the track if it's shorter
-        # than the video — Mubert tracks are usually a perfect fit but we
-        # loop just in case.
-        command = [
-            "ffmpeg", "-y",
-            "-f", "concat", "-safe", "0", "-i", concat_path,
-            "-i", audio_path,
-            "-stream_loop", "-1", "-i", music_path,
-            "-filter_complex",
-            f"[1:a][2:a]amix=inputs=2:weights=1 {music_volume}:normalize=0[aout]",
-            "-map", "0:v",
-            "-map", "[aout]",
-            "-c:v", "libx264", "-preset", "fast", "-crf", "23",
-            "-pix_fmt", "yuv420p",
-            "-c:a", "aac", "-b:a", "192k",
-            "-t", str(duration),
-            "-movflags", "+faststart",
-            video_path,
-        ]
-        print(f"  Mixing background music at volume={music_volume}.")
-    else:
-        command = [
-            "ffmpeg",
-            "-y",                           # overwrite output without asking
-            "-f", "concat",
-            "-safe", "0",                   # allow absolute paths in concat script
-            "-i", concat_path,              # input 0: frame sequence
-            "-i", audio_path,               # input 1: voiceover audio
-            "-map", "0:v",                  # video from input 0 (frames)
-            "-map", "1:a",                  # audio from input 1 (voiceover)
-            "-c:v", "libx264",              # H.264 video codec (universal)
-            "-preset", "fast",              # encoding speed vs file size
-            "-crf", "23",                   # quality (18=great, 28=small; 23 is default)
-            "-pix_fmt", "yuv420p",          # required for compatibility on all devices
-            "-c:a", "aac",                  # AAC audio codec (required for TikTok/Instagram)
-            "-b:a", "192k",                 # audio bitrate
-            "-t", str(duration),            # stop at the end of the voiceover
-            "-movflags", "+faststart",      # move metadata to start for streaming
-            video_path,
-        ]
+    # --- Step 4: FFmpeg encode ---
+    # Build the FFmpeg command based on which audio tracks are available.
+    # Inputs are always: 0=frames, 1=voiceover, then optionally sfx and music.
+    # We use amix to blend all audio inputs, with weights controlling volume.
+    command = _build_ffmpeg_command(
+        concat_path=concat_path,
+        audio_path=audio_path,
+        video_path=video_path,
+        duration=duration,
+        sfx_path=sfx_path,
+        music_path=music_path,
+        music_volume=music_volume,
+    )
 
     result = subprocess.run(command, capture_output=True, text=True)
     if result.returncode != 0:

@@ -6,6 +6,8 @@
 #   pipeline   — the daily script-writing job (run manually)
 #
 # Usage:
+#   docker compose run --rm dashboard \
+#     python -m src.dashboard.set_password # create your login (first time)
 #   docker compose up dashboard          # start the dashboard
 #   docker compose run --rm pipeline     # run one pipeline pass
 #   docker compose run --rm pipeline \
@@ -18,13 +20,29 @@ services:
   dashboard:
     build: .
     ports:
-      - "8000:8000"
+      # "127.0.0.1:" means the port is only reachable from the server
+      # itself, never directly from the internet. Reach the dashboard
+      # through an encrypted route instead (see docs/deploy.md). Without
+      # this, your password would cross the internet unencrypted.
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
+    environment:
+      # Inside the container the app must listen on all addresses so
+      # Docker can pass connections to it. (The line above still keeps
+      # it private to the server.)
+      - DASHBOARD_HOST=0.0.0.0
+      # Keep the database in the mounted data/ folder so it survives
+      # rebuilding the container.
+      - DATABASE_PATH=/app/data/shortsengine.db
     volumes:
       # Mount the data folders so they persist between container restarts.
       - ./output:/app/output
       - ./cache:/app/cache
+      - ./data:/app/data
+      # Read live channel/settings edits without rebuilding the image.
+      - ./channels:/app/channels:ro
+      - ./config:/app/config:ro
     restart: unless-stopped
 
   # Pipeline — a one-shot job, run manually or on a cron schedule.
@@ -34,9 +52,16 @@ services:
     build: .
     env_file:
       - .env
+    environment:
+      # Same database file as the dashboard.
+      - DATABASE_PATH=/app/data/shortsengine.db
     volumes:
       - ./output:/app/output
       - ./cache:/app/cache
+      - ./data:/app/data
+      # Use the same channel settings and price list as the dashboard.
+      - ./channels:/app/channels:ro
+      - ./config:/app/config:ro
     # The default entrypoint runs the news channel pipeline.
     # Override on the command line with --channel or --dry-run.
     command: ["python", "-m", "src.main", "--channel", "news"]

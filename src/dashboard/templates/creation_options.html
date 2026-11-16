@@ -1,0 +1,13 @@
+{# Shared generation options; each field has an accessible wrapping label. #}
+<label>Output<select name="render">
+<option value="false">Script for review · allowance ${{ '%.2f'|format(script_estimate) }}</option>
+<option value="true">Script + animated video</option>
+</select>
+</label>
+<label>Voice for a video<select name="free_voice">
+<option value="true">Free Edge voice · total allowance ${{ '%.2f'|format(free_estimate) }}</option>
+<option value="false">Channel's configured voice · total allowance ${{ '%.2f'|format(paid_estimate) }}</option>
+</select>
+</label>
+<label class="checkbox">
+<input type="checkbox" name="dry_run" value="true"> Dry run — check the source, with no paid calls</label>

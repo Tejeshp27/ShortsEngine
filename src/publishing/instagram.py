@@ -135,10 +135,7 @@ def build_caption(story_title, story_url, channel_config):
     Example:
         caption = build_caption("Big story", "https://npr.org/...", config)
     """
-    niche = channel_config.get("niche", "news")
-
-    # Basic hashtags for a news channel.
-    hashtags = "#news #politics #currentevents #explained #learnontiktok"
+    hashtags = " ".join(channel_config.get("publishing", {}).get("hashtags", []))
 
     caption = (
         f"{story_title}\n\n"

@@ -1,5 +1,10 @@
 # CLAUDE.md — ShortsEngine Project Instructions
 
+## Session instructions
+
+Read this file at the start of every session before reviewing or changing code.
+Update this file whenever significant behavior or architecture changes.
+
 ## What this project is
 
 **ShortsEngine** is a multi-channel content automation platform. It finds news and other
@@ -17,8 +22,19 @@ It has two goals:
 
 ## About the developer
 
-I am a CS & Data Science student directing this project with Claude Code. I must be
-able to read, understand and **explain every part of it in an interview**.
+I am a CS & Data Science student directing this project. I must be able to read,
+understand and **explain every part of it in an interview**.
+
+## AI assistants on this project
+
+- **Claude Code is the main assistant.** It does most of the building, reviews any
+  changes made elsewhere, and keeps this file up to date.
+- **Codex is used now and then** for smaller tasks. `AGENTS.md` (the file Codex reads)
+  only points here, so both assistants follow exactly the same rules. Do not copy
+  these instructions into `AGENTS.md`; edit this file instead.
+- Whichever assistant makes a change must follow the code style below and add tests.
+  Claude Code should review Codex-made changes against this file at the start of the
+  next session (run the tests, check the style rules, update the docs).
 
 ## How to write code
 
@@ -58,7 +74,8 @@ API costs must stay minimal. Always choose the cheapest option that does the job
 
 - **Use the cheapest model that works.** Use a small, cheap model (e.g. Claude Haiku)
   for simple tasks like ranking headlines, tagging topics and short summaries. Use a
-  stronger model (e.g. Claude Sonnet) only for the final script writing. Model names
+  stronger model (e.g. Claude Sonnet) only for words that get published: the final
+  script, and the on-screen text of animated videos (the storyboard). Model names
   live in the channel/config files, not in the code.
 - **Send less text.** Trim articles to the relevant parts, strip HTML, and set a
   `max_tokens` limit on every call.
@@ -149,6 +166,7 @@ shortsengine/
     sources/            # fetching news / clips (rss.py, twitch.py later)
     generation/         # script writing (llm.py, prompts.py)
     video/              # voiceover, captions, rendering
+      animation/        # animated video engine (storyboard, footage, scenes, renderer)
     publishing/         # TikTok / Instagram APIs
     storage/            # database models and queries
     main.py             # command-line entry point
@@ -181,8 +199,9 @@ shortsengine/
 
 ## How to work
 
-1. Build **one small feature at a time**. Tell me how to run it, then wait for me to
-   confirm it works.
+1. Default to small, explainable features. When the user authorizes a broader pass,
+   complete that scope without waiting between roadmap steps. Explain how to run
+   and test the finished work.
 2. Prefer simple, working code over a big framework.
 3. Handle errors with clear messages (for example, "Missing ANTHROPIC_API_KEY in .env").
 4. Add a basic test for any core logic you write.
@@ -194,7 +213,8 @@ shortsengine/
 
 ## Current phase
 
-**Phases 1–7 code complete. M-series visual upgrade (M.1–M.6) code complete.**
+**Phases 1–7 code complete. M-series visual upgrade (M.1–M.6) code complete.
+A-series animated video engine (A.1–A.5) code complete — this is now the main way to render.**
 
 - Phase 1: scripts generate for ~$0.013 ✅
 - Phase 2: `--render` produces a real 9:16 MP4 (Pillow + FFmpeg + macOS TTS) ✅
@@ -209,12 +229,81 @@ shortsengine/
 - M.4: Pillow-based animated graphics (`animated_frames.py`) — no extra deps ✅
 - M.5: Renderer updated to wire all M-series types + `--style` flag ✅
 - M.6: Tests for scene planner, animated frames, stock video ✅
+- A.1–A.5: Animated video engine (`src/video/animation/`, `--render --animated`) ✅
+- C.0: Control center foundation — private login, templates, Docker fixes ✅
+  C.0 login confirmed working by the user.
+- C.1–C.5: Local control center implemented (see docs/control-center.md).
+- C.6: Hosting still awaits the user’s choice; nothing deployed.
+
+**Topic search (2026-11-11, Claude Code):** `src/sources/news_search.py`. A topic on
+the New video page also searches recent web news when the channel YAML has a
+`search:` section: GDELT (free, no key, 1 request / 5 s) plus NewsAPI `everything`
+(only with NEWS_API_KEY; free plan is development-only). Results cached 15 min in
+cache/search/. Google News rejected: its links can't be resolved to article text.
+GDELT returned HTTP 429 for every request from the user's network during testing;
+NewsAPI works. If GDELT stays blocked, consider dropping it.
+
+**Control-center review fixes (2026-11-11, Claude Code):**
+- Readability pass on all C-series modules (full docstrings, small single-purpose
+  functions, constants instead of magic numbers). Behaviour unchanged except below.
+- Only heavy jobs (generate, render) count toward `max_in_progress`; finding stories
+  and collecting statistics run beside them (one of each per channel at a time).
+- A rejected video can be approved again; approve/reject report when nothing changed.
+- A public post can only be recorded for an approved (or already posted) video.
+- Startup converts old local-time timestamps to UTC (`control_schema.py`), so
+  sorting, the library and history charts compare like with like.
+- `accounts.token_expires_at` records when a token expires; tokens pasted by hand
+  show "expiry unknown" on the channel page.
+
+**Review fixes (November 2026):**
+- Scheduler stores one video per channel/time slot in `publishing_slots` and upload
+  results/returned IDs per video/platform in `publishing_deliveries`. Named time zones
+  use Python's built-in `zoneinfo`, including daylight saving and midnight windows.
+- Failed uploads never mark a video posted. Successful destinations are skipped.
+  Network failures and interrupted sends remain `uncertain` or `sending`: check the
+  platform manually before retrying, since the platform may already have accepted it.
+  After confirming no upload exists, delete only that video's platform delivery row
+  in SQLite to permit retry. Never clear a succeeded delivery to retry another platform.
+- TikTok success means delivery to its inbox, not a confirmed public post. Instagram
+  publishing remains unimplemented; mixed-platform videos remain approved until all
+  configured destinations succeed. Account-aware daily analytics now uses the
+  control center’s encrypted connections and confirmed public post IDs.
+- Dashboard and ranking feedback sum only the latest cumulative snapshot per platform.
+- AI and configured voice estimates now write per-call cost_events and video totals,
+  including failed renders. CSV remains an additional run log; old missing costs
+  require manual reconciliation.
+
+**Control-center update (November 2026):**
+- Neutral light theme: warm off-white, charcoal text, muted olive; no neon UI.
+- Overview/channel pages use latest cumulative metrics. Public post counts use
+  explicit `platform_posts`, not TikTok inbox delivery IDs.
+- Encrypted per-channel accounts, one-use OAuth state, TikTok refresh rotation,
+  Instagram via Facebook Login, and once-a-day account/post snapshots. Live
+  platform flows need approved apps and real credentials for validation.
+- Money ledger combines new per-call costs, manual payouts/expenses and legacy
+  video totals without double-counting. New voice costs use configured character
+  estimates. Historical unrecorded costs can be entered manually.
+- Browser jobs run in separate processes, with SQLite capacity/spending reservations,
+  heartbeats, source checks, duplicate protection and free dry runs. Renders return
+  to drafted. No browser job publishes. Active renders cannot be approved.
+- Video library has private playback, cached thumbnails/durations, search, filters
+  and an explicit untracked-file state. Paths outside output/ are refused.
+- New code lives in dashboard/{routes,data,settings,accounts,jobs,worker,media}.py,
+  storage/{control_schema,finance}.py, analytics/accounts.py and sources/public_web.py.
+- No new paid service. The only new dependency is PyCA cryptography for tokens.
+- Daily spending caps apply to browser jobs; independent CLI runs still log costs
+  but are not subject to that dashboard cap. Unknown request outcomes retain an
+  uncertain estimate rather than being silently retried.
 
 **Next human steps:**
-- Add PEXELS_API_KEY to .env (free at pexels.com/api) to enable video B-roll
-- Run `--render --visuals` on a script to test the full M-series pipeline
-- For Manim animated scenes (richer diagrams): `brew install cairo pango && pip install manim`
-- Post videos by hand, then add API tokens for automated publishing (Phase 4)
+- Restart the dashboard and try the new pages; see docs/control-center.md.
+- Configure approved developer apps/account credentials to validate real OAuth
+  and statistics. Existing .env tokens can be explicitly imported per channel.
+- Watch an animated render and give visual feedback; no paid render was needed
+  for the control-center implementation tests.
+- Choose a hosting approach for C.6 before any deployment.
+- Instagram automatic uploading still needs a supported hosting/upload integration;
+  manual posting and recording the public post ID work with the new collector.
 
 ## Roadmap
 
@@ -305,6 +394,98 @@ The M-series improves video quality without changing the core pipeline.
 - 30 tests covering scene_planner, animated_frames, and stock_video.
 - All run offline (dry_run + mocks) — no API calls needed.
 
+### A-series — Animated video engine (`src/video/animation/`)
+
+Run with `python -m src.main --channel news --render --animated`. Every frame is three
+layers: stock footage playing full-screen, an animated graphic for the current sentence,
+and word-by-word captions. There is never a blank or still screen.
+
+**A.1 — Storyboard** ✅ (`storyboard.py`)
+- Splits the script into beats (a sentence or part of one, max 12 words).
+- One AI call (`models.storyboard`, ~3 cents) picks a footage topic and a graphic per beat.
+- Saved as `<slug>_storyboard.json` next to the script: free to re-render, editable by hand.
+
+**A.2 — Accuracy checks** ✅ (`storyboard.py`)
+- On-screen words must come from the spoken sentence; numbers and names must be in the
+  script; claims must keep "says" / "argues" / "expected". Failures become a plain
+  headline of the spoken words. Every graphic is printed beside its spoken words for review.
+- Haiku was tried first and rejected: it stated claims as facts and ignored the rules.
+
+**A.3 — Footage** ✅ (`footage.py`, `stock_video.get_video_clip`)
+- Clips come only from the channel's hand-checked `video.animation.footage_topics`
+  (free-form Pixabay search returned unusable clips). Dark clips are skipped.
+- Fallback order: chosen topic → general topics → previous clip → moving gradient.
+
+**A.4 — Graphics and overlays** ✅ (`scenes.py`, `overlays.py`)
+- Nine templates: headline, icon_label, person, big_number, versus, bullet_list,
+  timeline, bar_chart, stamp. Icons are Noto Emoji; font is Montserrat (both open licence).
+- Captions highlight the spoken word; progress bar; section label; wipe between sections.
+
+**A.5 — Renderer and tests** ✅ (`renderer.py`, `tests/test_animation.py`)
+- Draws ~30 frames per second with Pillow and pipes them to FFmpeg (no PNG files).
+- 54 offline tests.
+
+**Future ideas for the A-series**
+- Sound effects on scene changes (whoosh / pop) and background music by default.
+- More graphic templates (map, quote card) and more approved footage topics.
+
+### C-series — Private control center (browser dashboard)
+
+Goal: one private place in the browser to see and manage everything — every channel
+and account, every video, followers, money made, money spent — and to make new videos
+without the terminal. The responsive UI supports phones; reaching it from another
+device still requires the C.6 hosting/network choice. The user authorized completing
+C.1–C.5 together after confirming the C.0 login works.
+
+**C.0 — Foundation and privacy** ✅ (`src/dashboard/`, `tests/test_dashboard_auth.py`)
+- Every page is private by default: one check (`require_login` in `app.py`) runs before
+  every request; only `/login` and `/static/` are public.
+- Password hashed with bcrypt in the `users` table (`python -m src.dashboard.set_password`).
+  Signed session cookie (`SESSION_SECRET` in `.env`). 5 wrong passwords lock an address
+  out for 15 minutes (`config/dashboard.yaml`). Every form carries a secret token.
+- Pages moved from inline HTML strings to Jinja2 templates (auto-escaped).
+- Docker: `.dockerignore` keeps `.env`, the database and videos out of the image; the
+  database lives in a mounted `data/` folder; port 8000 is bound to the server only.
+- Replaces the old `DASHBOARD_PASSWORD` browser prompt, which was open when left blank.
+
+**C.1 — Home page** ✅ (local implementation)
+- Cross-channel totals, per-channel cards, recent content/activity, cumulative
+  follower/view history. Unavailable metrics display a dash, not an invented zero.
+
+**C.2 — Accounts and channels** ✅ (live credentials still required)
+- Channel details, verified encrypted account connections, OAuth state validation,
+  TikTok token refresh, Instagram Facebook Login, daily snapshots and best videos.
+- Collector uses confirmed public post IDs. Tokens are no longer implicitly shared
+  across channels. The dashboard collects missing daily snapshots while running;
+  `python -m src.analytics.accounts` can also run from a server scheduler.
+
+**C.3 — Money** ✅ (estimates, with historical gaps disclosed)
+- Manual USD payouts/expenses, monthly/channel totals and a unified ledger.
+- AI calls and ElevenLabs character estimates are tracked, including failures.
+  Legacy video totals remain visible without counting the same event twice.
+
+**C.4 — Video library** ✅
+- Private MP4 playback and cached FFmpeg thumbnails/durations; title search,
+  channel/status filters, script/source review and untracked-file flags.
+
+**C.5 — Make videos from the browser** ✅ (article-based channels)
+- Choose current sources, optionally rank them, filter by topic or paste a URL.
+  Source text is required before paid writing. Script-only and animated outputs.
+- Separate background processes, progress/error history, free dry runs, default
+  $2/day reservation limit and one job in progress. Results remain drafted.
+- Twitch example stays disabled until configured with permission; there is no
+  browser Twitch clip editor. See docs/control-center.md for operating limits.
+
+**C.6 — Hosting** (waiting for a decision — deploy nothing until chosen)
+- Options compared: (a) Mac + Tailscale, (b) cloud server with public HTTPS + login,
+  (c) cloud server reachable only through Tailscale. Recommended: (c).
+- One animated render peaked at 1.1 GB of memory (measured on the Mac), so a 1 GB
+  server is too small; 4 GB / 2 CPUs is comfortable.
+
+**Decisions so far:** server-rendered pages (FastAPI + Jinja2) rather than React for
+this dashboard, to keep it simple and explainable — these were Claude's recommended
+defaults, accepted by "start" without separate discussion, so revisit if wanted.
+
 **Future: Manim diagrams (M.4b)**
 - Richer data-vis scenes (maps, timelines, motion diagrams) using Manim Community.
 - Requires: `brew install cairo pango && pip install manim`.
@@ -331,6 +512,20 @@ python -m src.main --channel news --list         # list today's new stories (fre
 python -m src.main --channel news --dry-run      # full pipeline, no paid API calls
 python -m src.main --channel news                # AI picks a story and writes a script
 python -m src.main --channel news --pick 3       # write about story #3 from --list
+```
+
+**Making a video:**
+```bash
+python -m src.main --channel news --review             # approve a drafted script
+python -m src.main --channel news --render --animated  # fully animated video (~3 cents)
+python -m src.main --channel news --render             # classic still-picture video (free)
+```
+To change a graphic, edit `output/<channel>/<script>_storyboard.json` and render again (free).
+
+**Dashboard:**
+```bash
+python -m src.dashboard.set_password   # first time (or to change the password)
+python -m src.dashboard.app            # then open http://localhost:8000
 ```
 
 **Tests:**

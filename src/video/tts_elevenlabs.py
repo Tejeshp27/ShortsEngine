@@ -137,7 +137,7 @@ def _characters_to_words(characters, start_times, end_times):
     return words
 
 
-def synthesize_elevenlabs(text, voice, audio_path, timing_path):
+def synthesize_elevenlabs(text, voice, audio_path, timing_path, cost_tracker=None, settings=None):
     """
     Generate a voiceover MP3 and word-timing JSON using the ElevenLabs API.
 
@@ -150,6 +150,8 @@ def synthesize_elevenlabs(text, voice, audio_path, timing_path):
         voice (str): Voice name ("Rachel") or voice ID from ElevenLabs.
         audio_path (str): Where to save the .mp3 file.
         timing_path (str): Where to save the word-timing .json file.
+        cost_tracker: Optional database tracker for estimated voice spending.
+        settings (dict or None): Channel model and dollars per 1,000 characters.
 
     Raises:
         ValueError: If ELEVENLABS_API_KEY is not set in .env.
@@ -177,9 +179,11 @@ def synthesize_elevenlabs(text, voice, audio_path, timing_path):
 
     url = f"{ELEVENLABS_API}/text-to-speech/{voice_id}/with-timestamps"
 
+    settings = settings or {}
+    model = settings.get("elevenlabs_model", MODEL_ID)
     payload = json.dumps({
         "text": text,
-        "model_id": MODEL_ID,
+        "model_id": model,
         "voice_settings": {
             "stability": 0.50,          # 0=very expressive, 1=very stable
             "similarity_boost": 0.75,   # how closely to match the original voice
@@ -195,6 +199,14 @@ def synthesize_elevenlabs(text, voice, audio_path, timing_path):
         },
     )
 
+    event_id = None
+    estimate = 0.0
+    if cost_tracker:
+        price = settings.get("elevenlabs_usd_per_1000_chars")
+        if price is None or float(price) <= 0:
+            raise ValueError("Set video.elevenlabs_usd_per_1000_chars in the channel YAML, or choose a free voice.")
+        estimate = len(text) * float(price) / 1000
+        event_id = cost_tracker.reserve("voiceover (character estimate)", model, estimate, len(text))
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:
             data = json.loads(resp.read())
@@ -203,6 +215,11 @@ def synthesize_elevenlabs(text, voice, audio_path, timing_path):
         raise RuntimeError(
             f"ElevenLabs API error {err.code}: {body[:500]}"
         )
+
+    if event_id is not None:
+        # Subscription allowances vary. This is a character-based estimate,
+        # not a claim about the actual amount on the provider's invoice.
+        cost_tracker.settle(event_id, estimate)
 
     # Decode the base64 audio and save it as an .mp3 file.
     audio_bytes = base64.b64decode(data["audio_base64"])

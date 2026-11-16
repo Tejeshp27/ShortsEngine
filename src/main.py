@@ -45,8 +45,10 @@ from src.generation.writer import write_script
 from src.sources.articles import get_article_text
 from src.sources.rss import fetch_all_stories, filter_recent, remove_duplicates
 from src.storage.database import create_tables
+from src.storage.finance import CostTracker
 from src.storage.history import load_processed, mark_processed, remove_processed
 from src.storage.queries import (
+    add_video_cost,
     get_videos_by_status,
     save_cost_event,
     save_video,
@@ -142,6 +144,15 @@ def parse_arguments():
         "--visuals",
         action="store_true",
         help="Generate a visual plan (stock photos + charts) for the video (Phase V.2–V.6)",
+    )
+    parser.add_argument(
+        "--animated",
+        action="store_true",
+        help=(
+            "With --render: make a fully animated video — stock footage playing "
+            "the whole time, an animated graphic for every sentence, and "
+            "word-by-word captions. Costs about 1 cent (one storyboard AI call)."
+        ),
     )
     parser.add_argument(
         "--no-paid-visuals",
@@ -371,6 +382,8 @@ def run_script_pipeline(args, config, llm):
                 script_path=script_path,
                 cost_usd=llm.total_cost,
             )
+            if getattr(llm, "cost_tracker", None):
+                llm.cost_tracker.attach_video(video_id, add_to_total=False)
             print(f"Saved to database (ID {video_id}, status: drafted).")
             mark_processed(args.channel, story, script_path)
         print()
@@ -412,6 +425,8 @@ def run_script_pipeline(args, config, llm):
             script_path=script_path,
             cost_usd=llm.total_cost,
         )
+        if getattr(llm, "cost_tracker", None):
+            llm.cost_tracker.attach_video(video_id, add_to_total=False)
         print(f"Saved to database (ID {video_id}, status: drafted).")
         print("Next step: run --review to approve it, then --render to make the video.")
         mark_processed(args.channel, story, script_path)
@@ -465,6 +480,7 @@ def run_render_pipeline(args, config):
         voice = config["video"]["voice"]
 
     use_visuals = getattr(args, "visuals", False)
+    use_animated = getattr(args, "animated", False)
     no_paid_visuals = getattr(args, "no_paid_visuals", False)
     use_music = getattr(args, "music", False)
 
@@ -474,39 +490,53 @@ def run_render_pipeline(args, config):
     style = getattr(args, "style", "auto")
     if use_visuals:
         print(f"Visuals : enabled (style={style}, paid={'no' if no_paid_visuals else 'yes, Pexels + Pexels Video + Pixabay'})")
+    if use_animated:
+        print("Mode    : animated (stock footage + animated graphics + captions)")
     if use_music:
         print(f"Music   : enabled (Mubert, mood={config['video'].get('music_mood', 'focused')})")
     print()
 
-    # Create an LLM client when visuals are requested (to avoid needing
-    # an API key for plain --render runs).
+    # Create an LLM client when visuals or animation are requested (to
+    # avoid needing an API key for plain --render runs).
     llm = None
-    if use_visuals and not args.dry_run:
+    tracker = None if args.dry_run else CostTracker(args.channel, video_id=video_row["id"])
+    if (use_visuals or use_animated) and not args.dry_run:
         from src.generation.llm import LLMClient
         llm = LLMClient(dry_run=False,
-                        max_calls=config["llm"]["max_calls_per_run"])
+                        max_calls=config["llm"]["max_calls_per_run"], cost_tracker=tracker)
 
-    # Pass channel_config whenever visuals or music is requested —
-    # both features read settings from it.
-    needs_config = use_visuals or use_music
-    video_path = render_video(
-        script_path=script_path,
-        story_title=video_row["story_title"],
-        channel_key=args.channel,
-        voice=voice,
-        font_size=config["video"].get("font_size", 90),
-        dry_run=args.dry_run,
-        llm=llm,
-        channel_config=config if needs_config else None,
-        no_paid_visuals=no_paid_visuals,
-        tts_provider=tts_provider,
-        style=style,
-        use_music=use_music,
-    )
+    # Pass channel_config whenever visuals, animation or music is requested —
+    # all three read settings from it.
+    needs_config = use_visuals or use_animated or use_music
+    try:
+        video_path = render_video(
+            script_path=script_path,
+            story_title=video_row["story_title"],
+            channel_key=args.channel,
+            voice=voice,
+            font_size=config["video"].get("font_size", 90),
+            dry_run=args.dry_run,
+            llm=llm,
+            channel_config=config,
+            no_paid_visuals=no_paid_visuals,
+            tts_provider=tts_provider,
+            style=style,
+            use_music=use_music,
+            animated=use_animated,
+            cost_tracker=tracker,
+        )
 
-    if not args.dry_run:
-        set_video_path(video_row["id"], video_path)
-        print(f"Database updated — video path recorded (ID {video_row['id']}).")
+        if not args.dry_run:
+            set_video_path(video_row["id"], video_path)
+            print(f"Database updated — video path recorded (ID {video_row['id']}).")
+    finally:
+        # Paid storyboard work still counts if FFmpeg fails afterwards.
+        if llm is not None:
+            # New tracked calls already updated the video total. Keep support
+            # for callers supplying a legacy client without a tracker.
+            add_video_cost(video_row["id"], max(0.0, llm.total_cost - tracker.total))
+            llm.write_cost_log(args.channel, note=f"render {os.path.basename(script_path)}")
+            print_cost_summary(llm)
 
 
 def main():
@@ -559,12 +589,14 @@ def main():
         return
 
     # --- Script-writing pipeline (Phase 1) ---
-    if not args.dry_run and not check_environment():
+    if not args.dry_run and not args.list and not check_environment():
         print("ERROR: Missing ANTHROPIC_API_KEY in .env — "
               "add it, or use --dry-run to test without paid calls.")
         raise SystemExit(1)
 
-    llm = LLMClient(dry_run=args.dry_run, max_calls=config["llm"]["max_calls_per_run"])
+    tracker = None if args.dry_run else CostTracker(args.channel)
+    llm = LLMClient(dry_run=args.dry_run, max_calls=config["llm"]["max_calls_per_run"],
+                    cost_tracker=tracker)
     note = ""
 
     try:

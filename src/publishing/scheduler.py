@@ -19,11 +19,13 @@
 # =============================================================
 
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
+from zoneinfo import ZoneInfo
 
 import yaml
 
-from src.storage.queries import get_videos_by_status, mark_posted
+from src.storage.database import create_tables, get_connection
+from src.storage.queries import get_videos_by_status, get_video_by_id, mark_posted
 
 
 def _load_all_channels():
@@ -76,82 +78,185 @@ def _is_posting_time(schedule, now_local_hour, now_local_minute, window_minutes=
     return False
 
 
+def find_posting_slot(schedule, now_utc):
+    """Return the nearest scheduled UTC time as text, or None outside its window.
+
+    schedule contains a named timezone and post_times. now_utc is an aware
+    datetime. Adjacent dates are checked so windows work across midnight.
+    """
+    if schedule.get("timezone"):
+        local_time = now_utc.astimezone(ZoneInfo(schedule["timezone"]))
+    else:
+        local_time = now_utc.astimezone(timezone(
+            timedelta(hours=schedule.get("utc_offset_hours", 0))))
+    nearest = None
+    nearest_distance = float("inf")
+    for day_offset in (-1, 0, 1):
+        day = local_time + timedelta(days=day_offset)
+        for time_text in schedule.get("post_times", []):
+            parts = time_text.split(":")
+            hour = int(parts[0])
+            minute = int(parts[1]) if len(parts) > 1 else 0
+            target = day.replace(hour=hour, minute=minute, second=0, microsecond=0)
+            target_utc = target.astimezone(timezone.utc)
+            # Skip a nonexistent local time during the spring clock change.
+            if target_utc.astimezone(local_time.tzinfo) != target:
+                continue
+            distance = abs((now_utc - target_utc).total_seconds())
+            if distance <= 1800 and distance < nearest_distance:
+                nearest = target_utc.isoformat()
+                nearest_distance = distance
+    return nearest
+
+
+def select_slot_video(channel, slot):
+    """Return the video reserved for channel and slot, or reserve a ready one.
+
+    The database lock makes simultaneous scheduler runs choose the same video.
+    Returns a video row, or None when no approved rendered video is available.
+    """
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        row = conn.execute(
+            "SELECT video_id FROM publishing_slots WHERE channel = ? AND slot = ?",
+            (channel, slot),
+        ).fetchone()
+        if row:
+            return get_video_by_id(row["video_id"])
+        for video in get_videos_by_status("approved", channel=channel):
+            if video["video_path"] and os.path.isfile(video["video_path"]):
+                conn.execute("INSERT INTO publishing_slots VALUES (?, ?, ?)",
+                             (channel, slot, video["id"]))
+                conn.commit()
+                return video
+        return None
+    finally:
+        conn.close()
+
+
+def claim_delivery(video_id, platform):
+    """Reserve an upload for a video and platform; return whether this run owns it.
+
+    Successful or uncertain uploads are never sent again automatically. A crash
+    or network error can happen after acceptance, so uncertain sends need review.
+    """
+    conn = get_connection()
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        ready = conn.execute("""
+            SELECT id FROM videos WHERE id=? AND status='approved'
+            AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id=videos.id AND status IN ('queued', 'running'))
+            AND NOT EXISTS (SELECT 1 FROM platform_posts WHERE video_id=videos.id AND platform=?)
+        """, (video_id, platform)).fetchone()
+        if not ready:
+            return False
+        cursor = conn.execute(
+            "INSERT OR IGNORE INTO publishing_deliveries VALUES (?, ?, 'sending', NULL)",
+            (video_id, platform),
+        )
+        conn.commit()
+        return cursor.rowcount == 1
+    finally:
+        conn.close()
+
+
+def finish_delivery(video_id, platform, status, post_id=None):
+    """Save an upload outcome and optional returned ID; return nothing.
+
+    video_id identifies the video, platform identifies its destination, and
+    status is succeeded or uncertain. Uncertain uploads require manual checking.
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE publishing_deliveries SET status = ?, post_id = ? "
+            "WHERE video_id = ? AND platform = ?",
+            (status, post_id, video_id, platform),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
 def run_scheduler(dry_run=False):
-    """
-    Check all channels and post the next approved video if it's posting time.
+    """Upload one approved video per channel slot; dry_run only prints the plan.
 
-    This function is meant to run on a schedule (e.g. every 30 minutes
-    from a cron job). It's idempotent — safe to run many times.
-
-    Args:
-        dry_run (bool): If True, print what would be posted but don't publish.
+    Completed destinations are skipped on later runs. A video is marked posted
+    only after all configured destinations succeed (TikTok success means inbox).
     """
-    channels = _load_all_channels()
+    if not dry_run:
+        create_tables()
     now_utc = datetime.now(timezone.utc)
-
-    for channel_key, config in channels:
+    for channel_key, config in _load_all_channels():
         schedule = config.get("schedule")
         if not schedule:
-            continue  # This channel has no posting schedule yet.
-
-        # Get local time for this channel using its timezone offset.
-        # We use a simple UTC-offset approach so we don't need a third-party
-        # timezone library. Set offset_hours in the channel config if needed.
-        offset_hours = schedule.get("utc_offset_hours", 0)
-        local_hour = (now_utc.hour + offset_hours) % 24
-        local_minute = now_utc.minute
-
-        if not _is_posting_time(schedule, local_hour, local_minute):
             continue
-
-        # Find the next approved video that hasn't been posted.
-        approved = get_videos_by_status("approved", channel=channel_key)
-        if not approved:
-            print(f"[{channel_key}] No approved videos ready to post.")
+        slot = find_posting_slot(schedule, now_utc)
+        if slot is None:
             continue
-
-        video = approved[0]
-        video_path = video["video_path"]
-
-        if not video_path or not os.path.exists(video_path):
-            print(f"[{channel_key}] Video file not found for ID {video['id']}. Skipping.")
-            continue
-
-        platforms = schedule.get("platforms", config.get("platforms", []))
-
-        print(f"[{channel_key}] Posting: {video['story_title']}")
-        print(f"  Platforms: {platforms}")
-
-        if dry_run:
-            print("  [DRY RUN] Would post now — no actual upload.")
-            continue
-
+        platforms = list(dict.fromkeys(schedule.get("platforms", config.get("platforms", []))))
+        supported = bool(platforms)
         for platform in platforms:
-            try:
-                if platform == "tiktok":
-                    from src.publishing.tiktok import upload_to_drafts, build_caption
-                    caption = build_caption(
-                        video["story_title"], video["story_url"], config
-                    )
-                    upload_to_drafts(video_path, caption)
-
-                elif platform == "instagram":
-                    from src.publishing.instagram import post_reel, build_caption
-                    caption = build_caption(
-                        video["story_title"], video["story_url"], config
-                    )
-                    post_reel(video_path, caption)
-
-                else:
-                    print(f"  Unknown platform '{platform}' — skipping.")
+            if platform not in ("tiktok", "instagram"):
+                supported = False
+        if not supported:
+            print(f"[{channel_key}] Configure supported posting platforms first.")
+            continue
+        if dry_run:
+            print(f"[{channel_key}] [DRY RUN] Would check slot {slot}: {platforms}")
+            continue
+        video = select_slot_video(channel_key, slot)
+        if video is None or video["status"] != "approved":
+            continue
+        for platform in platforms:
+            # Missing credentials and the unfinished Instagram publisher must not
+            # consume an upload reservation: these are safe to retry later.
+            if platform == "instagram":
+                print(f"[{channel_key}] Instagram publishing is not implemented; leaving approved.")
+                continue
+            from src.dashboard.accounts import access_token, get_account, safe_error
+            account = get_account(channel_key, platform)
+            token = None
+            if account:
+                try:
+                    token = access_token(account)
+                except ValueError as error:
+                    print(f"[{channel_key}] {safe_error(error)}")
                     continue
-
-                print(f"  Posted to {platform}.")
-
+            elif config.get("publishing", {}).get("use_legacy_env_tokens", False):
+                # Legacy globals are only used when this particular channel
+                # explicitly opts in. Otherwise two channels could share a token.
+                token = os.getenv("TIKTOK_ACCESS_TOKEN")
+            if not token:
+                print(f"[{channel_key}] Connect this channel's TikTok account first; leaving approved.")
+                continue
+            if not claim_delivery(video["id"], platform):
+                continue
+            try:
+                from src.publishing.tiktok import upload_to_drafts, build_caption
+                caption = build_caption(video["story_title"], video["story_url"], config)
+                post_id = upload_to_drafts(video["video_path"], caption, access_token=token)
+                finish_delivery(video["id"], platform, "succeeded", post_id)
             except Exception as error:
-                print(f"  ERROR posting to {platform}: {error}")
-
-        # Mark as posted in the database regardless of platform errors,
-        # so the same video isn't retried next run.
-        mark_posted(video["id"])
-        print(f"  Marked as posted (ID {video['id']}).")
+                finish_delivery(video["id"], platform, "uncertain")
+                print(f"[{channel_key}] Upload needs manual checking before retry: {error}")
+        conn = get_connection()
+        try:
+            rows = conn.execute(
+                "SELECT platform, status FROM publishing_deliveries WHERE video_id = ? "
+                "UNION ALL SELECT platform, 'succeeded' FROM platform_posts WHERE video_id = ?",
+                (video["id"], video["id"]),
+            ).fetchall()
+        finally:
+            conn.close()
+        successful = set()
+        for row in rows:
+            if row["status"] == "succeeded":
+                successful.add(row["platform"])
+        all_succeeded = True
+        for platform in platforms:
+            if platform not in successful:
+                all_succeeded = False
+        if all_succeeded:
+            mark_posted(video["id"])

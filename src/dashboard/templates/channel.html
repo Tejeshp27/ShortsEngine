@@ -1,0 +1,95 @@
+{# One channel: verified accounts, settings, growth and content. #}
+{% extends 'base.html' %}{% import 'components.html' as ui %}
+{% block title %}{{ config.name }}{% endblock %}{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">
+<a href="/channels">Channels</a> / {{ channel }}</div>
+<h1>{{ config.name }}</h1>
+<p>{{ config.niche }}</p>
+</div>
+<a class="btn btn-primary" href="/new?channel={{ channel }}">+ New video</a>
+</div>
+{% if card %}{{ ui.totals(card.totals) }}{% endif %}
+<div class="section-heading">
+<h2>Connected accounts</h2>
+<form method="post" action="/channels/{{ channel }}/sync">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}">
+<button class="btn" type="submit">Collect today's statistics</button>
+</form>
+</div>
+<div class="split">
+{% for platform in ['tiktok','instagram'] %}
+<section class="panel">
+<h2>{{ platform|title }}</h2>{% set matches = accounts|selectattr('platform','equalto',platform)|list %}
+{% if matches %}{% set account = matches[0] %}<h3>{{ account.display_name }}</h3>
+<p>{{ '{:,}'.format(account.followers) if account.followers is not none else '—' }} followers</p>
+<p class="meta">Last collected: {{ account.last_synced_at or 'Not yet collected' }}</p>
+<p class="meta">{{ account.token_note }}</p>{% if account.last_error %}<div class="alert">{{ account.last_error }}</div>{% endif %}
+<details>
+<summary>Disconnect account</summary>
+<p class="note">Removes this account's saved credentials and follower history from ShortsEngine. Remove the app in your platform settings too if you want to revoke its permissions.</p>
+<form method="post" action="/channels/{{ channel }}/accounts/{{ platform }}/disconnect">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<button class="btn btn-red" type="submit">Disconnect and remove history</button>
+</form>
+</details>
+{% else %}<p class="muted">No account connected.</p>{% endif %}
+<details {% if not matches %}open{% endif %}>
+<summary>{{ 'Reconnect account' if matches else 'Connect an account' }}</summary>
+<p class="note">{% if platform == 'instagram' %}Requires a professional Instagram account linked to a Facebook Page, and a Meta developer app with the relevant permissions.{% else %}Requires a TikTok developer app with Login Kit and statistics permissions.{% endif %}</p>
+<form method="post" action="/channels/{{ channel }}/accounts/{{ platform }}/connect">
+<input type="hidden" name="form_token" value="{{ form_token }}">{% if platform == 'instagram' %}<div class="form-group">
+<label for="oauth-id">Instagram professional account ID</label>
+<input id="oauth-id" name="account_id" inputmode="numeric" required>
+</div>{% endif %}<button class="btn" type="submit">Connect with {{ 'Facebook' if platform == 'instagram' else 'TikTok' }}</button>
+</form>
+<details>
+<summary>Use an existing access token</summary>
+<form method="post" action="/channels/{{ channel }}/accounts/{{ platform }}/token">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<div class="form-group">
+<label for="token-{{ platform }}">Access token</label>
+<input id="token-{{ platform }}" type="password" name="access_token" autocomplete="off" required>
+</div>{% if platform == 'instagram' %}<div class="form-group">
+<label for="account-id">Instagram professional account ID</label>
+<input id="account-id" name="account_id" inputmode="numeric" required>
+</div>{% endif %}<button class="btn" type="submit">Verify and save encrypted</button>
+</form>
+<form method="post" action="/channels/{{ channel }}/accounts/{{ platform }}/token" class="actions">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="use_environment" value="true">
+<button class="btn btn-plain" type="submit">Import this account from .env</button>
+</form>
+<p class="note">Tokens are verified with the official API before being saved. Pasted tokens may need manual renewal.</p>
+</details>
+</details>
+</section>{% endfor %}
+</div>
+<div class="section-heading">
+<h2>Performance</h2>
+</div>
+<div class="split">{{ ui.chart('Followers', followers_chart, 'Daily snapshots appear after connection.') }}{{ ui.chart('Video views', views_chart, 'Add public post IDs to collect metrics.') }}</div>
+<div class="section-heading">
+<h2>Best performers</h2>
+</div>{{ ui.video_table(best_videos) }}
+<div class="section-heading">
+<h2>Recent content</h2>
+<a href="/library?channel={{ channel }}">All content →</a>
+</div>{{ ui.video_table(recent_videos) }}
+<details class="panel">
+<summary>Channel settings</summary>
+<dl>
+<dt>Audience</dt>
+<dd>{{ config.audience|default('Not set') }}</dd>
+<dt>Tone</dt>
+<dd>{{ config.tone|default('Not set') }}</dd>
+<dt>Target length</dt>
+<dd>{{ config.target_length_seconds|default('—') }} seconds</dd>
+<dt>Sources</dt>
+<dd>{% for source in config.sources|default([]) %}{{ source.name|default(source.type) }}{% if not loop.last %}, {% endif %}{% endfor %}</dd>
+</dl>
+<p class="note">Edit channels/{{ channel }}.yaml to change this channel's content settings.</p>
+</details>
+{% endblock %}

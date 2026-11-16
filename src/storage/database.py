@@ -20,9 +20,11 @@
 import os
 import sqlite3
 
-# The database file lives at the project root (next to src/).
-# os.path is used so the path works on any operating system.
-DB_PATH = os.path.join("shortsengine.db")
+# The database file lives at the project root (next to src/) by default.
+# Setting DATABASE_PATH in the environment moves it somewhere else — the
+# Docker setup uses this to keep the file in a folder that is saved
+# outside the container, so the data survives a rebuild.
+DB_PATH = os.getenv("DATABASE_PATH", "shortsengine.db")
 
 
 def get_connection():
@@ -42,7 +44,7 @@ def get_connection():
         conn.execute("SELECT * FROM videos")
         conn.close()
     """
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=30)
 
     # row_factory makes every row behave like a dict (column name → value).
     # Without this, rows come back as plain tuples and you have to remember
@@ -84,6 +86,26 @@ def create_tables():
         )
     """)
 
+    # A slot keeps its chosen video even when only some uploads succeed.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS publishing_slots (
+            channel TEXT NOT NULL,
+            slot TEXT NOT NULL,
+            video_id INTEGER NOT NULL REFERENCES videos(id),
+            PRIMARY KEY (channel, slot)
+        )
+    """)
+    # Claim each upload before contacting a platform to prevent duplicate sends.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS publishing_deliveries (
+            video_id INTEGER NOT NULL REFERENCES videos(id),
+            platform TEXT NOT NULL,
+            status TEXT NOT NULL,
+            post_id TEXT,
+            PRIMARY KEY (video_id, platform)
+        )
+    """)
+
     # --- cost_events table ---
     # One row per individual AI call so we can break down what each step cost.
     conn.execute("""
@@ -100,5 +122,31 @@ def create_tables():
         )
     """)
 
+    # --- users table ---
+    # Who may log in to the dashboard. The password itself is never
+    # stored — only a one-way "hash" of it (see src/dashboard/auth.py).
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS users (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            username        TEXT    NOT NULL UNIQUE,
+            password_hash   TEXT    NOT NULL,
+            created_at      TEXT    NOT NULL,
+            updated_at      TEXT    NOT NULL
+        )
+    """)
+
+    # --- login_attempts table ---
+    # One row per FAILED login, so the dashboard can lock out an address
+    # that keeps guessing passwords.
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS login_attempts (
+            id              INTEGER PRIMARY KEY AUTOINCREMENT,
+            ip_address      TEXT    NOT NULL,
+            attempted_at    TEXT    NOT NULL
+        )
+    """)
+
+    from src.storage.control_schema import create_control_tables
+    create_control_tables(conn)
     conn.commit()
     conn.close()

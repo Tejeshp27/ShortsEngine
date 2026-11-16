@@ -108,14 +108,18 @@ def run_review_queue(channel_key):
         action, notes = _prompt_decision(video["id"])
 
         if action == "approve":
-            approve_video(video["id"], notes=notes)
-            print(f"  ✓ Approved (ID {video['id']})")
-            approved_count += 1
+            if approve_video(video["id"], notes=notes):
+                print(f"  ✓ Approved (ID {video['id']})")
+                approved_count += 1
+            else:
+                print(f"  ! Not changed (ID {video['id']}): a job is still working on it, or it was posted.")
 
         elif action == "reject":
-            reject_video(video["id"], notes=notes)
-            print(f"  ✗ Rejected (ID {video['id']})")
-            rejected_count += 1
+            if reject_video(video["id"], notes=notes):
+                print(f"  ✗ Rejected (ID {video['id']})")
+                rejected_count += 1
+            else:
+                print(f"  ! Not changed (ID {video['id']}): a job is still working on it, or it was posted.")
 
         elif action == "quit":
             print("Exiting review queue.")

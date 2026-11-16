@@ -9,7 +9,7 @@
 # Functions here use the connection from database.py.
 # =============================================================
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from src.storage.database import get_connection
 
@@ -41,7 +41,7 @@ def save_video(channel, story_title, story_url, script_path, cost_usd):
         VALUES (?, ?, ?, ?, 'drafted', ?, ?)
         """,
         (channel, story_title, story_url, script_path, cost_usd,
-         datetime.now().isoformat(timespec="seconds")),
+         datetime.now(timezone.utc).isoformat(timespec="seconds")),
     )
     video_id = cursor.lastrowid
     conn.commit()
@@ -72,7 +72,7 @@ def save_cost_event(video_id, channel, purpose, model,
         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
         """,
         (video_id, channel, purpose, model, input_tokens, output_tokens,
-         cost_usd, datetime.now().isoformat(timespec="seconds")),
+         cost_usd, datetime.now(timezone.utc).isoformat(timespec="seconds")),
     )
     conn.commit()
     conn.close()
@@ -116,46 +116,64 @@ def approve_video(video_id, notes=""):
     """
     Mark a video as approved and record the reviewer's notes.
 
+    A rejected video ("failed") may be approved again if you change your
+    mind. A posted video, or one a job is still writing/rendering, is
+    left unchanged.
+
     Args:
         video_id (int): The video row to approve.
         notes (str): Any notes the reviewer left (optional).
+
+    Returns:
+        bool: True if the video was approved, False if it was left unchanged.
     """
     conn = get_connection()
-    conn.execute(
+    cursor = conn.execute(
         """
         UPDATE videos
         SET status = 'approved',
             reviewer_notes = ?,
             approved_at = ?
-        WHERE id = ?
+        WHERE id = ? AND status IN ('drafted', 'approved', 'failed')
+          AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id = videos.id AND status IN ('queued', 'running'))
         """,
-        (notes, datetime.now().isoformat(timespec="seconds"), video_id),
+        (notes, datetime.now(timezone.utc).isoformat(timespec="seconds"), video_id),
     )
     conn.commit()
     conn.close()
+    # rowcount is how many rows the UPDATE changed: 1 or 0 here.
+    return cursor.rowcount == 1
 
 
 def reject_video(video_id, notes=""):
     """
     Mark a video as rejected and record the reviewer's notes.
 
+    A posted video, or one a job is still writing/rendering, is left
+    unchanged.
+
     Args:
         video_id (int): The video row to reject.
         notes (str): The reason for rejection (optional but helpful).
+
+    Returns:
+        bool: True if the video was rejected, False if it was left unchanged.
     """
     conn = get_connection()
-    conn.execute(
+    cursor = conn.execute(
         """
         UPDATE videos
         SET status = 'failed',
             reviewer_notes = ?,
             approved_at = ?
-        WHERE id = ?
+        WHERE id = ? AND status != 'posted'
+          AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id = videos.id AND status IN ('queued', 'running'))
         """,
-        (notes, datetime.now().isoformat(timespec="seconds"), video_id),
+        (notes, datetime.now(timezone.utc).isoformat(timespec="seconds"), video_id),
     )
     conn.commit()
     conn.close()
+    return cursor.rowcount == 1
 
 
 def mark_posted(video_id):
@@ -172,7 +190,7 @@ def mark_posted(video_id):
         SET status = 'posted', posted_at = ?
         WHERE id = ?
         """,
-        (datetime.now().isoformat(timespec="seconds"), video_id),
+        (datetime.now(timezone.utc).isoformat(timespec="seconds"), video_id),
     )
     conn.commit()
     conn.close()
@@ -249,3 +267,19 @@ def get_all_videos(channel=None):
         ).fetchall()
     conn.close()
     return rows
+
+
+def add_video_cost(video_id, cost_usd):
+    """Add cost_usd dollars to video_id's total; return nothing.
+
+    Adding in SQL preserves earlier script and render costs on repeated runs.
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            "UPDATE videos SET total_cost_usd = total_cost_usd + ? WHERE id = ?",
+            (cost_usd, video_id),
+        )
+        conn.commit()
+    finally:
+        conn.close()

@@ -1,0 +1,48 @@
+{# Shared private workspace frame. All assets are local; text is auto-escaped. #}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>{% block title %}Overview{% endblock %} — ShortsEngine</title>
+  <link rel="stylesheet" href="/static/style.css">
+  {% block head %}{% endblock %}
+</head>
+<body>
+{% if username %}
+<aside class="sidebar">
+  <a class="brand" href="/">
+<span class="brand-mark">SE</span> ShortsEngine</a>
+  <div class="nav-label">Workspace</div>
+  <nav class="nav-links" aria-label="Main navigation">
+    {% for path, label in [('/', 'Overview'), ('/channels', 'Channels'), ('/library', 'Video library'), ('/videos', 'Review queue'), ('/money', 'Money'), ('/analytics', 'Analytics'), ('/jobs', 'Activity'), ('/new', 'New video')] %}
+    <a href="{{ path }}" {% if request.url.path == path or (path != '/' and request.url.path.startswith(path + '/')) %}aria-current="page"{% endif %}>{{ label }}</a>
+    {% endfor %}
+  </nav>
+  <div class="nav-user">
+<div class="meta">Signed in as {{ username }}</div>
+<form class="inline" method="post" action="/logout">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<button class="btn btn-plain" type="submit">Log out</button>
+</form>
+</div>
+</aside>
+<div class="workspace">
+  <header class="topbar">
+<span>Content workspace</span>
+<span class="private-label">Private workspace</span>
+    <form class="inline" method="post" action="/logout">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<button class="btn btn-plain" type="submit">Log out</button>
+</form>
+  </header>
+  <main class="container" id="main">{% block content %}{% endblock %}</main>
+</div>
+{% else %}
+<main class="login-container">{% block login_content %}{% endblock %}{% if self.login_content()|trim == '' %}{{ self.content() }}{% endif %}</main>
+{% endif %}
+<script src="/static/dashboard.js" defer>
+</script>
+</body>
+</html>

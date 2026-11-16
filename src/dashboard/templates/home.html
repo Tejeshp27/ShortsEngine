@@ -1,0 +1,45 @@
+{# Overview: real totals and historical snapshots across all channels. #}
+{% extends 'base.html' %}{% import 'components.html' as ui %}
+{% block title %}Overview{% endblock %}
+{% block content %}
+<div class="page-heading">
+<div>
+<div class="eyebrow">Your workspace at a glance</div>
+<h1>Overview</h1>
+<p>A clear view of your channels, content, and costs.</p>
+</div>
+<div class="heading-actions">
+<a class="btn btn-primary" href="/new">+ New video</a>
+</div>
+</div>
+{{ ui.totals(totals) }}
+<p class="note">Audience totals cover connected accounts and posts with collected data. A dash means no data has been collected. Inbox deliveries are not counted as public posts.</p>
+<div class="split">{{ ui.chart('Followers · last 30 days', followers_chart, 'Connect an account to begin tracking growth.') }}{{ ui.chart('Views · last 30 days', views_chart, 'Record public post IDs and collect their statistics.') }}</div>
+<div class="section-heading">
+<h2>Your channels</h2>
+<a href="/channels">Manage channels →</a>
+</div>
+<div class="channel-grid">{% for channel in channel_cards %}{{ ui.channel_card(channel) }}{% else %}<div class="panel empty">Add a channel YAML file to get started.</div>{% endfor %}</div>
+<div class="section-heading">
+<h2>Recent content</h2>
+<a href="/library">Open library →</a>
+</div>{{ ui.video_table(recent_videos) }}
+{% if jobs %}<div class="section-heading">
+<h2>Recent activity</h2>
+<a href="/jobs">All activity →</a>
+</div>
+<div class="table-wrap">
+<table>
+<tbody>{% for job in jobs %}<tr>
+<td>
+<a href="/jobs/{{ job.id }}">{{ job.kind|capitalize }} · {{ job.channel }}</a>
+</td>
+<td>{{ job.stage }}</td>
+<td>
+<span class="badge badge-{{ job.status }}">{{ job.status }}</span>
+</td>
+</tr>{% endfor %}</tbody>
+</table>
+</div>{% endif %}
+<p class="footer-note">Recorded spending includes estimates. Older voice charges and failed runs may need to be entered on the Money page.</p>
+{% endblock %}

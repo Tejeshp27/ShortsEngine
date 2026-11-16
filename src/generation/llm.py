@@ -138,7 +138,9 @@ def create_anthropic_client():
     # Imported here so --dry-run and the tests work even if the
     # anthropic package has a problem.
     import anthropic
-    return anthropic.Anthropic()
+    # Retrying an uncertain paid request can charge twice. Let the user inspect
+    # the recorded outcome before deciding to retry instead of doing it silently.
+    return anthropic.Anthropic(max_retries=0, timeout=120)
 
 
 class LLMClient:
@@ -157,7 +159,8 @@ class LLMClient:
         print(llm.total_cost)
     """
 
-    def __init__(self, dry_run=False, max_calls=5, use_cache=True, api_client=None):
+    def __init__(self, dry_run=False, max_calls=5, use_cache=True, api_client=None,
+                 cost_tracker=None):
         """
         Set up a new client for one run.
 
@@ -166,12 +169,17 @@ class LLMClient:
             max_calls (int): The most paid AI calls this run may make.
             use_cache (bool): If True, reuse saved answers from cache/llm/.
             api_client: Optional ready-made API client (tests pass a fake one).
+            cost_tracker: Optional database spending tracker for this run.
         """
         self.dry_run = dry_run
         self.max_calls = max_calls
         self.use_cache = use_cache
         self.api_client = api_client
         self.pricing = load_pricing()
+        self.cost_tracker = cost_tracker
+        self.pending_event = None
+        self.last_usage = None
+        self.call_rejected = False
 
         # Running totals for this run, written to the cost log at the end.
         self.calls_made = 0
@@ -223,8 +231,32 @@ class LLMClient:
         if self.dry_run:
             return self._fake_answer(model, system_prompt, user_message, max_tokens, purpose)
 
-        # 4. Real call.
-        text, usage = self._call_api(model, system_prompt, user_message, max_tokens, effort)
+        # 4. Reserve a conservative allowance before contacting a paid service.
+        # UTF-8 bytes are an upper bound on ordinary input tokens, unlike the
+        # rough characters / 4 display estimate. Include prompt-cache writes.
+        self.last_usage = None
+        self.pending_event = None
+        self.call_rejected = False
+        if self.api_client is None:
+            self.api_client = create_anthropic_client()
+        if self.cost_tracker:
+            if model not in self.pricing:
+                raise LLMError(f"Add a price for {model} to config/pricing.yaml before paying for it.")
+            maximum_input = len((system_prompt + user_message).encode("utf-8")) + 1024
+            maximum = calculate_cost(self.pricing, model, 0, max_tokens,
+                                     cache_write_tokens=maximum_input)
+            self.pending_event = self.cost_tracker.reserve(purpose, model, maximum)
+        try:
+            text, usage = self._call_api(model, system_prompt, user_message, max_tokens, effort)
+        except Exception:
+            # A refusal still consumes tokens. A lost network response leaves
+            # the reserved estimate marked uncertain for the Money page.
+            if self.last_usage is not None:
+                self._record_usage(model, self.last_usage, purpose)
+            elif self.call_rejected and self.pending_event is not None:
+                self.cost_tracker.settle(self.pending_event, 0.0)
+                self.pending_event = None
+            raise
         self._record_usage(model, usage, purpose)
 
         # Save the answer so a re-run is free.
@@ -295,16 +327,21 @@ class LLMClient:
         try:
             response = self.api_client.messages.create(**request)
         except anthropic.AuthenticationError:
+            self.call_rejected = True
             raise LLMError("Your ANTHROPIC_API_KEY was rejected. Check the key in .env.")
         except anthropic.NotFoundError:
+            self.call_rejected = True
             raise LLMError(f"Model '{model}' was not found. Check the channel config.")
         except anthropic.RateLimitError:
+            self.call_rejected = True
             raise LLMError("Rate limited by Anthropic. Wait a minute and try again.")
         except anthropic.APIStatusError as error:
+            self.call_rejected = 400 <= error.status_code < 500
             raise LLMError(f"Anthropic API error {error.status_code}: {error.message}")
         except anthropic.APIConnectionError:
             raise LLMError("Could not reach the Anthropic API. Check your internet connection.")
 
+        self.last_usage = response.usage
         if response.stop_reason == "refusal":
             raise LLMError("The model declined this request. Try a different story.")
         if response.stop_reason == "max_tokens":
@@ -338,6 +375,11 @@ class LLMClient:
         self.total_input_tokens += usage.input_tokens + cache_write + cache_read
         self.total_output_tokens += usage.output_tokens
         self.total_cost += cost
+        if self.cost_tracker and self.pending_event is not None:
+            self.cost_tracker.settle(self.pending_event, cost,
+                                     usage.input_tokens + cache_write + cache_read,
+                                     usage.output_tokens)
+            self.pending_event = None
 
         print(f"  [{purpose}] {model}: {usage.input_tokens} in / "
               f"{usage.output_tokens} out — ${cost:.4f}")
@@ -352,6 +394,7 @@ class LLMClient:
         """
         os.makedirs(os.path.dirname(COST_LOG_PATH), exist_ok=True)
         file_is_new = not os.path.exists(COST_LOG_PATH)
+        run_cost = self.cost_tracker.total if self.cost_tracker else self.total_cost
 
         with open(COST_LOG_PATH, "a", newline="", encoding="utf-8") as f:
             writer = csv.writer(f)
@@ -367,6 +410,6 @@ class LLMClient:
                 self.cache_hits,
                 self.total_input_tokens,
                 self.total_output_tokens,
-                f"{self.total_cost:.6f}",
+                f"{run_cost:.6f}",
                 note,
             ])

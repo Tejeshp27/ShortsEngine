@@ -26,6 +26,8 @@ models/
 
 # --- Database (contains real video data; each environment has its own) ---
 shortsengine.db
+# The Docker setup keeps the database in data/ instead.
+data/
 
 # --- macOS system files ---
 .DS_Store
