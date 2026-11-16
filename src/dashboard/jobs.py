@@ -11,6 +11,8 @@
 #   generate — write a script, optionally render it    (heavy, paid)
 #   render   — render a saved script into a video       (heavy, paid)
 #   sync     — collect follower/view statistics (free)
+#   publish  — post one approved video to the channel's platforms
+#              (free; only started by the "Post now" button)
 #
 # Safety rules, all checked together inside one database lock so two
 # clicks at the same moment cannot both slip through:
@@ -19,7 +21,7 @@
 #     comfortably render one video at once); light jobs may run beside
 #     them, one per channel and kind
 #   - the job's spending allowance must fit in today's limit
-#   - jobs never publish anything
+#   - only a "publish" job posts, and only an approved video
 # =============================================================
 
 import json
@@ -36,7 +38,7 @@ from src.storage.database import get_connection
 from src.storage.finance import ROUNDING_TOLERANCE, spent_today, utc_now
 
 ACTIVE_STATUSES = ("queued", "running")
-JOB_KINDS = ("discover", "generate", "render", "sync")
+JOB_KINDS = ("discover", "generate", "render", "sync", "publish")
 
 # Heavy jobs use a lot of memory and CPU (rendering peaked at 1.1 GB),
 # so only `max_in_progress` of them may be active at once.
@@ -347,6 +349,8 @@ def check_not_duplicate(active_jobs, channel, kind, payload):
             raise ValueError("Finding stories for this channel is already in progress. Wait for it to finish.")
         if kind == "sync":
             raise ValueError("Collecting this channel's statistics is already in progress.")
+        if kind == "publish" and options.get("video_id") == payload.get("video_id"):
+            raise ValueError("This video is already being posted.")
 
 
 def check_capacity(active_jobs, kind, settings):

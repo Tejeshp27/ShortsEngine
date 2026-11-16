@@ -18,7 +18,7 @@
 </p>{% endif %}
 {% if video.reviewer_notes %}<div class="notice">Review notes: {{ video.reviewer_notes }}</div>{% endif %}
 {% if video.status == 'drafted' %}<h2>Review decision</h2>
-<p class="note">Check the source, script, and on-screen claims. Approval does not publish anything from this page.</p>
+<p class="note">Check the source, script, and on-screen claims. Approving does not post anything by itself: use "Post now" afterwards, or a channel posting schedule.</p>
 <form method="post" action="/video/{{ video.id }}/approve">
 <input type="hidden" name="form_token" value="{{ form_token }}">
 <div class="form-group">
@@ -75,8 +75,19 @@
 <h2>Public posts</h2>
 </div>
 <section class="panel">
+{% if video.status == 'approved' and has_video_file and destinations %}<h3>Post now</h3>
+<p class="note">Posts to: {{ destinations|join(', ') }}. Instagram and Facebook Reels go public immediately; TikTok lands in your TikTok inbox for you to post; YouTube stays private until Google audits your API project. Platforms that already succeeded are skipped.</p>
+<form method="post" action="/video/{{ video.id }}/publish">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}">
+<label class="checkbox">
+<input type="checkbox" name="confirmed" value="true"> I understand this video will be posted publicly.</label>
+<label class="checkbox">
+<input type="checkbox" name="dry_run" value="true"> Dry run — show where it would post, send nothing</label>
+<button class="btn btn-primary">Post now</button>
+</form>{% endif %}
 <p class="note">Record a post after you publish it in the platform app. A TikTok inbox upload is not a public post. These IDs let the daily collector find the video's statistics.</p>
-{% for post in public_posts %}<p>{{ post.platform|title }} · {{ post.post_id }} <span class="badge">Confirmed public</span>
+{% for post in public_posts %}<p>{{ platform_names[post.platform] }} · {{ post.post_id }} <span class="badge">Confirmed public</span>
 </p>{% endfor %}
 {% if video.status in ['approved', 'posted'] %}<details>
 <summary>Record an already-published post</summary>
@@ -88,11 +99,12 @@
 <select id="post-platform" name="platform">
 <option value="tiktok">TikTok</option>
 <option value="instagram">Instagram</option>
+<option value="youtube">YouTube</option>
 </select>
 </div>
 <div class="form-group">
-<label for="post-id">Numeric public video / media ID</label>
-<input id="post-id" name="post_id" inputmode="numeric" required>
+<label for="post-id">Public video / media ID</label>
+<input id="post-id" name="post_id" required>
 </div>
 </div>
 <label class="checkbox">
@@ -101,7 +113,7 @@
 </form>
 </details>{% else %}<p class="muted">Approve this video before recording a public post.</p>{% endif %}
 {% if deliveries %}<details>
-<summary>Upload history</summary>{% for delivery in deliveries %}<p class="meta">{{ delivery.platform|title }} · {{ delivery.status }} · {{ delivery.post_id or 'No returned ID' }}</p>{% endfor %}</details>{% endif %}</section>
+<summary>Upload history</summary>{% for delivery in deliveries %}<p class="meta">{{ platform_names.get(delivery.platform, delivery.platform) }} · {{ delivery.status }} · {{ delivery.post_id or 'No returned ID' }}</p>{% endfor %}</details>{% endif %}</section>
 {% if visual_plan %}<details class="panel">
 <summary>Visual plan</summary>
 <div class="table-wrap">

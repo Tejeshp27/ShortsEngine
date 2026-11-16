@@ -205,7 +205,7 @@ def add_money_entry(channel, platform, kind, amount, entry_date, note, submissio
 
     Args:
         channel (str): The channel it belongs to, e.g. "news".
-        platform (str): "tiktok", "instagram" or "other".
+        platform (str): "tiktok", "instagram", "youtube", "facebook" or "other".
         kind (str): "income" (money made) or "expense" (money spent).
         amount (str): Dollars as text, e.g. "12.50".
         entry_date (str): The date, as YYYY-MM-DD.
@@ -222,7 +222,7 @@ def add_money_entry(channel, platform, kind, amount, entry_date, note, submissio
     """
     if kind not in ("income", "expense"):
         raise ValueError("Choose a valid entry type and platform.")
-    if platform not in ("tiktok", "instagram", "other"):
+    if platform not in ("tiktok", "instagram", "youtube", "facebook", "other"):
         raise ValueError("Choose a valid entry type and platform.")
     cents = dollars_to_cents(amount)
     check_entry_date(entry_date)

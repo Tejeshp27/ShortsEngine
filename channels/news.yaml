@@ -160,7 +160,23 @@ video:
   # 0.0 = silent, 1.0 = same level as voiceover. 0.12 (12%) is subtle and professional.
   music_volume: 0.12
 
-# Platforms to publish to (Phase 4+)
+# Platforms an approved video is posted to ("Post now" button and schedule).
+# A video is marked "posted" only when every platform listed here succeeded.
 platforms:
-  - tiktok
-  - instagram
+  - tiktok      # lands in your TikTok inbox; you tap Post in the app
+  - instagram   # public Reel (needs the Instagram connection on the channel page)
+  - facebook    # public Reel on the Facebook Page linked to that Instagram account
+  - youtube     # YouTube Short (needs the YouTube connection on the channel page)
+
+# YouTube upload settings.
+youtube:
+  privacy: public   # public, unlisted or private. NOTE: until Google audits your
+                    # API project, YouTube forces every upload to private anyway.
+  category_id: 25   # YouTube's "News & Politics" category
+
+# Automatic posting times. Remove the "#" from the lines below to turn it on.
+# While the dashboard runs, it posts the newest approved, rendered video
+# within 30 minutes of each time (one video per time slot).
+# schedule:
+#   timezone: "America/New_York"   # your local time zone
+#   post_times: ["09:00", "17:00"] # 24-hour clock

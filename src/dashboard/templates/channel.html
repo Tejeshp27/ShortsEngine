@@ -20,9 +20,9 @@
 </form>
 </div>
 <div class="split">
-{% for platform in ['tiktok','instagram'] %}
+{% for platform in account_platforms %}
 <section class="panel">
-<h2>{{ platform|title }}</h2>{% set matches = accounts|selectattr('platform','equalto',platform)|list %}
+<h2>{{ platform_names[platform] }}</h2>{% set matches = accounts|selectattr('platform','equalto',platform)|list %}
 {% if matches %}{% set account = matches[0] %}<h3>{{ account.display_name }}</h3>
 <p>{{ '{:,}'.format(account.followers) if account.followers is not none else '—' }} followers</p>
 <p class="meta">Last collected: {{ account.last_synced_at or 'Not yet collected' }}</p>
@@ -38,14 +38,14 @@
 {% else %}<p class="muted">No account connected.</p>{% endif %}
 <details {% if not matches %}open{% endif %}>
 <summary>{{ 'Reconnect account' if matches else 'Connect an account' }}</summary>
-<p class="note">{% if platform == 'instagram' %}Requires a professional Instagram account linked to a Facebook Page, and a Meta developer app with the relevant permissions.{% else %}Requires a TikTok developer app with Login Kit and statistics permissions.{% endif %}</p>
+<p class="note">{% if platform == 'instagram' %}Requires a professional Instagram account linked to a Facebook Page, and a Meta developer app with the relevant permissions. Facebook Page posting uses this connection too.{% elif platform == 'youtube' %}Requires a Google Cloud project with the YouTube Data API v3 and an OAuth client. Until Google audits the project, uploads stay private. Set the OAuth consent screen to "In production", or the login expires every 7 days.{% else %}Requires a TikTok developer app with Login Kit and statistics permissions.{% endif %}</p>
 <form method="post" action="/channels/{{ channel }}/accounts/{{ platform }}/connect">
 <input type="hidden" name="form_token" value="{{ form_token }}">{% if platform == 'instagram' %}<div class="form-group">
 <label for="oauth-id">Instagram professional account ID</label>
 <input id="oauth-id" name="account_id" inputmode="numeric" required>
-</div>{% endif %}<button class="btn" type="submit">Connect with {{ 'Facebook' if platform == 'instagram' else 'TikTok' }}</button>
+</div>{% endif %}<button class="btn" type="submit">Connect with {% if platform == 'instagram' %}Facebook{% elif platform == 'youtube' %}Google{% else %}TikTok{% endif %}</button>
 </form>
-<details>
+{% if platform != 'youtube' %}<details>
 <summary>Use an existing access token</summary>
 <form method="post" action="/channels/{{ channel }}/accounts/{{ platform }}/token">
 <input type="hidden" name="form_token" value="{{ form_token }}">
@@ -63,7 +63,7 @@
 <button class="btn btn-plain" type="submit">Import this account from .env</button>
 </form>
 <p class="note">Tokens are verified with the official API before being saved. Pasted tokens may need manual renewal.</p>
-</details>
+</details>{% endif %}
 </details>
 </section>{% endfor %}
 </div>

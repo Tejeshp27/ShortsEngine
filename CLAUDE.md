@@ -194,8 +194,10 @@ shortsengine/
 - Only use official APIs and content we have rights to use. Do not scrape sites in ways
   that break their terms, and do not download copyrighted video (for example, network
   news broadcasts).
-- Respect platform rules: no automated public posting until each platform's API access
-  is properly approved.
+- Respect platform rules: only post through official APIs the app is allowed to use.
+  Meta apps in Development mode may post to accounts with a role on the app (the
+  user's own); other people's accounts need App Review. TikTok stays inbox-only
+  until its audit passes.
 
 ## How to work
 
@@ -264,10 +266,10 @@ NewsAPI works. If GDELT stays blocked, consider dropping it.
   platform manually before retrying, since the platform may already have accepted it.
   After confirming no upload exists, delete only that video's platform delivery row
   in SQLite to permit retry. Never clear a succeeded delivery to retry another platform.
-- TikTok success means delivery to its inbox, not a confirmed public post. Instagram
-  publishing remains unimplemented; mixed-platform videos remain approved until all
-  configured destinations succeed. Account-aware daily analytics now uses the
-  control center’s encrypted connections and confirmed public post IDs.
+- TikTok success means delivery to its inbox, not a confirmed public post.
+  Mixed-platform videos remain approved until all configured destinations succeed.
+  Account-aware daily analytics now uses the control center’s encrypted connections
+  and confirmed public post IDs.
 - Dashboard and ranking feedback sum only the latest cumulative snapshot per platform.
 - AI and configured voice estimates now write per-call cost_events and video totals,
   including failed renders. CSV remains an additional run log; old missing costs
@@ -285,7 +287,7 @@ NewsAPI works. If GDELT stays blocked, consider dropping it.
   estimates. Historical unrecorded costs can be entered manually.
 - Browser jobs run in separate processes, with SQLite capacity/spending reservations,
   heartbeats, source checks, duplicate protection and free dry runs. Renders return
-  to drafted. No browser job publishes. Active renders cannot be approved.
+  to drafted. Only the "publish" job posts (Post now). Active renders cannot be approved.
 - Video library has private playback, cached thumbnails/durations, search, filters
   and an explicit untracked-file state. Paths outside output/ are refused.
 - New code lives in dashboard/{routes,data,settings,accounts,jobs,worker,media}.py,
@@ -295,15 +297,48 @@ NewsAPI works. If GDELT stays blocked, consider dropping it.
   but are not subject to that dashboard cap. Unknown request outcomes retain an
   uncertain estimate rather than being silently retried.
 
+**Merged (2026-11-16):** PR #2 (A-series + C.0–C.5) merged into `main`; 289 tests
+pass. The user checked the new dashboard pages.
+
+**Meta publishing (2026-11-16, Claude Code, branch `feat/meta-publishing`):**
+- Instagram Reels (`publishing/instagram.py`) and Facebook Page Reels
+  (`publishing/facebook.py`) via Meta's resumable upload to rupload.facebook.com:
+  the MP4 goes straight from this computer, so no public hosting is needed.
+  Shared helpers and `NothingPublishedError` live in `publishing/meta_api.py`.
+- Facebook has no account row: it uses the Instagram connection to find the linked
+  Page and its token (fetched per post, not stored). No schema change.
+- `scheduler.py` is the one posting path: `publish_video_now()` (dashboard "Post now"
+  button → job kind `publish`, free) and `run_scheduler()` (channel `schedule:`
+  block, checked every 5 min by a dashboard thread; `DASHBOARD_AUTO_PUBLISH`).
+  Failures before the final publish step release the reservation (safe retry);
+  later failures stay `uncertain`. Instagram Reel IDs go into `platform_posts`.
+- INSTAGRAM_SCOPES gained `instagram_content_publish` and `pages_manage_posts`:
+  existing Instagram connections must be reconnected once.
+- Live Meta calls are untested until the user's first real post; 305 offline tests pass.
+
+**YouTube Shorts (2026-11-16, Claude Code, same branch):**
+- `publishing/youtube.py`: resumable `videos.insert` (details → `Location` → PUT file).
+  Public only if YouTube says so (unaudited projects are forced private); only public
+  uploads go into `platform_posts`. `NothingPublishedError` moved to `publishing/errors.py`.
+- Google OAuth in `dashboard/accounts.py` (offline access, auto refresh like TikTok;
+  no token pasting). `ACCOUNT_PLATFORMS` there is the one list of connectable platforms;
+  templates read it (plus `scheduler.PLATFORM_NAMES`) as Jinja globals.
+- `control_schema.allow_youtube_platform()` rebuilds old `accounts`/`platform_posts`
+  tables to widen their CHECK rule (tested on a copy of the real DB: rows kept).
+- YouTube statistics: views/likes/comments; shares saved as NULL (API has none).
+- Plain httpx chosen over google-api-python-client for consistency (noted in code).
+- 320 offline tests pass; live Google calls untested until the user connects.
+
 **Next human steps:**
-- Restart the dashboard and try the new pages; see docs/control-center.md.
 - Configure approved developer apps/account credentials to validate real OAuth
   and statistics. Existing .env tokens can be explicitly imported per channel.
 - Watch an animated render and give visual feedback; no paid render was needed
   for the control-center implementation tests.
 - Choose a hosting approach for C.6 before any deployment.
-- Instagram automatic uploading still needs a supported hosting/upload integration;
-  manual posting and recording the public post ID work with the new collector.
+- Meta app: add `instagram_content_publish` + `pages_manage_posts`, give the user's
+  account an app role, reconnect Instagram, then try "Post now" on a test video.
+- YouTube: Google Cloud project + YouTube Data API v3 + OAuth client (consent screen
+  "In production" to avoid 7-day expiry), add keys to .env, Connect with Google.
 
 ## Roadmap
 

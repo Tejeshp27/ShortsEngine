@@ -18,6 +18,7 @@
 # form; "Form(...)" with three dots means the field is required.
 # =============================================================
 
+import re
 import secrets
 import time
 from datetime import date
@@ -35,7 +36,8 @@ from src.storage.queries import get_video_by_id
 
 router = APIRouter()
 
-PLATFORMS = ("tiktok", "instagram")
+# Platforms that have their own account connection (Facebook borrows Instagram's).
+PLATFORMS = accounts.ACCOUNT_PLATFORMS
 
 # An account login (OAuth) must be finished within 10 minutes.
 OAUTH_STATE_LIFETIME_SECONDS = 600
@@ -94,7 +96,7 @@ def queue(channel, kind, payload, dry_run, submission_id):
 
 def check_platform(platform):
     """
-    Refuse any platform except TikTok and Instagram.
+    Refuse any platform except TikTok, Instagram and YouTube.
 
     Args:
         platform (str): The platform from the page address.
@@ -103,7 +105,7 @@ def check_platform(platform):
         ValueError: For anything else.
     """
     if platform not in PLATFORMS:
-        raise ValueError("Choose TikTok or Instagram.")
+        raise ValueError("Choose TikTok, Instagram or YouTube.")
 
 
 def check_article_url(url):
@@ -238,6 +240,9 @@ def connect_token(request: Request, channel: str, platform: str,
     require_form_token(request, form_token)
     channel_config(channel)
     check_platform(platform)
+    if platform == "youtube":
+        # A pasted Google token stops working within an hour and can't be renewed.
+        raise ValueError("Connect YouTube with the Google login button instead of pasting a token.")
 
     if use_environment:
         access_token = accounts.required_env(platform.upper() + "_ACCESS_TOKEN")
@@ -673,6 +678,37 @@ def render_video(request: Request, video_id: int, free_voice: bool = Form(True),
     return queue(video["channel"], "render", payload, dry_run, submission_id)
 
 
+@router.post("/video/{video_id}/publish")
+def publish_now(request: Request, video_id: int, confirmed: bool = Form(False),
+                dry_run: bool = Form(False), submission_id: str = Form(""),
+                form_token: str = Form("")):
+    """Start a background job that posts an approved video to its channel's platforms.
+
+    Inputs:
+        request: the incoming browser request.
+        video_id: the video's number in the database.
+        confirmed: the "I understand this goes public" tick box.
+        dry_run: True to see where it would post without sending anything.
+        submission_id: a one-time number so a double click starts one job.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the job's progress page. Refuses videos that are not
+        approved or not rendered yet.
+    """
+    require_form_token(request, form_token)
+    video = get_video_by_id(video_id)
+    if not video:
+        raise HTTPException(404, "Video not found")
+    if video["status"] != "approved":
+        raise ValueError("Only approved videos can be posted.")
+    if not video["video_path"]:
+        raise ValueError("Render this video before posting it.")
+    if not confirmed and not dry_run:
+        raise ValueError("Tick the box to confirm that Instagram and Facebook posts go public immediately.")
+    return queue(video["channel"], "publish", {"video_id": video_id}, dry_run, submission_id)
+
+
 # ---------------------------------------------------------------------------
 # Recording a post you published yourself
 # ---------------------------------------------------------------------------
@@ -682,16 +718,22 @@ def check_public_post_form(platform, post_id, confirmed):
     Refuse an invalid "I published this" form.
 
     Args:
-        platform (str): "tiktok" or "instagram".
-        post_id (str): The public post's numeric ID.
+        platform (str): "tiktok", "instagram" or "youtube".
+        post_id (str): The public post's ID (numeric, or YouTube's 11-character video ID).
         confirmed (bool): The "I have already published this" tick box.
 
     Raises:
         ValueError: If anything is missing or wrong.
     """
     post_id = post_id.strip()
-    if platform not in PLATFORMS or not post_id.isdigit() or len(post_id) > 40 or not confirmed:
-        raise ValueError("Enter the numeric public post ID and confirm it is already published. "
+    # YouTube video IDs are letters, digits, "-" and "_" (e.g. "dQw4w9WgXcQ");
+    # TikTok and Instagram IDs are digits only.
+    if platform == "youtube":
+        valid_id = re.fullmatch(r"[A-Za-z0-9_-]{11}", post_id) is not None
+    else:
+        valid_id = post_id.isdigit() and len(post_id) <= 40
+    if platform not in PLATFORMS or not valid_id or not confirmed:
+        raise ValueError("Enter the public post ID and confirm it is already published. "
                          "An inbox upload ID does not qualify.")
 
 

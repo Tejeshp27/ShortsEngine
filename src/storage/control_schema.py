@@ -7,7 +7,7 @@
 # run again and again.
 #
 # Tables:
-#   accounts          — one connected TikTok/Instagram account per channel
+#   accounts          — one connected TikTok/Instagram/YouTube account per channel
 #                       (its token is stored encrypted)
 #   account_snapshots — follower count per account per day
 #   platform_posts    — public post IDs you confirmed by hand
@@ -23,7 +23,7 @@ CONTROL_TABLES_SQL = """
     CREATE TABLE IF NOT EXISTS accounts (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         channel TEXT NOT NULL,
-        platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'instagram')),
+        platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'instagram', 'youtube')),
         platform_account_id TEXT NOT NULL,
         display_name TEXT NOT NULL,
         credentials TEXT NOT NULL,
@@ -43,7 +43,7 @@ CONTROL_TABLES_SQL = """
     );
     CREATE TABLE IF NOT EXISTS platform_posts (
         video_id INTEGER NOT NULL REFERENCES videos(id) ON DELETE CASCADE,
-        platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'instagram')),
+        platform TEXT NOT NULL CHECK (platform IN ('tiktok', 'instagram', 'youtube')),
         post_id TEXT NOT NULL,
         confirmed_at TEXT NOT NULL,
         PRIMARY KEY(video_id, platform),
@@ -136,6 +136,12 @@ TIMESTAMP_COLUMNS = [
     ("metrics", "collected_at"),
 ]
 
+# Older databases only allowed these two platforms. allow_youtube_platform()
+# widens the rule in existing tables (see the function for how).
+OLD_PLATFORM_RULE = "CHECK (platform IN ('tiktok', 'instagram'))"
+NEW_PLATFORM_RULE = "CHECK (platform IN ('tiktok', 'instagram', 'youtube'))"
+TABLES_WITH_PLATFORM_RULE = ("accounts", "platform_posts")
+
 # A local time saved by the old code is exactly 19 characters long:
 # "YYYY-MM-DDTHH:MM:SS". UTC values are longer because of "+00:00".
 OLD_LOCAL_TIME_LENGTH = 19
@@ -156,6 +162,8 @@ def create_control_tables(connection):
     connection.executescript(CONTROL_TABLES_SQL)
     add_missing_columns(connection)
     convert_old_local_times_to_utc(connection)
+    for table in TABLES_WITH_PLATFORM_RULE:
+        allow_youtube_platform(connection, table)
 
 
 def table_exists(connection, table):
@@ -240,3 +248,51 @@ def convert_old_local_times_to_utc(connection):
             WHERE length({column}) = ?
               AND strftime('%Y-%m-%dT%H:%M:%S+00:00', {column}, 'utc') IS NOT NULL
         """, (OLD_LOCAL_TIME_LENGTH,))
+
+
+def allow_youtube_platform(connection, table):
+    """
+    Let an older table accept "youtube" as a platform, keeping every record.
+
+    SQLite cannot edit a CHECK rule in place, so this follows SQLite's own
+    documented recipe: build a copy of the table with the new rule, copy
+    all rows across (with the same IDs), delete the old table and give
+    the copy the old name. Tables already allowing YouTube are skipped,
+    so running this again changes nothing.
+
+    Args:
+        connection: An open SQLite connection.
+        table (str): "accounts" or "platform_posts" (from a fixed list,
+                     never from a user, so building SQL text is safe).
+
+    Returns:
+        Nothing.
+    """
+    row = connection.execute(
+        "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = ?", (table,)
+    ).fetchone()
+    if row is None or OLD_PLATFORM_RULE not in row[0]:
+        return
+
+    # The saved table definition already includes columns added later
+    # (e.g. token_expires_at), so the copy has exactly the same columns.
+    new_definition = row[0].replace(OLD_PLATFORM_RULE, NEW_PLATFORM_RULE)
+    new_definition = new_definition.replace(f"CREATE TABLE {table}", f"CREATE TABLE {table}_upgrade", 1)
+
+    # Foreign-key checks must be off while the old table is briefly
+    # missing; otherwise follower history linked to accounts would be
+    # deleted. This setting only works outside a transaction.
+    connection.commit()
+    connection.execute("PRAGMA foreign_keys = OFF")
+    try:
+        connection.execute("BEGIN")
+        connection.execute(new_definition)
+        connection.execute(f"INSERT INTO {table}_upgrade SELECT * FROM {table}")
+        connection.execute(f"DROP TABLE {table}")
+        connection.execute(f"ALTER TABLE {table}_upgrade RENAME TO {table}")
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.execute("PRAGMA foreign_keys = ON")

@@ -77,7 +77,7 @@
 <span>Profit</span>
 </div>
 </div>
-<div class="account-line">{% for platform in ['tiktok','instagram'] %}{% set connected = channel.accounts|selectattr('platform','equalto',platform)|list %}<span>{{ platform|title }} · {{ 'Connected' if connected else 'Not connected' }}</span>{% endfor %}</div>
+<div class="account-line">{% for platform in account_platforms %}{% set connected = channel.accounts|selectattr('platform','equalto',platform)|list %}<span>{{ platform_names[platform] }} · {{ 'Connected' if connected else 'Not connected' }}</span>{% endfor %}</div>
 {% if channel.error %}<p class="note">{{ channel.error }}</p>{% endif %}</article>
 {% endmacro %}
 {% macro video_table(videos) %}

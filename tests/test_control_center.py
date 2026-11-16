@@ -61,6 +61,7 @@ def portal(tmp_path, monkeypatch):
     monkeypatch.setattr(auth, "BCRYPT_ROUNDS", 4)
     monkeypatch.setenv("SESSION_SECRET", "control-center-test-secret-at-least-32-characters")
     monkeypatch.setenv("DASHBOARD_AUTO_COLLECT", "false")
+    monkeypatch.setenv("DASHBOARD_AUTO_PUBLISH", "false")
     monkeypatch.delenv("ACCOUNT_TOKEN_KEY", raising=False)
     monkeypatch.setattr(accounts, "api_json", Mock(side_effect=AssertionError("No live platform calls in tests")))
     monkeypatch.setattr(jobs, "launch_job", Mock())
@@ -137,6 +138,7 @@ def test_every_new_mutation_checks_csrf(portal):
         ("/new/discover", {"channel": "news"}),
         ("/new/generate", {"channel": "news"}),
         ("/video/1/render", {}),
+        ("/video/1/publish", {"confirmed": "true"}),
         ("/video/1/published", {"platform": "tiktok", "post_id": "123"}),
     ]
     for path, fields in actions:
@@ -768,3 +770,63 @@ def test_topic_search_adds_web_news_to_feed_matches(portal, monkeypatch):
     story = worker.saved_story("news", job["result"]["story_ids"][0])
     assert story["url"] == "https://web.example/2"
     assert story["published"].endswith("+00:00")
+
+
+def approved_rendered_video(root):
+    """Save an approved test video with a (fake) MP4 file; return its ID."""
+    video_id = draft(root)
+    video_file = root / "output" / "news" / "article.mp4"
+    video_file.write_bytes(b"fake mp4")
+    execute("UPDATE videos SET status = 'approved', video_path = ? WHERE id = ?", (str(video_file), video_id))
+    return video_id
+
+
+def test_post_now_button_shows_and_queues_publish_job(portal):
+    """An approved, rendered video offers Post now, and posting starts a publish job."""
+    client, root = portal
+    video_id = approved_rendered_video(root)
+    page = client.get(f"/video/{video_id}").text
+    assert "Post now" in page and "facebook" in page
+    response = client.post(f"/video/{video_id}/publish", follow_redirects=False, data={
+        "form_token": token(client), "submission_id": "post-1", "confirmed": "true"})
+    assert response.status_code == 303
+    job = execute("SELECT kind, budget_usd, video_id FROM jobs")[0]
+    # Free job, and the video is NOT attached to the job: claim_delivery
+    # refuses videos with an active job attached, which would block posting.
+    assert (job["kind"], job["budget_usd"], job["video_id"]) == ("publish", 0.0, None)
+
+
+def test_post_now_needs_confirmation_and_approval(portal):
+    """Posting requires the public-post tick box and an approved video."""
+    client, root = portal
+    video_id = approved_rendered_video(root)
+    unticked = client.post(f"/video/{video_id}/publish", data={"form_token": token(client), "submission_id": "a"})
+    assert unticked.status_code == 400
+    execute("UPDATE videos SET status = 'drafted' WHERE id = ?", (video_id,))
+    drafted = client.post(f"/video/{video_id}/publish", data={
+        "form_token": token(client), "submission_id": "b", "confirmed": "true"})
+    assert drafted.status_code == 400
+    assert execute("SELECT * FROM jobs") == []
+
+
+def test_publish_dry_run_job_sends_nothing(portal, monkeypatch):
+    """A dry-run publish job reports the destinations without calling any publisher."""
+    _, root = portal
+    from src.publishing import scheduler
+    video_id = approved_rendered_video(root)
+    monkeypatch.setattr(scheduler, "publish_video", Mock(side_effect=AssertionError("must not post")))
+    job_id, _ = jobs.enqueue_job("news", "publish", {"video_id": video_id}, True, "dry")
+    worker.run_job(job_id)
+    job = jobs.job_record(job_id)
+    assert job["status"] == "succeeded"
+    assert "would post to tiktok, instagram, facebook" in job["result"]["message"]
+
+
+def test_channel_page_offers_youtube_google_login(portal):
+    """The channel page has a YouTube card with a Google login and no token paste."""
+    client, _ = portal
+    page = client.get("/channels/news").text
+    assert "YouTube" in page and "Connect with Google" in page
+    response = client.post("/channels/news/accounts/youtube/token",
+                           data={"form_token": token(client), "access_token": "abc"})
+    assert response.status_code == 400

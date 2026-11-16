@@ -83,7 +83,7 @@ def test_failed_upload_stays_approved(video_setup, monkeypatch):
 
 
 def test_partial_success_skips_completed_platform(video_setup, monkeypatch):
-    """An unfinished Instagram destination cannot mark a TikTok-only success posted."""
+    """A platform without credentials (Instagram here) keeps a TikTok-only success approved."""
     from src.publishing import tiktok
     configure_scheduler(monkeypatch, ["tiktok", "instagram"])
     upload = Mock(return_value="publish-123")

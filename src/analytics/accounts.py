@@ -21,8 +21,8 @@ import time
 from dotenv import load_dotenv
 
 from src.analytics.collector import _ensure_metrics_table, save_metrics
-from src.dashboard.accounts import (TIKTOK_BASE, access_token, api_json, fetch_profile,
-                                    graph_base, safe_error, save_snapshot)
+from src.dashboard.accounts import (TIKTOK_BASE, YOUTUBE_API, access_token, api_json,
+                                    fetch_profile, graph_base, safe_error, save_snapshot)
 from src.storage.database import create_tables, get_connection
 from src.storage.finance import utc_now
 
@@ -101,12 +101,44 @@ def fetch_instagram_post_metrics(post_id, token):
             "likes": media.get("like_count", 0), "comments": media.get("comments_count", 0)}
 
 
+def fetch_youtube_post_metrics(post_id, token):
+    """
+    Get a YouTube video's lifetime views, likes and comments.
+
+    YouTube's public API does not report shares, so "shares" is None
+    (saved as empty, not as a made-up 0; database totals skip it).
+
+    Args:
+        post_id (str): The YouTube video ID, e.g. "dQw4w9WgXcQ".
+        token (str): The access token.
+
+    Returns:
+        dict: "views", "likes", "comments" and "shares" (None).
+
+    Raises:
+        ValueError: If YouTube cannot find the video.
+    """
+    data = api_json("GET", YOUTUBE_API + "/videos", token,
+                    params={"part": "statistics", "id": post_id})
+    items = data.get("items", [])
+    if not items:
+        raise ValueError("YouTube could not find this video for the connected channel.")
+    statistics = items[0].get("statistics", {})
+    if "viewCount" not in statistics:
+        raise ValueError("YouTube did not return this video's view count.")
+    # YouTube sends numbers as text; likes/comments can be hidden by the owner.
+    return {"views": int(statistics["viewCount"]),
+            "likes": int(statistics.get("likeCount", 0)),
+            "comments": int(statistics.get("commentCount", 0)),
+            "shares": None}
+
+
 def fetch_post_metrics(platform, post_id, token):
     """
     Get a public post's lifetime statistics from its platform.
 
     Args:
-        platform (str): "tiktok" or "instagram".
+        platform (str): "tiktok", "instagram" or "youtube".
         post_id (str): The public post ID.
         token (str): The account's access token.
 
@@ -115,6 +147,8 @@ def fetch_post_metrics(platform, post_id, token):
     """
     if platform == "tiktok":
         return fetch_tiktok_post_metrics(post_id, token)
+    if platform == "youtube":
+        return fetch_youtube_post_metrics(post_id, token)
     return fetch_instagram_post_metrics(post_id, token)
 
 

@@ -43,6 +43,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.analytics.collector import get_metrics_summary
+from src.dashboard.accounts import ACCOUNT_PLATFORMS
 from src.dashboard.auth import (
     check_form_token,
     get_logged_in_user,
@@ -62,6 +63,7 @@ from src.storage.queries import (
     reject_video,
 )
 from src.storage.users import count_users
+from src.publishing.scheduler import PLATFORM_NAMES
 
 
 # The dashboard's own folder, so templates and the stylesheet are found
@@ -88,6 +90,9 @@ VIDEO_STATUSES = ["drafted", "approved", "posted", "failed"]
 # engine for FastAPI, and it escapes text automatically, so a story
 # title containing HTML is shown as plain text instead of being run.
 templates = Jinja2Templates(directory=TEMPLATES_FOLDER)
+# Platform lists every page may use, so templates never hard-code them.
+templates.env.globals["account_platforms"] = ACCOUNT_PLATFORMS
+templates.env.globals["platform_names"] = PLATFORM_NAMES
 
 # A router collects the page functions below. create_app() attaches
 # them to the app.
@@ -99,9 +104,10 @@ async def app_lifespan(app):
     """
     Run start-up and shut-down work for the dashboard.
 
-    On start-up, a background thread begins collecting daily follower
-    and view statistics (unless DASHBOARD_AUTO_COLLECT=false). On
-    shut-down, the thread is told to stop.
+    On start-up, one background thread begins collecting daily follower
+    and view statistics (unless DASHBOARD_AUTO_COLLECT=false) and another
+    checks channel posting schedules (unless DASHBOARD_AUTO_PUBLISH=false).
+    On shut-down, both threads are told to stop.
 
     FastAPI requires this "lifespan" pattern: everything before "yield"
     runs at start-up, everything after it runs at shut-down. The
@@ -111,9 +117,14 @@ async def app_lifespan(app):
         app (FastAPI): The app (FastAPI passes it in; not used here).
     """
     from src.analytics.accounts import daily_collection_loop
+    from src.publishing.scheduler import publishing_loop
     stopped = threading.Event()
     if os.getenv("DASHBOARD_AUTO_COLLECT", "true").lower() == "true":
         thread = threading.Thread(target=daily_collection_loop, args=(stopped,), daemon=True)
+        thread.start()
+    # Scheduled posting only does anything for channels with a schedule: block.
+    if os.getenv("DASHBOARD_AUTO_PUBLISH", "true").lower() == "true":
+        thread = threading.Thread(target=publishing_loop, args=(stopped,), daemon=True)
         thread.start()
     try:
         yield
@@ -485,6 +496,25 @@ def videos_page(request: Request, status: str = "drafted"):
     })
 
 
+def posting_destinations(channel):
+    """
+    List the platforms an approved video of this channel would be posted to.
+
+    Args:
+        channel (str): The channel, e.g. "news".
+
+    Returns:
+        list[str]: For example ["tiktok", "instagram", "facebook"]. Empty if
+                   the channel's settings can't be read.
+    """
+    from src.dashboard.settings import channel_config
+    from src.publishing.scheduler import channel_platforms
+    try:
+        return channel_platforms(channel_config(channel))
+    except ValueError:
+        return []
+
+
 def publishing_history(video_id):
     """
     Get a video's confirmed public posts and its upload attempts.
@@ -569,6 +599,7 @@ def video_detail(request: Request, video_id: int):
         "render_estimate": render_estimate,
         "channel_estimate": channel_estimate,
         "visual_plan": load_visual_plan(video["script_path"]),
+        "destinations": posting_destinations(video["channel"]),
     })
 
 

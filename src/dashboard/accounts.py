@@ -1,16 +1,23 @@
 # =============================================================
-# src/dashboard/accounts.py — connecting TikTok and Instagram accounts
+# src/dashboard/accounts.py — connecting TikTok, Instagram and YouTube accounts
 #
-# Each channel can connect one TikTok and one Instagram account.
+# Each channel can connect one TikTok, one Instagram and one YouTube
+# account. (Facebook Page posting borrows the Instagram connection.)
 # This file:
 #   - runs the official login flow ("OAuth") for each platform
 #   - asks the platform who the account is and how many followers it has
 #   - stores the account's access token ENCRYPTED in the database
-#   - refreshes TikTok tokens before they expire
+#   - refreshes TikTok and YouTube tokens before they expire
 #
 # Tokens are never put in a page, a cookie or a log. TikTok uses its
 # "Login Kit"; Instagram uses Meta's Facebook Login, which works for
-# professional Instagram accounts linked to a Facebook Page.
+# professional Instagram accounts linked to a Facebook Page; YouTube
+# uses Google's standard OAuth login.
+#
+# Library note: Google's official google-api-python-client could do
+# the YouTube part, but it brings its own token storage. Every platform
+# here uses the same plain-HTTP pattern (httpx) and one encrypted store
+# instead, which keeps the code consistent and adds no dependency.
 #
 # OAuth in one paragraph: we send you to the platform's login page
 # with a random "state" value. After you agree, the platform sends
@@ -38,7 +45,21 @@ TIKTOK_BASE = "https://open.tiktokapis.com/v2"
 
 # What the dashboard asks each platform for permission to do.
 TIKTOK_SCOPES = "user.info.basic,user.info.stats,video.list,video.upload"
-INSTAGRAM_SCOPES = "instagram_basic,instagram_manage_insights,pages_show_list,pages_read_engagement"
+# instagram_content_publish posts Reels; pages_manage_posts posts to the linked Facebook Page.
+INSTAGRAM_SCOPES = ("instagram_basic,instagram_manage_insights,instagram_content_publish,"
+                    "pages_show_list,pages_read_engagement,pages_manage_posts")
+
+# Platforms that have their own account connection. Facebook Page posting
+# borrows the Instagram connection, so it is not listed here.
+ACCOUNT_PLATFORMS = ("tiktok", "instagram", "youtube")
+
+# YouTube uses Google's standard OAuth login. youtube.upload lets us upload
+# videos; youtube.readonly lets us read subscriber and view counts.
+GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
+GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
+YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
+YOUTUBE_SCOPES = ("https://www.googleapis.com/auth/youtube.upload "
+                  "https://www.googleapis.com/auth/youtube.readonly")
 
 # Refresh a token this many seconds before it expires, so it never
 # runs out in the middle of a request.
@@ -266,12 +287,38 @@ def fetch_instagram_profile(token, account_id):
             "followers": user.get("followers_count")}
 
 
+def fetch_youtube_profile(token):
+    """
+    Ask YouTube which channel a token belongs to and its subscriber count.
+
+    Args:
+        token (str): The access token.
+
+    Returns:
+        dict: "id", "name" and "followers" (followers is None when the
+              channel hides its subscriber count).
+    """
+    data = api_json("GET", YOUTUBE_API + "/channels", token,
+                    params={"part": "snippet,statistics", "mine": "true"})
+    items = data.get("items", [])
+    if not items:
+        raise ValueError("This Google account has no YouTube channel. Create one, then connect again.")
+    channel = items[0]
+    statistics = channel.get("statistics", {})
+    followers = None
+    if not statistics.get("hiddenSubscriberCount") and "subscriberCount" in statistics:
+        # YouTube sends numbers as text, e.g. "120".
+        followers = int(statistics["subscriberCount"])
+    return {"id": channel.get("id"), "name": channel.get("snippet", {}).get("title"),
+            "followers": followers}
+
+
 def fetch_profile(platform, token, account_id=""):
     """
     Get an account's ID, name and follower count from its platform.
 
     Args:
-        platform (str): "tiktok" or "instagram".
+        platform (str): "tiktok", "instagram" or "youtube".
         token (str): The account's access token.
         account_id (str): Instagram only: the numeric professional account ID.
 
@@ -286,8 +333,10 @@ def fetch_profile(platform, token, account_id=""):
         result = fetch_tiktok_profile(token)
     elif platform == "instagram":
         result = fetch_instagram_profile(token, account_id)
+    elif platform == "youtube":
+        result = fetch_youtube_profile(token)
     else:
-        raise ValueError("Choose TikTok or Instagram.")
+        raise ValueError("Choose TikTok, Instagram or YouTube.")
 
     if not result["id"] or result["followers"] is None:
         raise ValueError("The platform did not return account statistics. "
@@ -312,7 +361,7 @@ def save_connection(channel, platform, profile, credentials):
 
     Args:
         channel (str): The channel, e.g. "news".
-        platform (str): "tiktok" or "instagram".
+        platform (str): "tiktok", "instagram" or "youtube".
         profile (dict): From fetch_profile(): "id", "name", "followers".
         credentials (dict): The token and, when known, "expires_at"
                             (seconds since 1970).
@@ -393,7 +442,7 @@ def get_account(channel, platform):
 
     Args:
         channel (str): The channel, e.g. "news".
-        platform (str): "tiktok" or "instagram".
+        platform (str): "tiktok", "instagram" or "youtube".
 
     Returns:
         dict or None: The account row (credentials still encrypted),
@@ -433,17 +482,56 @@ def refresh_tiktok_token(account, credentials):
     })
     credentials.update(data)
     credentials["expires_at"] = time.time() + data["expires_in"]
+    save_credentials(account["id"], credentials)
+    return credentials
 
+
+def refresh_google_token(account, credentials):
+    """
+    Get a new YouTube (Google) access token using the saved refresh token, and save it.
+
+    Google access tokens last one hour. Google normally keeps the same
+    refresh token; if it ever sends a new one, update() saves that too.
+
+    Args:
+        account (dict): The account row.
+        credentials (dict): The decrypted credentials, including "refresh_token".
+
+    Returns:
+        dict: The updated credentials.
+    """
+    data = api_json("POST", GOOGLE_TOKEN_URL, data={
+        "client_id": required_env("GOOGLE_CLIENT_ID"),
+        "client_secret": required_env("GOOGLE_CLIENT_SECRET"),
+        "grant_type": "refresh_token",
+        "refresh_token": credentials["refresh_token"],
+    })
+    credentials.update(data)
+    credentials["expires_at"] = time.time() + data["expires_in"]
+    save_credentials(account["id"], credentials)
+    return credentials
+
+
+def save_credentials(account_id, credentials):
+    """
+    Save an account's renewed credentials (encrypted) and their expiry time.
+
+    Args:
+        account_id (int): The account's row ID.
+        credentials (dict): The credentials, including "expires_at".
+
+    Returns:
+        Nothing.
+    """
     connection = get_connection()
     try:
         connection.execute(
             "UPDATE accounts SET credentials = ?, token_expires_at = ? WHERE id = ?",
-            (encrypt_credentials(credentials), credentials["expires_at"], account["id"]),
+            (encrypt_credentials(credentials), credentials["expires_at"], account_id),
         )
         connection.commit()
     finally:
         connection.close()
-    return credentials
 
 
 def access_token(account):
@@ -459,7 +547,8 @@ def access_token(account):
     Raises:
         ValueError: If the token has expired and cannot be refreshed
                     (Instagram tokens and tokens without a refresh token
-                    must be reconnected by hand).
+                    must be reconnected by hand). TikTok and YouTube
+                    tokens are renewed automatically.
 
     Note:
         A token pasted by hand has no known expiry date. It is used until
@@ -470,10 +559,13 @@ def access_token(account):
     expires_soon = expires_at and expires_at < time.time() + REFRESH_MARGIN_SECONDS
 
     if expires_soon:
-        can_refresh = account["platform"] == "tiktok" and credentials.get("refresh_token")
-        if not can_refresh:
+        # Instagram tokens (and pasted tokens) cannot be renewed automatically.
+        if not credentials.get("refresh_token") or account["platform"] == "instagram":
             raise ValueError("This account token has expired. Reconnect it on the channel page.")
-        credentials = refresh_tiktok_token(account, credentials)
+        if account["platform"] == "youtube":
+            credentials = refresh_google_token(account, credentials)
+        else:
+            credentials = refresh_tiktok_token(account, credentials)
 
     return credentials["access_token"]
 
@@ -496,7 +588,7 @@ def required_env(name):
         ValueError: If it is missing or still a placeholder like "your-key".
     """
     value = os.getenv(name, "")
-    if not value or value.startswith(("your-", "replace-")):
+    if not value or value.startswith(("your-", "replace-", "paste-")):
         raise ValueError(f"Add {name} to .env and restart the dashboard.")
     return value
 
@@ -506,7 +598,7 @@ def authorization_url(platform, state):
     Build the platform login page address to send the browser to.
 
     Args:
-        platform (str): "tiktok" or "instagram".
+        platform (str): "tiktok", "instagram" or "youtube".
         state (str): A random one-use value; the platform sends it back so
                      we can check the login was started by this browser.
 
@@ -523,8 +615,23 @@ def authorization_url(platform, state):
         }
         return "https://www.tiktok.com/v2/auth/authorize/?" + urlencode(parameters)
 
+    if platform == "youtube":
+        parameters = {
+            "client_id": required_env("GOOGLE_CLIENT_ID"),
+            "response_type": "code",
+            "scope": YOUTUBE_SCOPES,
+            "redirect_uri": required_env("YOUTUBE_REDIRECT_URI"),
+            "state": state,
+            # "offline" asks for a refresh token, so uploads keep working
+            # after the one-hour access token runs out. "consent" makes
+            # Google send that refresh token again on every reconnect.
+            "access_type": "offline",
+            "prompt": "consent",
+        }
+        return GOOGLE_AUTH_URL + "?" + urlencode(parameters)
+
     if platform != "instagram":
-        raise ValueError("Choose TikTok or Instagram.")
+        raise ValueError("Choose TikTok, Instagram or YouTube.")
 
     parameters = {
         "client_id": required_env("META_APP_ID"),
@@ -583,12 +690,32 @@ def exchange_meta_code(code):
     })
 
 
+def exchange_google_code(code):
+    """
+    Trade Google's one-use login code for a YouTube access and refresh token.
+
+    Args:
+        code (str): The code Google sent back to the dashboard.
+
+    Returns:
+        dict: Google's answer, including "access_token", "refresh_token"
+              and "expires_in".
+    """
+    return api_json("POST", GOOGLE_TOKEN_URL, data={
+        "client_id": required_env("GOOGLE_CLIENT_ID"),
+        "client_secret": required_env("GOOGLE_CLIENT_SECRET"),
+        "code": code,
+        "grant_type": "authorization_code",
+        "redirect_uri": required_env("YOUTUBE_REDIRECT_URI"),
+    })
+
+
 def exchange_code(platform, code):
     """
     Trade a one-use login code for the account's credentials.
 
     Args:
-        platform (str): "tiktok" or "instagram".
+        platform (str): "tiktok", "instagram" or "youtube".
         code (str): The code the platform sent back.
 
     Returns:
@@ -599,6 +726,8 @@ def exchange_code(platform, code):
     """
     if platform == "tiktok":
         data = exchange_tiktok_code(code)
+    elif platform == "youtube":
+        data = exchange_google_code(code)
     else:
         data = exchange_meta_code(code)
 

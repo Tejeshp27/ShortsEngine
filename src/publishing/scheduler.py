@@ -1,21 +1,27 @@
 # =============================================================
-# src/publishing/scheduler.py — post approved videos on schedule
+# src/publishing/scheduler.py — post approved videos
 #
-# Reads each channel's posting schedule from its YAML config,
-# checks whether it's time to post, and calls the right publisher
-# (Instagram or TikTok). Run once per hour from a cron job or
-# the Docker entrypoint.
+# The one place that sends approved videos to the platforms
+# (TikTok inbox, Instagram Reels, Facebook Page Reels, YouTube
+# Shorts). Two things
+# start a post:
+#   1. The dashboard's "Post now" button → publish_video_now()
+#   2. A channel's posting schedule → run_scheduler(). The dashboard
+#      checks it every 5 minutes while running; it can also be run
+#      from cron:  python -m src.publishing.scheduler [--dry-run]
 #
-# To activate, add to channels/news.yaml:
+# To turn on scheduled posting, add to channels/<channel>.yaml:
 #   schedule:
 #     timezone: "America/New_York"
 #     post_times: ["09:00", "17:00"]   # post at 9am and 5pm
-#     platforms: [tiktok, instagram]
 #
 # Safety rules:
-#   - Never posts the same video twice (checks "posted" status in DB).
-#   - Only posts if the current time is within 30 minutes of a schedule slot.
-#   - If no approved video is ready, it skips quietly.
+#   - Only approved videos are ever posted (human review first).
+#   - Each video/platform is reserved before upload, so it is never
+#     sent twice. A failure that left nothing public is released for a
+#     retry; any other failure is "uncertain" and needs a manual check.
+#   - Scheduled posts only happen within 30 minutes of a slot, one
+#     video per slot. If no approved video is ready, it skips quietly.
 # =============================================================
 
 import os
@@ -26,6 +32,22 @@ import yaml
 
 from src.storage.database import create_tables, get_connection
 from src.storage.queries import get_videos_by_status, get_video_by_id, mark_posted
+
+# Platforms this program can post to.
+SUPPORTED_PLATFORMS = ("tiktok", "instagram", "facebook", "youtube")
+
+# How each platform's name is written in messages.
+PLATFORM_NAMES = {"tiktok": "TikTok", "instagram": "Instagram",
+                  "facebook": "Facebook", "youtube": "YouTube"}
+
+# Platforms whose public posts the daily statistics collector can read.
+# A public post on one of these is saved in platform_posts automatically.
+PLATFORMS_WITH_STATISTICS = ("instagram", "youtube")
+
+# The dashboard's background schedule check: wait a minute after start-up,
+# then check every 5 minutes (well inside the 30-minute posting window).
+FIRST_CHECK_DELAY_SECONDS = 60
+SCHEDULE_CHECK_SECONDS = 300
 
 
 def _load_all_channels():
@@ -179,11 +201,254 @@ def finish_delivery(video_id, platform, status, post_id=None):
         conn.close()
 
 
-def run_scheduler(dry_run=False):
-    """Upload one approved video per channel slot; dry_run only prints the plan.
+def release_delivery(video_id, platform):
+    """Remove an upload reservation after a failure that left nothing public.
 
-    Completed destinations are skipped on later runs. A video is marked posted
-    only after all configured destinations succeed (TikTok success means inbox).
+    Used only when a publisher raised NothingPublishedError, so the next
+    attempt (button or schedule) is allowed to try that platform again.
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            "DELETE FROM publishing_deliveries WHERE video_id = ? AND platform = ? AND status = 'sending'",
+            (video_id, platform),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def record_public_post(video_id, platform, post_id):
+    """Save a confirmed public post ID so the daily collector finds its views.
+
+    Used for Instagram Reels and public YouTube uploads. (TikTok's inbox
+    upload ID and a private YouTube upload are not public posts.)
+    """
+    conn = get_connection()
+    try:
+        conn.execute(
+            "INSERT OR IGNORE INTO platform_posts (video_id, platform, post_id, confirmed_at) "
+            "VALUES (?, ?, ?, ?)",
+            (video_id, platform, post_id, datetime.now(timezone.utc).isoformat()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def channel_platforms(config):
+    """Return the platforms a channel posts to, without repeats.
+
+    The schedule block's own list wins; otherwise the channel's main
+    `platforms` list is used. Example: ["tiktok", "instagram", "facebook"].
+    """
+    schedule = config.get("schedule") or {}
+    listed = schedule.get("platforms", config.get("platforms", []))
+    platforms = []
+    for platform in listed:
+        if platform not in platforms:
+            platforms.append(platform)
+    return platforms
+
+
+def unsupported_platforms(platforms):
+    """Return the platforms in the list that this program cannot post to."""
+    unsupported = []
+    for platform in platforms:
+        if platform not in SUPPORTED_PLATFORMS:
+            unsupported.append(platform)
+    return unsupported
+
+
+def get_credentials(channel_key, config, platform):
+    """Get the token (and account ID) a platform upload needs.
+
+    Facebook has no connection of its own: it uses the Instagram
+    connection, which manages the linked Facebook Page.
+
+    Returns:
+        dict: {"token": ..., "account_id": ...}
+
+    Raises:
+        ValueError: With a plain message when nothing usable is connected.
+    """
+    from src.dashboard.accounts import access_token, get_account
+
+    connection_platform = platform
+    if platform == "facebook":
+        connection_platform = "instagram"
+
+    account = get_account(channel_key, connection_platform)
+    if account:
+        # access_token() raises ValueError if the token has expired.
+        return {"token": access_token(account), "account_id": account["platform_account_id"]}
+
+    # Old global .env tokens are only used when this channel explicitly
+    # opts in; otherwise two channels could end up sharing one account.
+    # (YouTube never had one: it always uses the channel page connection.)
+    uses_legacy_tokens = config.get("publishing", {}).get("use_legacy_env_tokens", False)
+    if uses_legacy_tokens and connection_platform != "youtube":
+        if connection_platform == "tiktok":
+            token = os.getenv("TIKTOK_ACCESS_TOKEN")
+            account_id = ""
+        else:
+            token = os.getenv("INSTAGRAM_ACCESS_TOKEN")
+            account_id = os.getenv("INSTAGRAM_ACCOUNT_ID", "")
+        if token and (connection_platform == "tiktok" or account_id):
+            return {"token": token, "account_id": account_id}
+
+    raise ValueError(f"Connect this channel's {PLATFORM_NAMES[connection_platform]} account first.")
+
+
+def send_to_platform(platform, video, config, credentials):
+    """Upload one video to one platform.
+
+    TikTok lands in your TikTok inbox (you post it in the app). Instagram
+    and Facebook Reels go public immediately. YouTube is public only if
+    the channel asks for it and Google has audited the API project.
+
+    Returns:
+        dict: {"id": the ID the platform sent back,
+               "public": True if the post is publicly visible now}
+    """
+    if platform == "tiktok":
+        from src.publishing import tiktok
+        caption = tiktok.build_caption(video["story_title"], video["story_url"], config)
+        upload_id = tiktok.upload_to_drafts(video["video_path"], caption, access_token=credentials["token"])
+        return {"id": upload_id, "public": False}
+
+    if platform == "youtube":
+        from src.publishing import youtube
+        title = youtube.build_title(video["story_title"])
+        description = youtube.build_description(video["story_title"], video["story_url"], config)
+        return youtube.upload_short(video["video_path"], title, description, credentials["token"], config)
+
+    from src.publishing import instagram
+    caption = instagram.build_caption(video["story_title"], video["story_url"], config)
+    if platform == "instagram":
+        media_id = instagram.post_reel(video["video_path"], caption,
+                                       credentials["token"], credentials["account_id"])
+        return {"id": media_id, "public": True}
+
+    from src.publishing import facebook
+    reel_id = facebook.post_page_reel(video["video_path"], caption,
+                                      credentials["token"], credentials["account_id"])
+    return {"id": reel_id, "public": True}
+
+
+def publish_to_platform(channel_key, config, video, platform):
+    """Post one approved video to one platform, safely; return a short message.
+
+    The steps:
+      1. Find the credentials. If none, stop without reserving anything.
+      2. Reserve the upload (claim_delivery), so it is never sent twice.
+      3. Upload. On success save the result. If nothing went public,
+         release the reservation so it can be retried. Any other failure
+         is "uncertain" and must be checked by hand before a retry.
+    """
+    from src.dashboard.accounts import safe_error
+    from src.publishing.errors import NothingPublishedError
+
+    name = PLATFORM_NAMES[platform]
+    try:
+        credentials = get_credentials(channel_key, config, platform)
+    except ValueError as error:
+        return f"{name}: {safe_error(error)} Video left approved."
+
+    if not claim_delivery(video["id"], platform):
+        return f"{name}: already sent or not ready; skipped."
+
+    try:
+        result = send_to_platform(platform, video, config, credentials)
+    except NothingPublishedError as error:
+        release_delivery(video["id"], platform)
+        return f"{name}: failed before anything was published, safe to try again. {safe_error(error)}"
+    except Exception as error:
+        finish_delivery(video["id"], platform, "uncertain")
+        return f"{name}: result unknown. Check {name} by hand before retrying. {safe_error(error)}"
+
+    finish_delivery(video["id"], platform, "succeeded", result["id"])
+    if result["public"] and platform in PLATFORMS_WITH_STATISTICS:
+        record_public_post(video["id"], platform, result["id"])
+    if platform == "youtube" and not result["public"]:
+        return (f"YouTube: uploaded as private (ID {result['id']}). Make it public in "
+                "YouTube Studio, then record its post ID here to collect its views.")
+    return f"{name}: done (ID {result['id']})."
+
+
+def mark_posted_if_complete(video_id, platforms):
+    """Mark a video posted once every platform in the list has succeeded.
+
+    Returns:
+        bool: True if the video is now fully posted.
+    """
+    conn = get_connection()
+    try:
+        rows = conn.execute(
+            "SELECT platform, status FROM publishing_deliveries WHERE video_id = ? "
+            "UNION ALL SELECT platform, 'succeeded' FROM platform_posts WHERE video_id = ?",
+            (video_id, video_id),
+        ).fetchall()
+    finally:
+        conn.close()
+
+    successful = set()
+    for row in rows:
+        if row["status"] == "succeeded":
+            successful.add(row["platform"])
+    for platform in platforms:
+        if platform not in successful:
+            return False
+    mark_posted(video_id)
+    return True
+
+
+def publish_video(channel_key, config, video):
+    """Post one approved video to all of its channel's platforms.
+
+    Platforms that already succeeded are skipped automatically.
+
+    Returns:
+        tuple: (list of messages, one per platform; True if now fully posted)
+    """
+    platforms = channel_platforms(config)
+    messages = []
+    for platform in platforms:
+        messages.append(publish_to_platform(channel_key, config, video, platform))
+    fully_posted = mark_posted_if_complete(video["id"], platforms)
+    return messages, fully_posted
+
+
+def publish_video_now(channel_key, config, video_id):
+    """Post a specific approved video right away (the dashboard's "Post now" button).
+
+    Returns:
+        tuple: the same as publish_video().
+
+    Raises:
+        ValueError: If the video can't be posted (not approved, no file,
+                    or the channel's platforms are not supported).
+    """
+    create_tables()
+    video = get_video_by_id(video_id)
+    if video is None or video["channel"] != channel_key:
+        raise ValueError("Video not found for this channel.")
+    if video["status"] != "approved":
+        raise ValueError("Only approved videos can be posted.")
+    if not video["video_path"] or not os.path.isfile(video["video_path"]):
+        raise ValueError("Render this video before posting it.")
+
+    platforms = channel_platforms(config)
+    if not platforms or unsupported_platforms(platforms):
+        raise ValueError("Set this channel's platforms to tiktok, instagram, facebook and/or youtube.")
+    return publish_video(channel_key, config, video)
+
+
+def run_scheduler(dry_run=False):
+    """Post one approved video per channel time slot; dry_run only prints the plan.
+
+    Only channels with a `schedule:` block take part. A video is marked
+    posted only after every platform succeeds (TikTok success = inbox).
     """
     if not dry_run:
         create_tables()
@@ -195,12 +460,8 @@ def run_scheduler(dry_run=False):
         slot = find_posting_slot(schedule, now_utc)
         if slot is None:
             continue
-        platforms = list(dict.fromkeys(schedule.get("platforms", config.get("platforms", []))))
-        supported = bool(platforms)
-        for platform in platforms:
-            if platform not in ("tiktok", "instagram"):
-                supported = False
-        if not supported:
+        platforms = channel_platforms(config)
+        if not platforms or unsupported_platforms(platforms):
             print(f"[{channel_key}] Configure supported posting platforms first.")
             continue
         if dry_run:
@@ -209,54 +470,45 @@ def run_scheduler(dry_run=False):
         video = select_slot_video(channel_key, slot)
         if video is None or video["status"] != "approved":
             continue
-        for platform in platforms:
-            # Missing credentials and the unfinished Instagram publisher must not
-            # consume an upload reservation: these are safe to retry later.
-            if platform == "instagram":
-                print(f"[{channel_key}] Instagram publishing is not implemented; leaving approved.")
-                continue
-            from src.dashboard.accounts import access_token, get_account, safe_error
-            account = get_account(channel_key, platform)
-            token = None
-            if account:
-                try:
-                    token = access_token(account)
-                except ValueError as error:
-                    print(f"[{channel_key}] {safe_error(error)}")
-                    continue
-            elif config.get("publishing", {}).get("use_legacy_env_tokens", False):
-                # Legacy globals are only used when this particular channel
-                # explicitly opts in. Otherwise two channels could share a token.
-                token = os.getenv("TIKTOK_ACCESS_TOKEN")
-            if not token:
-                print(f"[{channel_key}] Connect this channel's TikTok account first; leaving approved.")
-                continue
-            if not claim_delivery(video["id"], platform):
-                continue
-            try:
-                from src.publishing.tiktok import upload_to_drafts, build_caption
-                caption = build_caption(video["story_title"], video["story_url"], config)
-                post_id = upload_to_drafts(video["video_path"], caption, access_token=token)
-                finish_delivery(video["id"], platform, "succeeded", post_id)
-            except Exception as error:
-                finish_delivery(video["id"], platform, "uncertain")
-                print(f"[{channel_key}] Upload needs manual checking before retry: {error}")
-        conn = get_connection()
+        messages, fully_posted = publish_video(channel_key, config, video)
+        for message in messages:
+            print(f"[{channel_key}] {message}")
+
+
+def publishing_loop(stopped):
+    """Check the posting schedule every few minutes while the dashboard runs.
+
+    Runs in a background thread started by the dashboard (app.py). It
+    does nothing unless a channel has a `schedule:` block.
+
+    Args:
+        stopped (threading.Event): Set when the dashboard shuts down.
+    """
+    # stopped.wait(n) pauses up to n seconds and returns True early when
+    # the dashboard is shutting down, which ends the loop.
+    if stopped.wait(FIRST_CHECK_DELAY_SECONDS):
+        return
+    while True:
         try:
-            rows = conn.execute(
-                "SELECT platform, status FROM publishing_deliveries WHERE video_id = ? "
-                "UNION ALL SELECT platform, 'succeeded' FROM platform_posts WHERE video_id = ?",
-                (video["id"], video["id"]),
-            ).fetchall()
-        finally:
-            conn.close()
-        successful = set()
-        for row in rows:
-            if row["status"] == "succeeded":
-                successful.add(row["platform"])
-        all_succeeded = True
-        for platform in platforms:
-            if platform not in successful:
-                all_succeeded = False
-        if all_succeeded:
-            mark_posted(video["id"])
+            run_scheduler()
+        except Exception as error:
+            # One bad run (e.g. a locked database) must not stop the web app.
+            print(f"Scheduled publishing check failed: {error}")
+        if stopped.wait(SCHEDULE_CHECK_SECONDS):
+            return
+
+
+def main():
+    """Run one schedule check from the command line (e.g. from cron)."""
+    import argparse
+    from dotenv import load_dotenv
+
+    parser = argparse.ArgumentParser(description="Post approved videos whose time slot is now")
+    parser.add_argument("--dry-run", action="store_true", help="print the plan; post nothing")
+    arguments = parser.parse_args()
+    load_dotenv()
+    run_scheduler(dry_run=arguments.dry_run)
+
+
+if __name__ == "__main__":
+    main()

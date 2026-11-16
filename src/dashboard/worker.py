@@ -7,7 +7,8 @@
 # It reuses the normal pipeline (story fetching, script writing,
 # rendering) and saves progress to the database so the job page can
 # show it. A finished video always goes back to "drafted" for human
-# review. Nothing in this file publishes anything.
+# review. The only job that posts is "publish", started by the
+# "Post now" button on an approved video (see publish_saved_video).
 #
 # Note on imports: several pipeline functions are imported INSIDE
 # the functions below rather than at the top. Two reasons:
@@ -619,6 +620,35 @@ def claim_job(job_id):
     return changed == 1
 
 
+def publish_saved_video(job):
+    """
+    Post an approved video to its channel's platforms (the "Post now" button).
+
+    Args:
+        job (dict): The job record; its payload holds "video_id".
+
+    Returns:
+        dict: The video ID and a message per platform.
+
+    Raises:
+        RuntimeError: If any platform did not succeed, so the job page
+                      shows it as failed with the reason for each platform.
+    """
+    from src.publishing.scheduler import channel_platforms, publish_video_now
+
+    video_id = job["payload"]["video_id"]
+    config = job["payload"]["config"]
+    if job["dry_run"]:
+        platforms = ", ".join(channel_platforms(config))
+        return {"video_id": video_id, "message": f"Dry run: would post to {platforms}. Nothing was sent."}
+
+    messages, fully_posted = publish_video_now(job["channel"], config, video_id)
+    summary = " ".join(messages)
+    if not fully_posted:
+        raise RuntimeError(summary)
+    return {"video_id": video_id, "message": summary}
+
+
 def do_job_work(job, llm, tracker):
     """
     Do the work for a job's kind.
@@ -642,6 +672,8 @@ def do_job_work(job, llm, tracker):
         video_id = job["payload"]["video_id"]
         render_saved_video(job, video_id, llm, tracker)
         return {"video_id": video_id, "message": "Rendered video is ready for review."}
+    if kind == "publish":
+        return publish_saved_video(job)
 
     from src.analytics.accounts import sync_channel
     return {"message": sync_channel(job["channel"], dry_run=bool(job["dry_run"]))}

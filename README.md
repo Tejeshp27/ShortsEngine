@@ -3,8 +3,9 @@
 An end-to-end content automation pipeline that finds breaking news, uses Claude AI
 to write neutral short-form video scripts, renders captioned MP4s, and runs them
 through a human review queue. A private dashboard manages channels, accounts,
-production, spending and performance. TikTok draft uploads are supported;
-Instagram automatic publishing remains unfinished.
+production, spending and performance. Approved videos post as Instagram and
+Facebook Page Reels and YouTube Shorts, and upload to TikTok drafts, from a
+"Post now" button or a schedule.
 
 Built as a portfolio project demonstrating real-world software engineering: REST APIs,
 AI integration, OAuth, database design, data pipelines, Docker, and CI/CD.
@@ -38,7 +39,9 @@ RSS feeds ──► dedupe + filter ──► Claude Haiku (rank) ──► Clau
 5. **Renders** a fully animated 9:16 MP4: stock footage playing full-screen the whole time,
    an animated graphic for every sentence, and word-by-word captions (see below)
 6. **Approves** scripts and videos through a FastAPI web dashboard
-7. **Uploads** to TikTok drafts; Instagram publishing still needs implementation
+7. **Publishes** approved videos as Instagram and Facebook Page Reels (Meta Graph API)
+   and YouTube Shorts (YouTube Data API), using resumable uploads so no public
+   hosting is needed, and uploads them to TikTok drafts
 8. **Collects daily account and public-post metrics** from connected accounts and
    feeds saved performance back into ranking; live connections require approved platform access
 
@@ -56,7 +59,7 @@ A typical full run costs **$0.04–$0.06** in AI API calls (script ≈ 1–3¢, 
 | Web framework | FastAPI + uvicorn | Industry standard, async, auto-docs, used at scale |
 | Database | SQLite (Postgres upgrade path) | Zero-setup for development; easy migration |
 | Video | edge-tts, Pillow, FFmpeg; optional ElevenLabs | Free voice/rendering path, with tracked estimates for optional paid voice |
-| Publishing | TikTok Content Posting API, Instagram Graph API | Official APIs only |
+| Publishing | TikTok Content Posting API, Meta Graph API, YouTube Data API v3 | Official APIs only |
 | Auth | bcrypt passwords, signed sessions and encrypted per-channel OAuth tokens | Platform flows still need approved apps and live credential testing |
 | Testing | pytest | Industry standard Python test framework |
 | CI/CD | GitHub Actions | Runs tests on every push; green checkmarks on the repo |
@@ -184,7 +187,7 @@ Your existing login and videos remain intact. New tables are added automatically
   records are flagged. Videos and thumbnails require login.
 
 [Full control-center setup, spending rules, account requirements and architecture](docs/control-center.md).
-No hosting was enabled, and no videos are published by browser jobs.
+No hosting was enabled. The only browser job that posts is **Post now** on an approved video.
 
 **The dashboard is private by default.** A single check runs before every request, and
 anything other than the login page and public static assets is refused unless the browser is
@@ -215,7 +218,7 @@ shortsengine/
     generation/         # Claude script writing (llm.py, prompts.py, ranking.py, writer.py)
     video/              # voiceover (tts.py), captions, Pillow frames, FFmpeg render
       animation/        # animated video engine: storyboard, footage, scenes, renderer
-    publishing/         # TikTok and Instagram API clients, scheduler
+    publishing/         # TikTok, Instagram, Facebook and YouTube clients, scheduler
     storage/            # SQLite schema, all queries in one place, cost reports
     analytics/          # metrics collector, feedback loop
     dashboard/          # FastAPI web app: login (auth.py), pages (app.py), templates/, static/
@@ -277,7 +280,7 @@ sources:
 | 1 | ✅ Done | News script generator (Claude AI) |
 | 2 | ✅ Done | Video production (TTS + Pillow + FFmpeg) |
 | 3 | ✅ Done | SQLite database + human review queue |
-| 4 | Partial | TikTok draft uploads; Instagram publishing not implemented |
+| 4 | ✅ Done | Instagram + Facebook Reels, YouTube Shorts, TikTok drafts, "Post now" + schedule |
 | 5 | ✅ Done | FastAPI dashboard |
 | 6 | ✅ Done | Analytics + feedback loop + Twitch channel |
 | 7 | ✅ Done | Docker deploy + GitHub Actions CI + portfolio polish |
@@ -314,9 +317,15 @@ changes and posting windows across midnight are handled automatically. Existing
 `utc_offset_hours` settings still work when no named zone is supplied.
 
 A video is marked `posted` only when every configured destination succeeds. For
-TikTok this means uploaded to the inbox, not publicly posted. Instagram publishing
-is unfinished, so configuring it leaves the video approved. Returned upload IDs are
-saved, but automatic metrics collection and OAuth are still unfinished.
+TikTok this means uploaded to the inbox, not publicly posted. Instagram and Facebook
+Reels are public as soon as they succeed. The Instagram Reel ID is saved as a
+confirmed public post, so the daily collector gathers its statistics.
+
+The same code runs for the dashboard's **Post now** button and for the schedule.
+While the dashboard runs it checks schedules every 5 minutes
+(`DASHBOARD_AUTO_PUBLISH=false` turns this off). A failure before Meta's final
+publish step left nothing public, so its reservation is released and the next try
+repeats only that platform.
 
 Uploads with uncertain outcomes are not automatically repeated: check the platform
 first. `publishing_deliveries` records `sending`, `uncertain`, or `succeeded`. After
@@ -326,7 +335,7 @@ the same check. Successful destinations must be kept to prevent duplicate upload
 A dry run prints the slot without reserving it or uploading anything:
 
 ```bash
-python -c 'from src.publishing.scheduler import run_scheduler; run_scheduler(dry_run=True)'
+python -m src.publishing.scheduler --dry-run
 ```
 
 Analytics totals use the latest cumulative snapshot per video/platform, rather than

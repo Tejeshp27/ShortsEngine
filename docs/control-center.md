@@ -68,9 +68,17 @@ The example Twitch channel is disabled until its sources and permissions are
 configured. Browser source generation currently supports article-based channels;
 it does not implement a Twitch clip editor.
 
-No browser job publishes content. Posting can still be done manually in the
-platform apps. On a video's detail page, record its actual numeric public post ID
-after posting; the account collector can then query that video's statistics.
+The only browser job that posts is **Post now** on an approved, rendered video
+(tick "I understand this video will be posted publicly"). It posts to every platform
+in the channel's `platforms:` list: Instagram and Facebook Page Reels go public at
+once; TikTok lands in the inbox; YouTube Shorts stay private until the Google
+project is audited. Already-successful platforms are skipped, so
+clicking again after fixing a problem only retries the rest. A channel `schedule:`
+block posts the newest approved video automatically at set times.
+
+You can still post by hand in the platform apps. On a video's detail page, record
+its actual numeric public post ID after posting; the account collector can then
+query that video's statistics.
 A TikTok `publish_id` from inbox upload is a different identifier. Only an
 approved video can be recorded as posted, and a rejected draft can be approved
 again from its detail page if you change your mind.
@@ -158,11 +166,46 @@ META_GRAPH_VERSION=v24.0
 ```
 
 Enter the numeric Instagram professional account ID on the connection form. The
-flow requests `instagram_basic`, `instagram_manage_insights`, `pages_show_list`
-and `pages_read_engagement`, exchanges the token for a long-lived user token, and
-verifies access to that account. Reconnect expired Meta tokens. App approval and
+flow requests `instagram_basic`, `instagram_manage_insights`,
+`instagram_content_publish`, `pages_show_list`, `pages_read_engagement` and
+`pages_manage_posts`, exchanges the token for a long-lived user token, and
+verifies access to that account. Accounts connected before publishing was added
+must be **reconnected once** to grant the two posting permissions.
+
+**Facebook Page posting** uses this same connection. The Instagram account must be
+linked to a Facebook Page you manage; each post looks up that Page and its own
+token (never stored). While the Meta app is in Development mode, posting works for
+accounts that have a role on the app (add yourself under App roles), without App
+Review. Making the app public to other people's accounts needs App Review. Reconnect expired Meta tokens. App approval and
 account-role requirements still apply; they cannot be validated without your
 real developer app and account.
+
+### YouTube
+
+YouTube Shorts use the official **YouTube Data API v3** with Google's OAuth login.
+It is free; uploads use about 1,600 of the default 10,000 daily quota units, so
+roughly six uploads a day.
+
+1. In Google Cloud Console create a project and enable **YouTube Data API v3**.
+2. **OAuth consent screen**: choose External, add your Google account as a test
+   user, then set the publishing status to **In production**. In "Testing", Google
+   refresh tokens expire after 7 days and you would have to reconnect weekly. An
+   unverified production app only shows *you* an "unverified app" warning.
+3. **Credentials → Create OAuth client ID → Web application**, with the redirect
+   URI `http://localhost:8000/oauth/youtube/callback` (or your hosted address).
+4. Put `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` and `YOUTUBE_REDIRECT_URI` in
+   `.env`, restart the dashboard and press **Connect with Google** on the channel page.
+
+The login asks for `youtube.upload` and `youtube.readonly` with offline access, so
+the one-hour access token renews automatically. Pasting a token is disabled for
+YouTube because it could not be renewed.
+
+**Private until audited:** Google forces uploads from unaudited API projects to
+private. Post now still succeeds (the video is in YouTube Studio), but it is not
+counted as a public post. Make it public in Studio, then record its video ID on
+the video page so statistics are collected; or apply for Google's API audit. The
+channel's `youtube.privacy` setting is used once the project is audited. YouTube's
+API reports views, likes and comments but not shares, so shares stay empty.
 
 ### Encryption and daily collection
 
@@ -196,9 +239,9 @@ python -m src.analytics.accounts --channel news
 
 The TikTok scheduler now uses the channel's encrypted connection. Legacy global
 tokens require the explicit channel option `publishing.use_legacy_env_tokens`;
-leave it false for multiple channels. Instagram automatic publishing still needs
-a separate supported upload/hosting integration. No hosting or public access was
-enabled by this update.
+leave it false for multiple channels. Instagram and Facebook posting send the MP4
+directly to Meta (resumable upload), so no public hosting is required. No hosting
+or public access was enabled by this update.
 
 ## Architecture and verification
 
