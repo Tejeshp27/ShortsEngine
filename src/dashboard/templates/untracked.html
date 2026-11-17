@@ -11,4 +11,14 @@
 </div>
 <video class="player" controls preload="metadata" src="/media/video/{{ relative|urlencode }}">
 </video>
+<details>
+<summary>Delete this file</summary>
+<form method="post" action="/library/untracked/delete">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="path" value="{{ relative }}">
+<label class="checkbox">
+<input type="checkbox" name="confirmed" value="true" required> I understand this cannot be undone.</label>
+<button class="btn btn-red">Delete file</button>
+</form>
+</details>
 {% endblock %}

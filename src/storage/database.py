@@ -51,8 +51,9 @@ def get_connection():
     # the column order.
     conn.row_factory = sqlite3.Row
 
-    # foreign_keys=ON makes SQLite enforce the link between cost_events
-    # and videos (if you delete a video, its cost rows go too).
+    # foreign_keys=ON makes SQLite enforce the links between tables, e.g.
+    # a cost row can't point at a video that doesn't exist. (The dashboard's
+    # delete button unlinks cost rows first, so spending history is kept.)
     conn.execute("PRAGMA foreign_keys = ON")
 
     return conn

@@ -32,7 +32,7 @@ from src.dashboard.app import render_page, require_form_token
 from src.dashboard.settings import channel_config, job_settings, list_channels
 from src.storage.database import get_connection
 from src.storage.finance import add_money_entry, money_summary, utc_now
-from src.storage.queries import get_video_by_id
+from src.storage.queries import delete_video_record, get_video_by_id, is_file_used_by_video
 
 router = APIRouter()
 
@@ -487,6 +487,102 @@ def untracked_video(request: Request, path: str):
         raise HTTPException(404, "Video not found")
     title = video.stem.replace("-", " ")
     return render_page(request, "untracked.html", {"relative": path, "title": title})
+
+
+def require_delete_confirmation(confirmed):
+    """
+    Refuse a delete unless the "I understand" box was ticked.
+
+    Args:
+        confirmed (bool): Whether the confirmation box was ticked.
+
+    Raises:
+        ValueError: If it was not ticked.
+    """
+    if not confirmed:
+        raise ValueError("Tick the confirmation box to delete this video. Deleting cannot be undone.")
+
+
+def remove_files_of_deleted_video(deleted):
+    """
+    Delete the MP4 and script of a video whose record was just removed.
+
+    A file is kept if another video record still points at it (for
+    example, two renders made from the same script).
+
+    Args:
+        deleted (sqlite3.Row): The removed video row.
+
+    Raises:
+        ValueError: If a file could not be deleted (the record is already
+                    gone, so the file now shows as "Not in database").
+    """
+    try:
+        if deleted["video_path"] and not is_file_used_by_video("video_path", deleted["video_path"]):
+            media.delete_video_file(deleted["video_path"])
+        if deleted["script_path"] and not is_file_used_by_video("script_path", deleted["script_path"]):
+            media.delete_script_files(deleted["script_path"])
+    except OSError as error:
+        raise ValueError(
+            "The video was removed from the database, but a file could not be deleted "
+            f"({error.strerror}). It now shows as 'Not in database' in the library."
+        ) from error
+
+
+@router.post("/video/{video_id}/delete")
+def delete_video(request: Request, video_id: int, confirmed: bool = Form(False),
+                 form_token: str = Form(default="")):
+    """Delete a video: its database record, MP4, script and storyboard.
+
+    Money already spent on it stays on the Money page. Videos that were
+    sent to a platform, or that a job is working on, are refused.
+
+    Inputs:
+        request: the incoming browser request.
+        video_id: the video's number in the database.
+        confirmed: whether the "cannot be undone" box was ticked.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the video library, or an error page explaining why
+        the video was not deleted.
+    """
+    require_form_token(request, form_token)
+    if not get_video_by_id(video_id):
+        raise HTTPException(404, "Video not found")
+    require_delete_confirmation(confirmed)
+    deleted = delete_video_record(video_id)
+    remove_files_of_deleted_video(deleted)
+    return redirect("/library")
+
+
+@router.post("/library/untracked/delete")
+def delete_untracked_video(request: Request, path: str = Form(...), confirmed: bool = Form(False),
+                           form_token: str = Form(default="")):
+    """Delete an MP4 in output/ that has no database record.
+
+    Inputs:
+        request: the incoming browser request.
+        path: the file's location inside output/, for example
+            "videos/news/old-story.mp4". Paths outside output/ are refused.
+        confirmed: whether the "cannot be undone" box was ticked.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the video library, or an error page.
+    """
+    require_form_token(request, form_token)
+    video = media.requested_video(path)
+    if video is None:
+        raise HTTPException(404, "Video not found")
+    require_delete_confirmation(confirmed)
+    # Re-check that no record uses this file: a video saved since the page
+    # loaded must be deleted from its own page, which keeps its costs.
+    _, known_paths = media.tracked_entries()
+    if media.relative_video(video) in known_paths:
+        raise ValueError("This file belongs to a video record. Delete it from the video's own page.")
+    media.delete_video_file(video)
+    return redirect("/library")
 
 
 @router.get("/media/video/{path:path}")

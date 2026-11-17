@@ -329,6 +329,16 @@ pass. The user checked the new dashboard pages.
 - Plain httpx chosen over google-api-python-client for consistency (noted in code).
 - 320 offline tests pass; live Google calls untested until the user connects.
 
+**Video delete (2026-11-17, Claude Code):**
+- "Delete this video" on a video's page removes the record, MP4, script and its
+  `_storyboard/_sceneplan/_visuals.json` files (`queries.delete_video_record`,
+  `media.delete_video_file/delete_script_files`). A file another record still uses is kept.
+- Money is never lost: cost_events are unlinked (video_id NULL), jobs keep their
+  history, and any older untracked total becomes a `money_entries` expense.
+- Refused for posted videos, videos with any delivery/public post, or an active job.
+- Untracked MP4s can be deleted from their own page. 7 tests in tests/test_video_delete.py.
+- Connected accounts (news): YouTube, Instagram (+Facebook), TikTok (sandbox app).
+
 **Next human steps:**
 - Configure approved developer apps/account credentials to validate real OAuth
   and statistics. Existing .env tokens can be explicitly imported per channel.

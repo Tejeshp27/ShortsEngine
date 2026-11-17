@@ -67,6 +67,16 @@
 <button class="btn">Start rendering</button>
 </form>
 </details>{% endif %}
+{% if video.status != 'posted' and not deliveries and not public_posts %}<details>
+<summary>Delete this video</summary>
+<p class="note">Removes the video file, its script and storyboard, and this record. Money already spent on it stays on the Money page.</p>
+<form method="post" action="/video/{{ video.id }}/delete">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<label class="checkbox">
+<input type="checkbox" name="confirmed" value="true" required> I understand this cannot be undone.</label>
+<button class="btn btn-red">Delete video</button>
+</form>
+</details>{% else %}<p class="note">Videos sent to a platform are kept, so their upload history and statistics stay accurate.</p>{% endif %}
 </section>
 <section>
 <h2>Script and sources</h2>{% if script_text %}<div class="script-box">{{ script_text }}</div>{% else %}<div class="panel empty">The script file could not be found.</div>{% endif %}</section>

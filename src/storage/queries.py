@@ -283,3 +283,155 @@ def add_video_cost(video_id, cost_usd):
         conn.commit()
     finally:
         conn.close()
+
+
+def find_delete_blocker(conn, video):
+    """
+    Explain why a video may not be deleted, or say nothing if it may.
+
+    A video that was sent to any platform keeps its record, because the
+    platform still has a copy and its statistics are tied to this row.
+    A video that a job is still working on can't be deleted either.
+
+    Args:
+        conn (sqlite3.Connection): An open database connection.
+        video (sqlite3.Row): The video row being checked.
+
+    Returns:
+        str or None: A plain-English reason, or None if deleting is allowed.
+    """
+    video_id = video["id"]
+    if video["status"] == "posted":
+        return "This video was posted. Its record is kept for its statistics."
+
+    sent = conn.execute(
+        "SELECT 1 FROM publishing_deliveries WHERE video_id = ?", (video_id,)
+    ).fetchone()
+    public = conn.execute(
+        "SELECT 1 FROM platform_posts WHERE video_id = ?", (video_id,)
+    ).fetchone()
+    if sent or public:
+        return "This video was sent to a platform, so its upload history is kept."
+
+    working = conn.execute(
+        "SELECT 1 FROM jobs WHERE video_id = ? AND status IN ('queued', 'running')", (video_id,)
+    ).fetchone()
+    if working:
+        return "A job is still working on this video. Wait for it to finish."
+    return None
+
+
+def keep_unitemised_cost(conn, video):
+    """
+    Save a deleted video's older, untracked cost as a Money-page expense.
+
+    Older videos stored their cost only as a total on the video row (see
+    LEDGER_SQL in finance.py). Without this step, deleting the row would
+    make that money vanish from the Money page.
+
+    Args:
+        conn (sqlite3.Connection): An open connection, inside a transaction.
+        video (sqlite3.Row): The video about to be deleted.
+    """
+    tracked = conn.execute(
+        "SELECT COALESCE(SUM(cost_usd), 0) FROM cost_events WHERE video_id = ?",
+        (video["id"],),
+    ).fetchone()[0]
+    # money_entries stores whole cents; a remainder under half a cent
+    # rounds to 0 and is not worth a row.
+    cents = round((video["total_cost_usd"] - tracked) * 100)
+    if cents <= 0:
+        return
+
+    now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    conn.execute(
+        """
+        INSERT INTO money_entries
+            (channel, platform, kind, amount_cents, entry_date, note, submission_id, created_at)
+        VALUES (?, 'other', 'expense', ?, ?, ?, ?, ?)
+        """,
+        (
+            video["channel"],
+            cents,
+            video["created_at"][:10],
+            f"Earlier costs of deleted video: {video['story_title'][:120]}",
+            # Video IDs are never reused, so this is unique per video.
+            f"deleted-video-{video['id']}",
+            now,
+        ),
+    )
+
+
+def delete_video_record(video_id):
+    """
+    Remove a video from the database while keeping its spending history.
+
+    The money already spent on the video stays on the Money page: its
+    per-call costs are kept (no longer linked to a video) and any older
+    total is saved as an expense. Past jobs are kept too.
+
+    Args:
+        video_id (int): The video row to delete.
+
+    Returns:
+        sqlite3.Row: The deleted row, so the caller can remove its files.
+
+    Raises:
+        ValueError: If the video doesn't exist or may not be deleted
+                    (see find_delete_blocker).
+
+    Example:
+        deleted = delete_video_record(7)
+        print(deleted["video_path"])   # the MP4 that can now be removed
+    """
+    conn = get_connection()
+    try:
+        # BEGIN IMMEDIATE locks the database for writing straight away, so
+        # no job or upload can start on this video between the checks and
+        # the delete.
+        conn.execute("BEGIN IMMEDIATE")
+        video = conn.execute("SELECT * FROM videos WHERE id = ?", (video_id,)).fetchone()
+        if video is None:
+            raise ValueError("This video no longer exists.")
+        reason = find_delete_blocker(conn, video)
+        if reason:
+            raise ValueError(reason)
+
+        keep_unitemised_cost(conn, video)
+        # Unlink rows that must outlive the video. Without this, the
+        # foreign keys would delete the costs or refuse the delete.
+        conn.execute("UPDATE cost_events SET video_id = NULL WHERE video_id = ?", (video_id,))
+        conn.execute("UPDATE jobs SET video_id = NULL WHERE video_id = ?", (video_id,))
+        # A reserved posting slot with nothing sent can be freed.
+        conn.execute("DELETE FROM publishing_slots WHERE video_id = ?", (video_id,))
+        conn.execute("DELETE FROM videos WHERE id = ?", (video_id,))
+        conn.commit()
+        return video
+    except Exception:
+        conn.rollback()
+        raise
+    finally:
+        conn.close()
+
+
+def is_file_used_by_video(column, path):
+    """
+    Check whether any video row still points at a file.
+
+    Args:
+        column (str): "video_path" or "script_path".
+        path (str): The saved path to look for.
+
+    Returns:
+        bool: True if at least one video uses that file.
+    """
+    # The column name can't be a "?" value in SQL, so only the two known
+    # names are allowed, which keeps the query safe.
+    if column not in ("video_path", "script_path"):
+        raise ValueError(f"Unknown file column: {column}")
+    conn = get_connection()
+    try:
+        row = conn.execute(f"SELECT 1 FROM videos WHERE {column} = ?", (path,)).fetchone()
+    finally:
+        conn.close()
+    return row is not None

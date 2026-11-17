@@ -305,3 +305,64 @@ def library(channel="", status="", search="", page=1, page_size=LIBRARY_PAGE_SIZ
             item["duration"] = video_duration(requested_video(item["relative"]))
 
     return {"items": visible, "page": page, "page_count": page_count, "total": len(filtered)}
+
+
+# Files the pipeline saves next to a script, named "<script name><ending>".
+SCRIPT_COMPANION_ENDINGS = ["_storyboard.json", "_sceneplan.json", "_visuals.json"]
+
+
+def remove_cached_previews(path):
+    """
+    Delete a video's cached thumbnail and duration, if there are any.
+
+    Args:
+        path (Path): The video file (it must still exist).
+    """
+    key = cache_key(path)
+    for ending in (".jpg", ".json"):
+        cached = MEDIA_CACHE / f"{key}{ending}"
+        if cached.exists():
+            cached.unlink()
+
+
+def delete_video_file(path):
+    """
+    Delete one MP4 inside output/, along with its cached previews.
+
+    Args:
+        path (str or Path or None): The saved video path.
+
+    Returns:
+        bool: True if a file was deleted, False if there was nothing safe
+              to delete (missing, outside output/, or not an MP4).
+    """
+    video = output_file(path, ".mp4")
+    if video is None:
+        return False
+    remove_cached_previews(video)
+    video.unlink()
+    return True
+
+
+def delete_script_files(script_path):
+    """
+    Delete a script and the storyboard/plan files saved next to it.
+
+    Args:
+        script_path (str or None): The saved script path (a .md file).
+
+    Returns:
+        int: How many files were deleted.
+    """
+    script = output_file(script_path, ".md")
+    if script is None:
+        return 0
+    removed = 0
+    for ending in SCRIPT_COMPANION_ENDINGS:
+        # "story.md" → "story_storyboard.json", "story_sceneplan.json", ...
+        companion = output_file(script.with_name(script.stem + ending), ".json")
+        if companion is not None:
+            companion.unlink()
+            removed += 1
+    script.unlink()
+    return removed + 1
