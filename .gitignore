@@ -36,3 +36,6 @@ data/
 .vscode/
 .idea/
 *.swp
+
+# --- Streamer permission screenshots (private DMs; keep them, never commit them) ---
+permissions/

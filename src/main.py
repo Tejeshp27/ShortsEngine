@@ -577,6 +577,15 @@ def main():
     print(f"Loaded channels/{args.channel}.yaml — {config['name']}")
     print()
 
+    # A clips channel (e.g. Twitch highlights) has no scripts to write or
+    # render; it has its own commands. Only the shared review queue works here.
+    from src.clips.settings import is_clips_channel
+    if is_clips_channel(config) and not args.review:
+        print(f"'{args.channel}' is a clips channel. Use its own commands, e.g.:")
+        print(f"  python -m src.clips --channel {args.channel} run --dry-run")
+        print(f"Review its videos with: python -m src.main --channel {args.channel} --review")
+        raise SystemExit(1)
+
     # --- Review queue mode (Phase 3) ---
     if args.review:
         from src.review import run_review_queue

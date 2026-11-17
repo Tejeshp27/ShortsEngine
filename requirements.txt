@@ -3,8 +3,13 @@
 #
 # Install everything with: pip install -r requirements.txt
 #
-# System dependency (not installed by pip):
-#   FFmpeg — video rendering; install with: brew install ffmpeg
+# System dependencies (not installed by pip):
+#   FFmpeg      — video rendering; install with: brew install ffmpeg
+#   whisper.cpp — free local speech-to-text for the clips channel;
+#                 install with: brew install whisper-cpp
+#                 (chosen over the openai-whisper / faster-whisper Python
+#                 packages because their libraries don't support Python
+#                 3.15 yet; whisper.cpp is a separate program like FFmpeg)
 # =============================================================
 
 # Anthropic SDK — talks to the Claude API

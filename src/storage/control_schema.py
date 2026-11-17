@@ -16,6 +16,8 @@
 #   source_stories    — stories found by "Find stories"
 #   oauth_states      — one-use codes that protect account logins
 #   collection_locks  — stop two collectors reading one account at once
+#   clips             — stream clips for clips channels (src/clips/)
+#   twitch_logins     — streamers who allowed clip downloads (encrypted token)
 # =============================================================
 
 
@@ -109,6 +111,45 @@ CONTROL_TABLES_SQL = """
         account_id INTEGER PRIMARY KEY REFERENCES accounts(id) ON DELETE CASCADE,
         expires_at REAL NOT NULL
     );
+    -- Clips channel (src/clips/): one row per stream clip we found or
+    -- were given. UNIQUE(source, source_clip_id) is the duplicate check:
+    -- the same Twitch clip (or the same uploaded file) is never processed twice.
+    -- status: found → downloaded → picked → rendered (or skipped).
+    CREATE TABLE IF NOT EXISTS clips (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        channel TEXT NOT NULL,
+        source TEXT NOT NULL CHECK (source IN ('twitch', 'upload')),
+        source_clip_id TEXT NOT NULL,
+        streamer TEXT NOT NULL,
+        platform TEXT NOT NULL DEFAULT 'twitch',
+        credit_text TEXT NOT NULL,
+        clip_url TEXT NOT NULL DEFAULT '',
+        title TEXT NOT NULL DEFAULT '',
+        view_count INTEGER NOT NULL DEFAULT 0,
+        clip_created_at TEXT NOT NULL DEFAULT '',
+        duration_seconds REAL NOT NULL DEFAULT 0,
+        file_path TEXT,
+        start_seconds REAL,
+        end_seconds REAL,
+        hook_title TEXT NOT NULL DEFAULT '',
+        pick_reason TEXT NOT NULL DEFAULT '',
+        status TEXT NOT NULL DEFAULT 'found',
+        last_error TEXT NOT NULL DEFAULT '',
+        ownership_note TEXT NOT NULL DEFAULT '',
+        video_id INTEGER REFERENCES videos(id) ON DELETE SET NULL,
+        found_at TEXT NOT NULL,
+        UNIQUE(source, source_clip_id)
+    );
+    CREATE INDEX IF NOT EXISTS clips_channel_status ON clips(channel, status);
+    -- Twitch users (streamers) who allowed us to download their clips.
+    -- Their token is encrypted the same way as the publishing accounts.
+    CREATE TABLE IF NOT EXISTS twitch_logins (
+        twitch_user_id TEXT PRIMARY KEY,
+        login TEXT NOT NULL UNIQUE,
+        scopes TEXT NOT NULL,
+        credentials TEXT NOT NULL,
+        connected_at TEXT NOT NULL
+    );
     CREATE INDEX IF NOT EXISTS videos_channel_date ON videos(channel, created_at);
     CREATE INDEX IF NOT EXISTS money_channel_date ON money_entries(channel, entry_date);
 """
@@ -122,6 +163,9 @@ ADDED_COLUMNS = [
     # When an account's token stops working (seconds since 1970).
     # Empty (NULL) means unknown, e.g. a token pasted by hand.
     ("accounts", "token_expires_at", "REAL"),
+    # Which streaming site a clip's streamer is on ("twitch" or "kick").
+    # Listed here as well for databases whose clips table is older.
+    ("clips", "platform", "TEXT NOT NULL DEFAULT 'twitch'"),
 ]
 
 # Date-time columns that older versions saved in the computer's local

@@ -168,6 +168,50 @@ commercial use.
 
 ---
 
+## Clips channel (Twitch + Kick highlights)
+
+A second channel type, `type: clips` (`channels/twitch_clips.yaml`), turns real moments from
+streamers' Twitch and Kick streams into vertical videos for TikTok and YouTube Shorts. The video is **only the real clip**: no
+animations, no stock footage, no channel logo. It adds a split screen (webcam on top,
+gameplay below), word-by-word captions, a hook title for the first 3 seconds and an on-screen
+credit (`🎥 twitch.tv/<streamer>`).
+
+**Permission first.** Only streamers listed in the YAML (with `platform: twitch` or `kick`,
+a permission note and a date) can be processed; everyone else gets a clear error. Twitch only
+gives download links to the streamer themselves, so each Twitch streamer runs a one-time login
+(`connect`) that grants just `channel:manage:clips`; the token is stored encrypted. Kick has no
+official clip API, so a Kick streamer sends you clip files and you add them with `upload`.
+
+```bash
+python -m src.clips --channel twitch_clips connect <streamer>   # once per streamer
+python -m src.clips --channel twitch_clips run --dry-run        # free preview
+python -m src.clips --channel twitch_clips run                  # find + download + make videos
+python -m src.clips --channel twitch_clips upload clip.mp4 --streamer <kick name> --i-own-this
+python -m src.clips --channel twitch_clips list                 # every clip and its step
+```
+
+| Step | What happens | Code | Cost |
+|------|--------------|------|------|
+| Find | Most-viewed clips of the last 24 h per approved streamer (official Get Clips API). Clips already in the database are skipped, so nothing is downloaded twice. | `src/clips/finder.py`, `src/sources/twitch.py` | free |
+| Download | Official Get Clips Download API → `cache/clips/` | `finder.py` | free |
+| Transcribe | Local Whisper (whisper.cpp, `brew install whisper-cpp`) gives timed words | `src/clips/transcribe.py` | free |
+| Pick | Claude Haiku picks the best 20–60 s (or keeps it whole) and writes a hook title of up to 8 words. The code then forces the result inside the limits and never cuts a word in half. | `src/clips/moments.py` | ~$0.001 |
+| Render | FFmpeg crops and stacks the webcam and gameplay; Pillow draws the text; FFmpeg encodes 1080×1920 with levelled sound | `src/video/clip_layout.py`, `src/video/clip_render.py` | free |
+| Review | A normal drafted video in the review queue. Its page has a **Re-cut** form (new start/end/title, free) and the caption to paste in TikTok | `src/clips/maker.py`, dashboard | free |
+| Post | Approved clips go to TikTok **drafts** and **YouTube Shorts** (Gaming category) through the existing scheduler. TikTok's drafts API has no caption field, so you paste the ready-made caption (credit + link + hashtags) in the app; on YouTube it becomes the description, with #Shorts | `src/publishing/` | free |
+
+**Why Kick is manual.** Kick's public API covers channels, chat, livestreams and events, but
+has no clip or video endpoint, and this project never scrapes. Uploaded Kick clips still go
+through the approved-list check and get the `kick.com/<name>` credit and the streamer's webcam layout.
+
+**TikTok's originality rule.** TikTok does not recommend "unoriginal or reused material
+without anything new". Each clip is re-cut to its best moment, re-framed for phones, and
+given captions, a hook title and a visible credit. TikTok publishes no exact threshold, so
+this lowers the risk but can't guarantee For You feed reach. TikTok also forbids apps adding
+promotional watermarks, which is why clips carry no channel logo.
+
+---
+
 ## Dashboard
 
 ```bash
@@ -223,14 +267,15 @@ The login rules are in `src/dashboard/auth.py`, with tests in `tests/test_dashbo
 
 ```
 shortsengine/
-  channels/             # one YAML config per channel (news.yaml, twitch_example.yaml)
+  channels/             # one YAML config per channel (news.yaml, twitch_clips.yaml)
   config/               # shared settings (model price list)
   src/
-    sources/            # RSS and Twitch news fetchers
+    sources/            # RSS, web news search and the official Twitch API
     generation/         # Claude script writing (llm.py, prompts.py, ranking.py, writer.py)
     video/              # voiceover (tts.py), captions, Pillow frames, FFmpeg render
       animation/        # animated video engine: storyboard, footage, scenes, renderer
     publishing/         # TikTok, Instagram, Facebook and YouTube clients, scheduler
+    clips/              # clips channel: permissions, find/download, Whisper, moment pick, CLI
     storage/            # SQLite schema, all queries in one place, cost reports
     analytics/          # metrics collector, feedback loop
     dashboard/          # FastAPI web app: login (auth.py), pages (app.py), templates/, static/
@@ -248,8 +293,8 @@ shortsengine/
 ## Multi-channel design
 
 Every channel-specific detail (niche, tone, models, voice, sources, schedule) lives in a
-YAML file. Adding a new channel type (e.g. Twitch clips) requires only a new config file —
-no Python changes.
+YAML file. Adding another channel of an existing type (news, or `type: clips`) requires
+only a new config file — no Python changes.
 
 ```yaml
 # channels/news.yaml (excerpt)
@@ -294,7 +339,8 @@ sources:
 | 3 | ✅ Done | SQLite database + human review queue |
 | 4 | ✅ Done | Instagram + Facebook Reels, YouTube Shorts, TikTok drafts, "Post now" + schedule |
 | 5 | ✅ Done | FastAPI dashboard |
-| 6 | ✅ Done | Analytics + feedback loop + Twitch channel |
+| 6 | ✅ Done | Analytics + feedback loop |
+| L | ✅ Code done | Twitch + Kick clips channel → TikTok + YouTube (needs a Twitch app and streamer logins) |
 | 7 | ✅ Done | Docker deploy + GitHub Actions CI + portfolio polish |
 
 ---

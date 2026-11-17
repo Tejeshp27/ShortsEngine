@@ -168,6 +168,7 @@ shortsengine/
     video/              # voiceover, captions, rendering
       animation/        # animated video engine (storyboard, footage, scenes, renderer)
     publishing/         # TikTok / Instagram APIs
+    clips/              # clips channel type (Twitch highlights): python -m src.clips
     storage/            # database models and queries
     main.py             # command-line entry point
   output/               # generated scripts / videos (git-ignored)
@@ -364,7 +365,40 @@ Full write-up in docs/video-quality-upgrade.md. Summary:
 - 366 offline tests pass (tests/test_quality_upgrade.py). Session spend ≈ $1.42
   (mostly ElevenLabs character estimates).
 
+**L-series Twitch clips channel (2026-11-17, Claude Code, branch `feat/meta-publishing`):**
+- New channel type `type: clips` (`channels/twitch_clips.yaml`, replaces twitch_example.yaml).
+  Video is ONLY the real clip (user rule: never animations). Adds split layout (facecam top,
+  gameplay bottom; centred crop without a facecam box), word-highlight captions, hook title
+  (first 3 s), credit pill. No channel logo (TikTok bans app-added promotional watermarks).
+- `src/clips/`: settings.py (pydantic; `find_approved_streamer` refuses unlisted streamers,
+  rechecked at render), twitch_login.py (device-code login, scope `channel:manage:clips`,
+  encrypted in `twitch_logins`), finder.py (Get Clips → Get Clips Download; `clips` table
+  UNIQUE(source, source_clip_id) = duplicate check), transcribe.py (whisper.cpp CLI,
+  `models/whisper/ggml-small.en.bin`), moments.py (Haiku picks 20-60 s + ≤8-word title; code
+  clamps/snaps), maker.py (render → notes .md → drafted `videos` row). Render code:
+  `video/clip_layout.py` (pure maths) + `video/clip_render.py` (FFmpeg decode → Pillow → FFmpeg
+  encode; this Mac's FFmpeg 9 has no ass/subtitles/drawtext filters).
+- Twitch downloads need the STREAMER's own token (or an editor's); a DM alone is not enough.
+  Twitch has no past-chat API, so chat-spike detection only works live (L.7, not built).
+- Other platforms: YouTube policies forbid downloading; Kick API has no clip/VOD endpoints →
+  not fetched (see the user decision below).
+- TikTok inbox upload sends only `source_info` now (it never accepted a caption). Video pages
+  show a "Caption to paste in TikTok"; clip captions credit + link the streamer. Scheduler uses
+  the clip caption for Instagram/Facebook/YouTube too.
+- Dashboard: job kind `clip_render` (heavy, free) from the "Re-cut clip" form; clips channels
+  may only run clip_render/publish/sync jobs and are hidden from /new.
+- 2026-11-17 user decision: sources ONLY Twitch + Kick; post ONLY to TikTok + YouTube.
+  Streamers have `platform: twitch|kick`. Kick (no clip API) = `upload FILE --streamer X
+  --i-own-this` (approved list still enforced; credit kick.com/x). Generic `--credit` uploads
+  removed. YouTube: Gaming category 20, description = clip caption + #Shorts.
+- 425 offline tests pass (tests/test_clips.py: 59). Real e2e upload→make run cost $0.0008.
+
 **Next human steps:**
+- Clips channel: create the Twitch app (see .env.example), add TWITCH_CLIENT_ID/SECRET,
+  add each streamer (note + date + facecam box) to channels/twitch_clips.yaml after written
+  permission, run `connect <streamer>` (Twitch only), connect a SEPARATE TikTok account
+  and a SEPARATE YouTube channel to twitch_clips, then `run --dry-run`, `run`, and watch the
+  first clip on a phone.
 - Listen to the CC0 music pick ("Stoned Song") or add own licensed tracks to
   assets/music/news/ with a credits.yaml. Check the ElevenLabs plan covers
   multilingual_v2 credits (~1,050 characters per 75-second video).
@@ -556,6 +590,13 @@ C.1–C.5 together after confirming the C.0 login works.
 - One animated render peaked at 1.1 GB of memory (measured on the Mac), so a 1 GB
   server is too small; 4 GB / 2 CPUs is comfortable.
 
+### L-series — Twitch clips channel (`src/clips/`)
+
+L.1 research/plan ✅ · L.2 config + permission check ✅ · L.3 find/download ✅ · L.4 Whisper +
+moment pick ✅ · L.5 vertical render ✅ · L.6 review/re-cut/TikTok drafts/scheduler ✅ ·
+L.7 live mode (EventSub chat spikes → Create Clip, N per stream) — later, not built ·
+L.8 tests + README ✅. Run with `python -m src.clips --channel twitch_clips run`.
+
 **Decisions so far:** server-rendered pages (FastAPI + Jinja2) rather than React for
 this dashboard, to keep it simple and explainable — these were Claude's recommended
 defaults, accepted by "start" without separate discussion, so revisit if wanted.
@@ -595,6 +636,14 @@ python -m src.main --channel news --render --animated  # fully animated video (~
 python -m src.main --channel news --render             # classic still-picture video (free)
 ```
 To change a graphic, edit `output/<channel>/<script>_storyboard.json` and render again (free).
+
+**Clips channel (Twitch highlights):**
+```bash
+python -m src.clips --channel twitch_clips connect <streamer>  # once per approved streamer
+python -m src.clips --channel twitch_clips run --dry-run       # free preview
+python -m src.clips --channel twitch_clips run                 # find, download, make drafts
+python -m src.clips --channel twitch_clips upload f.mp4 --streamer <kick name> --i-own-this
+```
 
 **Dashboard:**
 ```bash

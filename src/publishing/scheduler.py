@@ -300,6 +300,21 @@ def get_credentials(channel_key, config, platform):
     raise ValueError(f"Connect this channel's {PLATFORM_NAMES[connection_platform]} account first.")
 
 
+def clip_caption(video, config):
+    """Return the streamer-crediting caption for a clip video, or None.
+
+    Videos from a clips channel (src/clips/) must credit and link the
+    streamer; news videos return None and keep their normal caption.
+    """
+    from src.clips.maker import build_post_caption
+    from src.clips.store import get_clip_for_video
+    clip = get_clip_for_video(video["id"])
+    if clip is None:
+        return None
+    hashtags = config.get("publishing", {}).get("hashtags", [])
+    return build_post_caption(video["story_title"], clip, hashtags)
+
+
 def send_to_platform(platform, video, config, credentials):
     """Upload one video to one platform.
 
@@ -312,19 +327,26 @@ def send_to_platform(platform, video, config, credentials):
                "public": True if the post is publicly visible now}
     """
     if platform == "tiktok":
+        # Drafts carry only the video; the caption is pasted in the app.
         from src.publishing import tiktok
-        caption = tiktok.build_caption(video["story_title"], video["story_url"], config)
-        upload_id = tiktok.upload_to_drafts(video["video_path"], caption, access_token=credentials["token"])
+        upload_id = tiktok.upload_to_drafts(video["video_path"], access_token=credentials["token"])
         return {"id": upload_id, "public": False}
+
+    # A clip's caption must credit and link the streamer (see clips/maker.py).
+    clip_text = clip_caption(video, config)
 
     if platform == "youtube":
         from src.publishing import youtube
         title = youtube.build_title(video["story_title"])
-        description = youtube.build_description(video["story_title"], video["story_url"], config)
+        if clip_text:
+            # #Shorts helps YouTube file a vertical video under Shorts.
+            description = clip_text if "#Shorts" in clip_text else clip_text + " #Shorts"
+        else:
+            description = youtube.build_description(video["story_title"], video["story_url"], config)
         return youtube.upload_short(video["video_path"], title, description, credentials["token"], config)
 
     from src.publishing import instagram
-    caption = instagram.build_caption(video["story_title"], video["story_url"], config)
+    caption = clip_text or instagram.build_caption(video["story_title"], video["story_url"], config)
     if platform == "instagram":
         media_id = instagram.post_reel(video["video_path"], caption,
                                        credentials["token"], credentials["account_id"])

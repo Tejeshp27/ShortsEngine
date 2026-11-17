@@ -650,6 +650,30 @@ def stories_from_job(job_id, channel):
     return stories, job["result"].get("reason")
 
 
+def article_channels(channels):
+    """
+    Keep only the channels whose videos are written from articles.
+
+    The "New video" page finds stories and writes scripts, which clips
+    channels don't do (they use python -m src.clips instead).
+
+    Args:
+        channels (list[dict]): From settings.list_channels().
+
+    Returns:
+        list[dict]: The same entries, without clips channels.
+    """
+    from src.clips.settings import is_clips_channel
+    kept = []
+    for channel in channels:
+        if channel["error"]:
+            kept.append(channel)
+            continue
+        if not is_clips_channel(channel_config(channel["key"])):
+            kept.append(channel)
+    return kept
+
+
 @router.get("/new")
 def new_video_page(request: Request, channel: str = "", source_job: str = ""):
     """Show the "make a video" page.
@@ -666,10 +690,14 @@ def new_video_page(request: Request, channel: str = "", source_job: str = ""):
     Returns:
         The rendered "new video" page.
     """
-    channels = list_channels()
+    channels = article_channels(list_channels())
     if not channel and channels:
         channel = channels[0]["key"]
     config = channel_config(channel)
+    from src.clips.settings import is_clips_channel
+    if is_clips_channel(config):
+        raise ValueError(f"'{channel}' is a clips channel. Make its videos with: "
+                         f"python -m src.clips --channel {channel} run")
 
     stories, reason = stories_from_job(source_job, channel)
     if reason is None:
@@ -772,6 +800,45 @@ def render_video(request: Request, video_id: int, free_voice: bool = Form(True),
         raise ValueError("Create a new draft instead of rendering over a posted video.")
     payload = {"video_id": video_id, "free_voice": free_voice, "animated": True}
     return queue(video["channel"], "render", payload, dry_run, submission_id)
+
+
+@router.post("/video/{video_id}/clip")
+def recut_clip(request: Request, video_id: int, start: float = Form(...), end: float = Form(...),
+               hook_title: str = Form(...), submission_id: str = Form(""),
+               form_token: str = Form("")):
+    """Start a job that re-cuts a clip video with a new moment or hook title.
+
+    Inputs:
+        request: the incoming browser request.
+        video_id: the clip video's number in the database.
+        start: where the moment starts in the original clip, in seconds.
+        end: where it ends, in seconds.
+        hook_title: the title shown during the first seconds.
+        submission_id: a one-time number so a double click starts one job.
+        form_token: the secret token that proves the form came from our page.
+
+    Returns:
+        A redirect to the job's progress page. The values are checked
+        here first, so a mistake is shown at once instead of in the job.
+    """
+    from src.clips.maker import check_new_moment
+    from src.clips.settings import load_clip_settings
+    from src.clips.store import get_clip_for_video
+
+    require_form_token(request, form_token)
+    video = get_video_by_id(video_id)
+    if not video:
+        raise HTTPException(404, "Video not found")
+    clip = get_clip_for_video(video_id)
+    if clip is None:
+        raise ValueError("This video was not made from a stream clip.")
+    if video["status"] == "posted":
+        raise ValueError("Create a new draft instead of changing a posted video.")
+    settings = load_clip_settings(channel_config(video["channel"]))
+    moment = check_new_moment(clip, start, end, hook_title, settings)
+    payload = {"video_id": video_id, "start": moment["start"], "end": moment["end"],
+               "hook_title": moment["hook_title"]}
+    return queue(video["channel"], "clip_render", payload, False, submission_id)
 
 
 @router.post("/video/{video_id}/publish")

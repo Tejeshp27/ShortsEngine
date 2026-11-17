@@ -1,252 +1,264 @@
 # =============================================================
-# src/sources/twitch.py — fetch top clips from Twitch
+# src/sources/twitch.py — talk to the official Twitch API (Helix)
 #
-# Phase 6.4: Second channel type
+# Used by the clips channel (src/clips/). Only official endpoints
+# are used; nothing is scraped:
 #
-# This module talks to the Twitch Helix API to find the most-
-# viewed clips for a given streamer or game. Those clips become
-# the "source material" for the second channel type.
+#   GET  /helix/users            look up a streamer's numeric ID
+#   GET  /helix/clips            list a streamer's most-viewed clips
+#   GET  /helix/clips/downloads  get a temporary download link for a clip
 #
-# IMPORTANT — usage rules:
-#   - Only use clips from streamers who have given written permission.
-#     Automated downloading of copyrighted broadcasts is not allowed.
-#   - Short excerpts (clips) with commentary may qualify as fair use,
-#     but always get permission first.
+# Two kinds of Twitch tokens are involved:
+#   - An APP token (client credentials) reads public data such as
+#     the clip list. It only needs TWITCH_CLIENT_ID/SECRET from .env.
+#   - A USER token is needed to download. Twitch only gives download
+#     links to the streamer themselves (or one of their editors), so
+#     each streamer logs in once — see src/clips/twitch_login.py.
 #
-# Requirements (add to .env):
-#   TWITCH_CLIENT_ID     — from dev.twitch.tv → Your App
-#   TWITCH_CLIENT_SECRET — same app
-#
-# How it works:
-#   1. get_app_token()   — authenticates with Twitch (client credentials)
-#   2. fetch_clips()     — returns the top clips for a streamer/game
-#   3. clips_to_stories() — converts them to the same dict format used
-#                           by rss.py so the rest of the pipeline is unchanged
+# Library note: httpx is used for HTTP, the same as the publishing
+# code, so every outside call in the project looks alike.
 # =============================================================
 
-import json
 import os
-import urllib.request
-import urllib.parse
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 
+import httpx
 
 TWITCH_API_BASE = "https://api.twitch.tv/helix"
+TWITCH_TOKEN_URL = "https://id.twitch.tv/oauth2/token"
+
+# How long to wait for Twitch before giving up, in seconds.
+REQUEST_TIMEOUT_SECONDS = 20
+
+# Downloads can be large (a 60-second 1080p clip is ~30-60 MB).
+DOWNLOAD_TIMEOUT_SECONDS = 180
+
+# Twitch accepts at most this many clip IDs per download request.
+MAX_CLIPS_PER_DOWNLOAD_REQUEST = 10
+
+# The app token is kept in memory for the rest of the run, so one
+# run asks Twitch for it only once.
+_app_token_cache = {}
 
 
-def get_app_token(client_id=None, client_secret=None):
+class TwitchError(Exception):
+    """Raised with a plain message when a Twitch request fails."""
+
+
+def twitch_credentials():
     """
-    Get a Twitch app access token using the client credentials flow.
+    Read the Twitch app's ID and secret from .env.
 
-    This token lets us read public data like clips and streams.
-    It expires after about 60 days; in production you'd cache it.
+    Returns:
+        tuple: (client_id, client_secret)
 
-    Args:
-        client_id (str or None): Twitch client ID. Reads from TWITCH_CLIENT_ID if None.
-        client_secret (str or None): Twitch client secret. Reads from TWITCH_CLIENT_SECRET.
+    Raises:
+        TwitchError: If either value is missing.
+    """
+    client_id = os.getenv("TWITCH_CLIENT_ID", "")
+    client_secret = os.getenv("TWITCH_CLIENT_SECRET", "")
+    if not client_id or not client_secret or client_id.startswith("your-"):
+        raise TwitchError("Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET in .env. "
+                          "Create an app at https://dev.twitch.tv/console/apps.")
+    return client_id, client_secret
+
+
+def get_app_token():
+    """
+    Get a Twitch app access token (the "client credentials" flow).
+
+    This token reads public data, such as the list of a streamer's clips.
 
     Returns:
         str: The access token.
 
     Raises:
-        RuntimeError: If the credentials are missing or the request fails.
+        TwitchError: If the credentials are missing or Twitch refuses them.
     """
-    client_id = client_id or os.getenv("TWITCH_CLIENT_ID")
-    client_secret = client_secret or os.getenv("TWITCH_CLIENT_SECRET")
+    client_id, client_secret = twitch_credentials()
+    if client_id in _app_token_cache:
+        return _app_token_cache[client_id]
 
-    if not client_id or not client_secret:
-        raise RuntimeError(
-            "Missing TWITCH_CLIENT_ID or TWITCH_CLIENT_SECRET in .env.\n"
-            "Get them from https://dev.twitch.tv/console/apps."
-        )
-
-    params = urllib.parse.urlencode({
+    response = httpx.post(TWITCH_TOKEN_URL, timeout=REQUEST_TIMEOUT_SECONDS, data={
         "client_id": client_id,
         "client_secret": client_secret,
         "grant_type": "client_credentials",
-    }).encode("utf-8")
+    })
+    data = response.json()
+    if response.status_code != 200 or "access_token" not in data:
+        raise TwitchError(f"Twitch refused the app credentials: {data.get('message', response.status_code)}")
 
-    request = urllib.request.Request(
-        "https://id.twitch.tv/oauth2/token",
-        data=params,
-        method="POST",
-    )
-
-    with urllib.request.urlopen(request, timeout=15) as resp:
-        data = json.loads(resp.read())
-
-    if "access_token" not in data:
-        raise RuntimeError(f"Twitch token request failed: {data}")
-
+    _app_token_cache[client_id] = data["access_token"]
     return data["access_token"]
 
 
-def _twitch_get(endpoint, params, access_token, client_id):
+def twitch_get(endpoint, params, access_token):
     """
-    Make an authenticated GET request to the Twitch Helix API.
+    Make one authenticated GET request to the Twitch API.
 
     Args:
-        endpoint (str): API path, e.g. "/clips".
-        params (dict): Query parameters.
-        access_token (str): Bearer token.
-        client_id (str): Your app's client ID (required by Twitch).
+        endpoint (str): The API path, e.g. "/clips".
+        params (dict or list): Query parameters. A list of (name, value)
+                               pairs allows a name to repeat (clip_id=a&clip_id=b).
+        access_token (str): An app or user token.
 
     Returns:
-        dict: Parsed JSON response.
-    """
-    query = urllib.parse.urlencode(params)
-    url = f"{TWITCH_API_BASE}{endpoint}?{query}"
-
-    request = urllib.request.Request(url)
-    request.add_header("Authorization", f"Bearer {access_token}")
-    request.add_header("Client-Id", client_id)
-
-    with urllib.request.urlopen(request, timeout=15) as resp:
-        return json.loads(resp.read())
-
-
-def get_broadcaster_id(username, access_token, client_id):
-    """
-    Look up a streamer's numeric ID from their Twitch username.
-
-    Args:
-        username (str): The streamer's login name, e.g. "shroud".
-        access_token (str): Valid app access token.
-        client_id (str): Your Twitch app's client ID.
-
-    Returns:
-        str or None: The broadcaster's numeric ID, or None if not found.
-
-    Example:
-        broadcaster_id = get_broadcaster_id("shroud", token, client_id)
-    """
-    data = _twitch_get(
-        "/users",
-        {"login": username},
-        access_token,
-        client_id,
-    )
-    users = data.get("data", [])
-    if not users:
-        return None
-    return users[0]["id"]
-
-
-def fetch_clips(broadcaster_username, hours_back=24, max_clips=10,
-                access_token=None, client_id=None):
-    """
-    Fetch the most-viewed clips from a streamer's channel.
-
-    Args:
-        broadcaster_username (str): The streamer's Twitch login name.
-        hours_back (int): Only return clips created in this window.
-        max_clips (int): Maximum number of clips to return.
-        access_token (str or None): Token from get_app_token(). Auto-fetched if None.
-        client_id (str or None): Reads from TWITCH_CLIENT_ID if None.
-
-    Returns:
-        list[dict]: Raw clip objects from the Twitch API, sorted by view count.
+        dict: The JSON answer.
 
     Raises:
-        RuntimeError: If the broadcaster is not found or the API fails.
+        TwitchError: If Twitch answers with an error.
     """
-    client_id = client_id or os.getenv("TWITCH_CLIENT_ID")
-
-    if access_token is None:
-        access_token = get_app_token(client_id=client_id)
-
-    broadcaster_id = get_broadcaster_id(broadcaster_username, access_token, client_id)
-    if not broadcaster_id:
-        raise RuntimeError(f"Twitch broadcaster not found: '{broadcaster_username}'")
-
-    # Twitch wants ISO 8601 timestamps for the time window filter.
-    since = (datetime.now(timezone.utc) - timedelta(hours=hours_back)).strftime(
-        "%Y-%m-%dT%H:%M:%SZ"
+    client_id, _ = twitch_credentials()
+    response = httpx.get(
+        TWITCH_API_BASE + endpoint,
+        params=params,
+        headers={"Authorization": f"Bearer {access_token}", "Client-Id": client_id},
+        timeout=REQUEST_TIMEOUT_SECONDS,
     )
-
-    data = _twitch_get(
-        "/clips",
-        {
-            "broadcaster_id": broadcaster_id,
-            "first": max_clips,
-            "started_at": since,
-        },
-        access_token,
-        client_id,
-    )
-    return data.get("data", [])
+    if response.status_code != 200:
+        try:
+            message = response.json().get("message", "")
+        except ValueError:
+            message = ""
+        raise TwitchError(f"Twitch API {endpoint} failed (HTTP {response.status_code}) {message}".strip())
+    return response.json()
 
 
-def clips_to_stories(clips, broadcaster_username):
+def get_user(login, access_token):
     """
-    Convert Twitch clip objects into the story dict format used by the pipeline.
-
-    The same format as rss.py so ranking.py and writer.py work unchanged.
+    Look up a Twitch user by their login name.
 
     Args:
-        clips (list[dict]): Raw clip dicts from fetch_clips().
-        broadcaster_username (str): Used as the "source" field.
+        login (str): The login, e.g. "examplestreamer".
+        access_token (str): An app or user token.
 
     Returns:
-        list[dict]: Stories, each with title, url, source, published, summary.
+        dict: {"id": "12345", "login": "examplestreamer", "display_name": "ExampleStreamer"}
 
-    Example:
-        stories = clips_to_stories(clips, "shroud")
-        # stories[0]["title"] -> "Shroud clips shroud - Amazing Clip"
+    Raises:
+        TwitchError: If no such user exists.
     """
-    stories = []
-    for clip in clips:
-        story = {
-            "title": clip.get("title", "Untitled clip"),
-            "url": clip.get("url", ""),
-            "source": f"Twitch/{broadcaster_username}",
-            "published": clip.get("created_at", ""),
-            # The summary gives the AI context: views, game, duration.
-            "summary": (
-                f"Clip by {clip.get('creator_name', broadcaster_username)}. "
-                f"Game: {clip.get('game_id', 'unknown')}. "
-                f"Duration: {clip.get('duration', 0):.0f}s. "
-                f"Views: {clip.get('view_count', 0):,}."
-            ),
-        }
-        stories.append(story)
-    return stories
+    data = twitch_get("/users", {"login": login}, access_token)
+    users = data.get("data", [])
+    if not users:
+        raise TwitchError(f"Twitch user '{login}' was not found. Check the spelling in the channel YAML.")
+    return users[0]
 
 
-def fetch_twitch_stories(source_config):
+def rfc3339_hours_ago(hours, now=None):
     """
-    Main entry point: fetch stories from a Twitch source config block.
-
-    This matches the interface of rss.py's fetch_all_stories() so
-    main.py can call either without knowing which source type it is.
+    Write the time `hours` ago in the format Twitch expects.
 
     Args:
-        source_config (dict): One entry from channels/<name>.yaml sources list.
-                              Must have "broadcaster" and optionally "hours_back".
+        hours (int): How many hours back.
+        now (datetime or None): The current time (tests pass a fixed one).
 
     Returns:
-        list[dict]: Stories in the standard pipeline format.
-
-    Example config block in channels/twitch_example.yaml:
-        sources:
-          - type: twitch
-            broadcaster: "shroud"
-            hours_back: 24
-            max_clips: 10
+        str: For example "2026-11-16T18:00:00Z".
     """
-    broadcaster = source_config.get("broadcaster")
-    if not broadcaster:
-        print("  WARNING: Twitch source is missing 'broadcaster' — skipping.")
-        return []
+    if now is None:
+        now = datetime.now(timezone.utc)
+    since = now - timedelta(hours=hours)
+    return since.strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    hours_back = source_config.get("hours_back", 24)
-    max_clips = source_config.get("max_clips", 10)
 
-    try:
-        clips = fetch_clips(broadcaster, hours_back=hours_back, max_clips=max_clips)
-        stories = clips_to_stories(clips, broadcaster)
-        print(f"  Twitch/{broadcaster}: {len(stories)} clip(s).")
-        return stories
-    except RuntimeError as error:
-        print(f"  WARNING: Twitch fetch failed for '{broadcaster}': {error}")
-        return []
+def fetch_top_clips(broadcaster_id, hours_back, max_clips, access_token):
+    """
+    Get a streamer's most-viewed clips from the last few hours.
+
+    Args:
+        broadcaster_id (str): The streamer's numeric ID (from get_user).
+        hours_back (int): Only clips created in this many recent hours.
+        max_clips (int): How many clips to return at most.
+        access_token (str): An app or user token.
+
+    Returns:
+        list[dict]: Twitch clip objects, most-viewed first. Each has
+                    "id", "url", "title", "view_count", "created_at",
+                    "duration" (seconds), "broadcaster_name" and more.
+    """
+    data = twitch_get("/clips", {
+        "broadcaster_id": broadcaster_id,
+        "started_at": rfc3339_hours_ago(hours_back),
+        "first": 100,
+    }, access_token)
+    clips = data.get("data", [])
+
+    # Twitch normally returns clips by views already; sorting again makes
+    # sure "top clips" really means the most-viewed ones.
+    def view_count_of(clip):
+        """Return a clip's view count (used to sort the clips)."""
+        return clip.get("view_count", 0)
+
+    clips.sort(key=view_count_of, reverse=True)
+    return clips[:max_clips]
+
+
+def get_download_links(broadcaster_id, editor_id, clip_ids, user_token):
+    """
+    Ask Twitch for temporary download links for some clips.
+
+    This is Twitch's official clip-download endpoint. It only works
+    with a user token from the streamer themselves (or one of their
+    editors) that includes the "channel:manage:clips" or
+    "editor:manage:clips" permission.
+
+    Args:
+        broadcaster_id (str): The streamer's numeric ID.
+        editor_id (str): The ID of the user whose token this is
+                         (the streamer's own ID when they logged in).
+        clip_ids (list[str]): Up to 10 clip IDs.
+        user_token (str): That user's access token.
+
+    Returns:
+        dict: clip ID → download link (the landscape version). Clips
+              Twitch would not give a link for are left out.
+    """
+    params = [("broadcaster_id", broadcaster_id), ("editor_id", editor_id)]
+    for clip_id in clip_ids[:MAX_CLIPS_PER_DOWNLOAD_REQUEST]:
+        params.append(("clip_id", clip_id))
+
+    data = twitch_get("/clips/downloads", params, user_token)
+    links = {}
+    for item in data.get("data", []):
+        # We want the original wide video: we make our own vertical
+        # layout. Twitch's ready-made portrait version is a fallback.
+        link = item.get("landscape_download_url") or item.get("portrait_download_url")
+        if link:
+            links[item["clip_id"]] = link
+    return links
+
+
+def download_file(url, destination_path):
+    """
+    Download a file to disk, writing to a temporary name first.
+
+    Writing to "<name>.part" and renaming at the end means a cut-off
+    download never looks like a finished file.
+
+    Args:
+        url (str): The temporary link from get_download_links().
+        destination_path (str): Where to save the file.
+
+    Returns:
+        str: destination_path.
+
+    Raises:
+        TwitchError: If the download fails.
+    """
+    folder = os.path.dirname(destination_path)
+    if folder:
+        os.makedirs(folder, exist_ok=True)
+    partial_path = destination_path + ".part"
+
+    # stream() reads the file in pieces, so a large clip never has to
+    # fit in memory all at once.
+    with httpx.stream("GET", url, timeout=DOWNLOAD_TIMEOUT_SECONDS, follow_redirects=True) as response:
+        if response.status_code != 200:
+            raise TwitchError(f"Clip download failed (HTTP {response.status_code}).")
+        with open(partial_path, "wb") as file:
+            for piece in response.iter_bytes():
+                file.write(piece)
+
+    os.replace(partial_path, destination_path)
+    return destination_path

@@ -13,6 +13,8 @@
 #   sync     — collect follower/view statistics (free)
 #   publish  — post one approved video to the channel's platforms
 #              (free; only started by the "Post now" button)
+#   clip_render — cut a clip video again with a new moment or hook
+#              title from the review page (heavy, free: no AI call)
 #
 # Safety rules, all checked together inside one database lock so two
 # clicks at the same moment cannot both slip through:
@@ -38,11 +40,15 @@ from src.storage.database import get_connection
 from src.storage.finance import ROUNDING_TOLERANCE, spent_today, utc_now
 
 ACTIVE_STATUSES = ("queued", "running")
-JOB_KINDS = ("discover", "generate", "render", "sync", "publish")
+JOB_KINDS = ("discover", "generate", "render", "sync", "publish", "clip_render")
 
 # Heavy jobs use a lot of memory and CPU (rendering peaked at 1.1 GB),
 # so only `max_in_progress` of them may be active at once.
-HEAVY_KINDS = ("generate", "render")
+HEAVY_KINDS = ("generate", "render", "clip_render")
+
+# Clips channels (src/clips/) find and make their videos from the command
+# line; from the browser they can only re-cut, post and collect statistics.
+CLIP_CHANNEL_KINDS = ("clip_render", "publish", "sync")
 
 # Worst-case input sizes, in tokens, used for spending allowances.
 RANKING_INPUT_CEILING = 35000
@@ -297,6 +303,12 @@ def check_job_request(config, kind, submission_id, settings):
         raise ValueError("This example channel is disabled. Configure its sources and permissions before enabling it.")
     if kind not in JOB_KINDS:
         raise ValueError("Unknown job type.")
+    # Imported here to keep the clips package out of pages that never need it.
+    from src.clips.settings import is_clips_channel
+    if is_clips_channel(config) and kind not in CLIP_CHANNEL_KINDS:
+        raise ValueError("Clips channels make new videos with: python -m src.clips --channel <name> run")
+    if kind == "clip_render" and not is_clips_channel(config):
+        raise ValueError("Only videos made from stream clips can be re-cut.")
     if not submission_id or len(submission_id) > 100:
         raise ValueError("Reload the page before submitting this form.")
     if config.get("articles", {}).get("max_chars", 6000) > settings.max_source_chars:
@@ -358,6 +370,8 @@ def check_not_duplicate(active_jobs, channel, kind, payload):
             raise ValueError("Collecting this channel's statistics is already in progress.")
         if kind == "publish" and options.get("video_id") == payload.get("video_id"):
             raise ValueError("This video is already being posted.")
+        if kind == "clip_render" and options.get("video_id") == payload.get("video_id"):
+            raise ValueError("This clip is already being re-cut.")
 
 
 def check_capacity(active_jobs, kind, settings):
@@ -499,7 +513,7 @@ def enqueue_job(channel, kind, payload, dry_run, submission_id):
         check_daily_budget(connection, active_jobs, budget, settings)
 
         video_id = None
-        if kind == "render":
+        if kind in ("render", "clip_render"):
             video_id = payload.get("video_id")
             if not dry_run:
                 prepare_video_for_render(connection, channel, video_id)

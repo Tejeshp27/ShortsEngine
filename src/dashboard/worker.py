@@ -649,6 +649,35 @@ def publish_saved_video(job):
     return {"video_id": video_id, "message": summary}
 
 
+def recut_clip(job):
+    """
+    Save a clip's new moment/title from the review page and render it again.
+
+    No AI call is made, so this job is free. The video was already put
+    back to "drafted" when the job was created, so it must be watched
+    and approved again.
+
+    Args:
+        job (dict): The job record; its payload holds "video_id",
+                    "start", "end" and "hook_title".
+
+    Returns:
+        dict: The video ID and a message for the job page.
+    """
+    from src.clips.maker import rerender_clip, save_new_moment
+
+    payload = job["payload"]
+    video_id = payload["video_id"]
+    if job["dry_run"]:
+        return {"video_id": video_id, "message": "Dry run: nothing was changed."}
+    update_job(job["id"], "Saving the new moment", 10, video_id=video_id)
+    save_new_moment(video_id, payload["start"], payload["end"], payload["hook_title"], payload["config"])
+    update_job(job["id"], "Rendering the clip", 30, video_id=video_id)
+    rerender_clip(video_id, payload["config"])
+    mark_video_for_review(video_id)
+    return {"video_id": video_id, "message": "Clip re-cut. It is back in the review queue."}
+
+
 def do_job_work(job, llm, tracker):
     """
     Do the work for a job's kind.
@@ -674,6 +703,8 @@ def do_job_work(job, llm, tracker):
         return {"video_id": video_id, "message": "Rendered video is ready for review."}
     if kind == "publish":
         return publish_saved_video(job)
+    if kind == "clip_render":
+        return recut_clip(job)
 
     from src.analytics.accounts import sync_channel
     return {"message": sync_channel(job["channel"], dry_run=bool(job["dry_run"]))}

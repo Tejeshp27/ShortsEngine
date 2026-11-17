@@ -14,11 +14,38 @@
 </video>{% else %}<div class="empty">
 <strong>No rendered video yet</strong>Review the script, then make the video below.</div>{% endif %}
 {% if source_url %}<p class="note">
-<a href="{{ source_url }}" target="_blank" rel="noopener noreferrer">Read source article ↗</a>
+<a href="{{ source_url }}" target="_blank" rel="noopener noreferrer">{{ 'Watch the original clip ↗' if clip else 'Read source article ↗' }}</a>
 </p>{% endif %}
 {% if video.reviewer_notes %}<div class="notice">Review notes: {{ video.reviewer_notes }}</div>{% endif %}
+{% if clip %}<h2>Clip</h2>
+<p class="note">Credit: <strong>{{ clip.credit_text }}</strong> · Original clip {{ '%.1f'|format(clip.duration_seconds) }}s · Moment used {{ '%.1f'|format(clip.start_seconds or 0) }}s to {{ '%.1f'|format(clip.end_seconds or 0) }}s{% if clip.pick_reason %} · {{ clip.pick_reason }}{% endif %}</p>
+{% if video.status != 'posted' and not deliveries and not public_posts %}<details>
+<summary>Change the moment or hook title</summary>
+<p class="note">Times are seconds into the original clip. Re-cutting is free (no AI) and sends the video back to the review queue.</p>
+<form method="post" action="/video/{{ video.id }}/clip">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<input type="hidden" name="submission_id" value="{{ submission_id }}">
+<div class="form-row">
+<div class="form-group">
+<label for="clip-start">Start (s)</label>
+<input id="clip-start" name="start" type="number" step="0.1" min="0" max="{{ clip.duration_seconds }}" value="{{ clip.start_seconds or 0 }}" required>
+</div>
+<div class="form-group">
+<label for="clip-end">End (s)</label>
+<input id="clip-end" name="end" type="number" step="0.1" min="0" max="{{ clip.duration_seconds }}" value="{{ clip.end_seconds or clip.duration_seconds }}" required>
+</div>
+</div>
+<div class="form-group">
+<label for="clip-title">Hook title</label>
+<input id="clip-title" name="hook_title" maxlength="120" value="{{ clip.hook_title }}" required>
+</div>
+{% if clip_max_seconds %}<p class="note">At most {{ '%g'|format(clip_max_seconds) }} seconds long.</p>{% endif %}
+<button class="btn">Re-cut clip</button>
+</form>
+</details>{% endif %}
+{% endif %}
 {% if video.status == 'drafted' %}<h2>Review decision</h2>
-<p class="note">Check the source, script, and on-screen claims. Approving does not post anything by itself: use "Post now" afterwards, or a channel posting schedule.</p>
+<p class="note">{% if clip %}Watch it on your phone: faces not cut off, captions readable, credit visible.{% else %}Check the source, script, and on-screen claims.{% endif %} Approving does not post anything by itself: use "Post now" afterwards, or a channel posting schedule.</p>
 <form method="post" action="/video/{{ video.id }}/approve">
 <input type="hidden" name="form_token" value="{{ form_token }}">
 <div class="form-group">
@@ -79,7 +106,7 @@
 </details>{% else %}<p class="note">Videos sent to a platform are kept, so their upload history and statistics stay accurate.</p>{% endif %}
 </section>
 <section>
-<h2>Script and sources</h2>{% if script_text %}<div class="script-box">{{ script_text }}</div>{% else %}<div class="panel empty">The script file could not be found.</div>{% endif %}</section>
+<h2>{{ 'Clip notes' if clip else 'Script and sources' }}</h2>{% if script_text %}<div class="script-box">{{ script_text }}</div>{% else %}<div class="panel empty">The script file could not be found.</div>{% endif %}</section>
 </div>
 <div class="section-heading">
 <h2>Public posts</h2>
@@ -96,6 +123,9 @@
 <input type="checkbox" name="dry_run" value="true"> Dry run — show where it would post, send nothing</label>
 <button class="btn btn-primary">Post now</button>
 </form>{% endif %}
+{% if post_caption and 'tiktok' in destinations %}<h3>Caption to paste in TikTok</h3>
+<p class="note">TikTok drafts arrive without a caption (the API has no caption field for drafts). Copy this into the TikTok app before posting.</p>
+<textarea readonly rows="6" aria-label="Caption to paste in TikTok">{{ post_caption }}</textarea>{% endif %}
 <p class="note">Record a post after you publish it in the platform app. A TikTok inbox upload is not a public post. These IDs let the daily collector find the video's statistics.</p>
 {% for post in public_posts %}<p>{{ platform_names[post.platform] }} · {{ post.post_id }} <span class="badge">Confirmed public</span>
 </p>{% endfor %}

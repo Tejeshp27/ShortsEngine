@@ -1,0 +1,126 @@
+# =============================================================
+# channels/twitch_clips.yaml — the Twitch + Kick highlights channel
+#
+# A "clips" channel does not write scripts. It takes real moments
+# from approved streamers' Twitch and Kick streams, picks the best
+# part, makes it vertical with captions and credit, and sends it to
+# the normal review queue. Nothing is posted without your approval.
+# Approved videos go to TikTok (drafts) and YouTube Shorts.
+#
+# Commands (see README "Clips channel"):
+#   python -m src.clips --channel twitch_clips connect <twitch streamer>
+#   python -m src.clips --channel twitch_clips run --dry-run
+#   python -m src.clips --channel twitch_clips run
+#   python -m src.clips --channel twitch_clips upload clip.mp4 --streamer <kick streamer> --i-own-this
+#
+# RULE: only add a streamer AFTER they agreed in writing (a DM is
+# fine). The code refuses every streamer who is not listed below.
+# =============================================================
+
+# Display name shown in the dashboard and cost reports.
+name: "Stream Highlights"
+
+# "clips" tells the program this channel cuts real stream clips
+# instead of writing news scripts. Leave it as "clips".
+type: clips
+
+# Set to false to pause the channel without deleting this file.
+enabled: true
+
+# What the channel covers. Given to the AI when it picks moments.
+niche: "The funniest and most exciting moments from Twitch streams"
+
+# Who watches. Helps the AI choose moments and write hook titles.
+audience: "Gamers and stream viewers aged 16-30 scrolling TikTok"
+
+# AI models (prices are in config/pricing.yaml).
+models:
+  clip_pick: "claude-haiku-4-5"   # cheap model: picks the moment and writes the hook title
+
+# Spending guards for each run.
+llm:
+  max_calls_per_run: 15          # most paid AI calls one run may make (one per clip)
+  clip_pick_max_tokens: 300      # hard cap on how much the model may write per clip (a short JSON answer)
+
+# ---------------------------------------------------------------
+# Approved streamers. Each one needs written permission FIRST.
+#   Twitch streamers then run a one-time login so we may download
+#   their clips automatically:
+#     python -m src.clips --channel twitch_clips connect <username>
+#   Kick has no official clip API: a Kick streamer sends you clip
+#   files and you add each one with the "upload" command.
+#
+# Example (copy, remove the "#" and fill in real details):
+#
+#   - username: "examplestreamer"                 # their login name (the part after twitch.tv/ or kick.com/)
+#     platform: "twitch"                          # "twitch" (clips fetched automatically) or "kick" (clips uploaded by you)
+#     permission_note: "Said yes in a Twitch DM"  # how and where they agreed
+#     permission_date: "2026-11-17"               # the day they agreed (YYYY-MM-DD)
+#     permission_proof: "permissions/examplestreamer.png"  # optional: your screenshot (permissions/ is git-ignored)
+#     facecam:                                    # optional: where their webcam sits in the 16:9 stream picture
+#       x: 0.0        # left edge, as a fraction of the width (0 = far left, 1 = far right)
+#       y: 0.0        # top edge, as a fraction of the height (0 = top, 1 = bottom)
+#       width: 0.25   # webcam width, as a fraction of the stream width
+#       height: 0.30  # webcam height, as a fraction of the stream height
+#     # No facecam set → the whole video is a centred vertical crop instead of a split screen.
+# ---------------------------------------------------------------
+streamers: []
+
+# Which clips to look at and how long the finished videos may be.
+clips:
+  hours_back: 24                    # only clips made in the last 24 hours
+  clips_per_streamer: 5             # most-viewed clips to check per streamer per run
+  min_views: 0                      # skip clips with fewer views than this
+  skip_shorter_than_seconds: 8      # clips shorter than this are too short to post
+  moment_min_seconds: 20            # the chosen moment is at least this long (shorter clips are kept whole)
+  moment_max_seconds: 60            # and at most this long
+
+# Speech-to-text, run locally with whisper.cpp (free; brew install whisper-cpp).
+transcription:
+  whisper_model: "small.en"   # small.en (~466 MB, better with game noise) or base.en (~142 MB, faster)
+  language: "en"              # language spoken on the streams
+
+# How the 1080x1920 vertical video is laid out.
+layout:
+  facecam_panel_height: 720   # pixels at the top used for the webcam (the gameplay gets the other 1200)
+  gameplay_focus_x: 0.5       # which part of the gameplay to keep: 0 = left side, 0.5 = middle, 1 = right side
+
+# Burned-in word-by-word captions from the transcript.
+captions:
+  words_per_caption: 3        # words on screen at once
+  font_size: 84               # text height in pixels
+  text_color: "#FFFFFF"       # colour of the words
+  highlight_color: "#FFE14D"  # colour of the word being spoken right now
+  center_y: 1330              # height of the caption line (kept above TikTok's bottom text)
+
+# The hook title shown at the start of the video.
+hook_title:
+  seconds: 3.0                # how long it stays on screen
+  font_size: 80               # text height in pixels
+  max_words: 8                # hook titles are cut to this many words
+
+# The on-screen credit, shown for the whole video.
+credit:
+  font_size: 40               # text height in pixels
+
+# Where approved clips go. TikTok receives them as drafts (you post in the app);
+# YouTube receives them as Shorts (private until Google audits your API project).
+platforms: [tiktok, youtube]
+
+# Caption text. TikTok: you paste it in the app (drafts cannot carry a caption).
+# YouTube: it becomes the description (with #Shorts added).
+publishing:
+  use_legacy_env_tokens: false     # use this channel's own connections, never the news accounts
+  hashtags: ["#twitch", "#kick", "#streamer", "#gaming", "#clips"]   # added after the streamer credit
+
+# YouTube upload settings.
+youtube:
+  privacy: public   # public, unlisted or private. Until Google audits your API project,
+                    # YouTube forces every upload to private anyway.
+  category_id: 20   # YouTube's "Gaming" category
+
+# Automatic sending to TikTok drafts. While the dashboard runs, the newest
+# approved clip is sent within 30 minutes of each time (one per time slot).
+schedule:
+  timezone: "America/Chicago"      # your local time zone
+  post_times: ["12:00", "19:00"]   # 24-hour clock

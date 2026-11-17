@@ -561,13 +561,63 @@ def render_estimates(channel):
     return free_voice, channel_voice
 
 
+def clip_review_details(video):
+    """
+    Get what the review page needs for a video made from a stream clip.
+
+    Args:
+        video (dict): The video row.
+
+    Returns:
+        tuple: (clip row or None, longest allowed moment in seconds or None).
+    """
+    from src.clips.settings import load_clip_settings
+    from src.clips.store import get_clip_for_video
+    from src.dashboard.settings import channel_config
+
+    clip = get_clip_for_video(video["id"])
+    if clip is None:
+        return None, None
+    try:
+        settings = load_clip_settings(channel_config(video["channel"]))
+    except ValueError:
+        return clip, None
+    return clip, settings.clips.moment_max_seconds
+
+
+def caption_to_paste(video, clip):
+    """
+    Write the caption you paste in the TikTok app (drafts carry no caption).
+
+    Args:
+        video (dict): The video row.
+        clip (dict or None): Its clip row, if it was made from a stream clip.
+
+    Returns:
+        str: The caption, or "" if the channel's settings can't be read.
+    """
+    from src.dashboard.settings import channel_config
+    try:
+        config = channel_config(video["channel"])
+    except ValueError:
+        return ""
+    if clip is not None:
+        from src.clips.maker import build_post_caption
+        return build_post_caption(video["story_title"], clip,
+                                  config.get("publishing", {}).get("hashtags", []))
+    from src.publishing.tiktok import build_caption
+    return build_caption(video["story_title"], video["story_url"], config)
+
+
 @router.get("/video/{video_id}")
 def video_detail(request: Request, video_id: int):
     """Show everything about one video so it can be reviewed.
 
     The page has the video player, the script, the source link, the
     approve/reject buttons, cost estimates for rendering and the history
-    of uploads and public posts.
+    of uploads and public posts. Videos made from a stream clip also get
+    a form to change the moment or hook title, and every video shows
+    the caption to paste into TikTok.
 
     Inputs:
         request: the incoming browser request.
@@ -585,7 +635,11 @@ def video_detail(request: Request, video_id: int):
 
     relative = relative_video(video["video_path"])
     public_posts, deliveries = publishing_history(video_id)
-    render_estimate, channel_estimate = render_estimates(video["channel"])
+    clip, clip_max_seconds = clip_review_details(video)
+    render_estimate, channel_estimate = None, None
+    if clip is None:
+        # Clip videos are re-cut (free) instead of re-rendered with a voice.
+        render_estimate, channel_estimate = render_estimates(video["channel"])
 
     return render_page(request, "video_detail.html", {
         "video": video,
@@ -600,6 +654,9 @@ def video_detail(request: Request, video_id: int):
         "channel_estimate": channel_estimate,
         "visual_plan": load_visual_plan(video["script_path"]),
         "destinations": posting_destinations(video["channel"]),
+        "clip": clip,
+        "clip_max_seconds": clip_max_seconds,
+        "post_caption": caption_to_paste(video, clip),
     })
 
 

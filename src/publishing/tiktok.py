@@ -6,6 +6,11 @@
 # tap "Post" yourself — this avoids needing full Direct Post
 # approval (which TikTok only grants to audited apps).
 #
+# The inbox upload carries ONLY the video file: TikTok's API has no
+# caption field for it (you write the caption in the app). So
+# build_caption() makes the text you paste; the dashboard shows it
+# on each video's page.
+#
 # The two upload methods TikTok supports:
 #   - FILE_UPLOAD: send the video file directly (up to 4 GB)
 #   - PULL_FROM_URL: give TikTok a public URL to fetch (simpler)
@@ -63,16 +68,16 @@ def _tiktok_post(endpoint, payload, access_token):
     return result
 
 
-def upload_to_drafts(video_path, caption, access_token=None):
+def upload_to_drafts(video_path, access_token=None):
     """
     Upload a video to TikTok drafts (inbox) so you can review and post manually.
 
     TikTok's "inbox" / draft mode is called "UPLOAD_TO_INBOX" in the API.
     The video lands in your TikTok notification inbox — open the app to post it.
+    The caption is written in the app (this endpoint has no caption field).
 
     Args:
         video_path (str): Local path to the .mp4 file.
-        caption (str): Caption/description for the video (max 2200 chars).
         access_token (str or None): TikTok OAuth token. If None, reads from
                                     TIKTOK_ACCESS_TOKEN env var.
 
@@ -83,10 +88,7 @@ def upload_to_drafts(video_path, caption, access_token=None):
         RuntimeError: If the token is missing or the API call fails.
 
     Example:
-        publish_id = upload_to_drafts(
-            "output/videos/news/2026-11-07-story.mp4",
-            "Big news explained! #news",
-        )
+        publish_id = upload_to_drafts("output/videos/news/2026-11-07-story.mp4")
     """
     token = access_token or os.getenv("TIKTOK_ACCESS_TOKEN")
 
@@ -102,14 +104,9 @@ def upload_to_drafts(video_path, caption, access_token=None):
     video_size = os.path.getsize(video_path)
 
     # Step 1: Tell TikTok we're about to upload and get an upload URL.
+    # The inbox endpoint accepts only "source_info" (how the file arrives);
+    # caption and privacy are chosen by you in the TikTok app.
     init_payload = {
-        "post_info": {
-            "title": caption[:150],       # TikTok uses "title" for the caption
-            "privacy_level": "SELF_ONLY", # keeps it private until you post manually
-            "disable_duet": False,
-            "disable_comment": False,
-            "disable_stitch": False,
-        },
         "source_info": {
             "source": "FILE_UPLOAD",
             "video_size": video_size,
