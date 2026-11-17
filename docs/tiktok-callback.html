@@ -1,0 +1,16 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>ShortsEngine - finishing TikTok login</title>
+</head>
+<body>
+<p>Finishing your TikTok login... If nothing happens, make sure the ShortsEngine dashboard is running on http://localhost:8000.</p>
+<script>
+  // TikTok does not allow localhost redirect URIs, so TikTok sends the
+  // browser here first. This page passes the one-use code and state
+  // straight on to the dashboard running on this computer.
+  window.location.replace("http://localhost:8000/oauth/tiktok/callback" + window.location.search);
+</script>
+</body>
+</html>
