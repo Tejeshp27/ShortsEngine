@@ -79,8 +79,13 @@ def token_note(account):
     if expires_at is None:
         return ("Token expiry unknown (token was pasted by hand). If statistics stop "
                 "updating, reconnect the account.")
+    # TikTok and YouTube connections made with "Connect with ..." save a
+    # refresh token, so the short-lived access token is renewed automatically
+    # (see get_access_token in accounts.py). Only Instagram must be reconnected.
     if account["platform"] == "tiktok":
         return "TikTok token renews automatically."
+    if account["platform"] == "youtube":
+        return "YouTube token renews automatically."
     expiry_day = datetime.fromtimestamp(expires_at, timezone.utc).date().isoformat()
     if expires_at < datetime.now(timezone.utc).timestamp():
         return f"Token expired on {expiry_day}. Reconnect the account."
