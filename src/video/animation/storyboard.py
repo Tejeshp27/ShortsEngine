@@ -28,12 +28,12 @@ import json
 import os
 import re
 
-from src.video.tts import SPOKEN_SECTIONS
+from src.generation.sections import is_spoken_section
 
 
 # A beat longer than this many words is split in two, so the picture
 # changes every few seconds (people speak about 2.5 words per second).
-MAX_WORDS_PER_BEAT = 12
+MAX_WORDS_PER_BEAT = 8
 
 # Never create a beat shorter than this when splitting a long sentence.
 MIN_WORDS_PER_BEAT = 3
@@ -47,7 +47,7 @@ SCENE_LEAD_SECONDS = 0.1
 MAX_FALLBACK_WORDS = 6
 
 # Bump this if the storyboard file format ever changes.
-STORYBOARD_VERSION = 1
+STORYBOARD_VERSION = 2
 
 # Short forms that end in a full stop but do not end a sentence.
 ABBREVIATIONS = {"mr.", "mrs.", "ms.", "dr.", "rep.", "sen.", "gov.", "gen.",
@@ -128,6 +128,11 @@ TEMPLATES (use these exact field names)
 - timeline: {"template":"timeline","title":"1-4 words","steps":["2-5 words","2-5 words"]}. 2 or 3 steps in order. Use for a sequence of events.
 - bar_chart: {"template":"bar_chart","title":"1-4 words","unit":"","bars":[{"label":"1-2 words","value":10}]}. 2 to 4 bars. Only when the beat contains two or more numbers that can be compared.
 - stamp: {"template":"stamp","text":"1-4 words","emoji":"optional"}. Words stamped onto the screen. Use for one strong fact the narrator states directly, such as "EXTREMELY RARE".
+- analogy: {"template":"analogy","left_emoji":"one emoji","left_label":"1-5 words: the real thing","right_emoji":"one emoji","right_label":"1-5 words: the everyday thing"}. For a beat that compares something to everyday life ("think of it like...", "it's like..."). Shows the real thing, then "IS LIKE", then the comparison. right_label uses words from this beat's sentence; left_label may use words from anywhere in the script.
+
+PHOTO (optional, any template)
+- Add "photo": "Exact Name" when the beat names a specific real person, organization, building or place that has its own Wikipedia article, for example "Scott Bessent", "Federal Aviation Administration", "United States Capitol". Copy the name exactly as the script writes it, or its full official name if the script writes the full name somewhere. A real photo is shown if a freely licensed one exists.
+- Never add a photo for general things ("investors", "airports"), for victims of crimes or tragedies, or for anything not named in the script.
 
 ACCURACY RULES (the most important rules; graphics that break them are thrown away)
 - Build all on-screen text from words in that beat's own sentence. Do not add any fact, number, name, date or conclusion, even one that seems obviously true.
@@ -136,7 +141,8 @@ ACCURACY RULES (the most important rules; graphics that break them are thrown aw
 
 VARIETY RULES
 - Beat 1 must be a headline that hooks the viewer.
-- Use headline for at most one beat in every three. Never use the same template twice in a row.
+- The spoken words already appear as captions, so graphics should SHOW things (icons, numbers, names, comparisons) rather than repeat the sentence. Use headline for at most one beat in every five. Never use the same template twice in a row.
+- Every beat containing an analogy must use the analogy template.
 - Use at least six different templates across the video.
 - Every emoji field holds exactly one common emoji that plainly shows the thing being talked about. Never use calendar emoji.
 
@@ -173,7 +179,7 @@ def read_script_sections(script_path):
                     sections.append({"section": current_section,
                                      "text": " ".join(current_lines)})
                 section_name = stripped[3:].strip()
-                if section_name in SPOKEN_SECTIONS:
+                if is_spoken_section(section_name):
                     current_section = section_name
                 else:
                     current_section = None
@@ -646,6 +652,27 @@ def _clean_number_symbol(value):
     return ""
 
 
+def is_number_range(text):
+    """
+    Check whether a sentence gives a range of numbers ("thirty to fifty").
+
+    Args:
+        text (str): The beat's spoken text.
+
+    Returns:
+        bool: True if it has two or more numbers and a range word
+              ("to", "between", "from").
+
+    Example:
+        is_number_range("seeking thirty to fifty billion dollars")   # → True
+        is_number_range("seventeen of twenty centers")               # → False
+    """
+    if len(find_numbers_in_text(text)) < 2:
+        return False
+    words = _clean_words(text)
+    return "to" in words or "between" in words or "from" in words
+
+
 def _validate_template_fields(raw_scene, beat, script_words):
     """
     Check the graphic the AI chose for one beat and clean up its fields.
@@ -709,6 +736,10 @@ def _validate_template_fields(raw_scene, beat, script_words):
         # Accuracy guard: the number must be one that is spoken in this beat.
         if value is None or value not in beat_numbers:
             return None
+        # Accuracy guard: "thirty to fifty billion" is a range. Showing only
+        # "$50B" would overstate it, so a range never becomes one big number.
+        if is_number_range(beat["text"]):
+            return None
         label = _as_text(raw_scene.get("label"), 7)
         return {
             "template": "big_number",
@@ -728,6 +759,28 @@ def _validate_template_fields(raw_scene, beat, script_words):
             return None
         return {
             "template": "versus",
+            "left_emoji": _clean_emoji(raw_scene.get("left_emoji")),
+            "left_label": left_label,
+            "right_emoji": _clean_emoji(raw_scene.get("right_emoji")),
+            "right_label": right_label,
+        }
+
+    if template == "analogy":
+        left_label = _as_text(raw_scene.get("left_label"), 6)
+        right_label = _as_text(raw_scene.get("right_label"), 6)
+        if not left_label or not right_label:
+            return None
+        # Accuracy guard: the everyday comparison must be spoken in this
+        # sentence, so the graphic can never add its own analogy. The real
+        # thing is usually named in the sentence before ("the router flooded
+        # the network... It's like shouting in a crowded room"), so it may
+        # come from anywhere in the script — but never from outside it.
+        if find_unsupported_words(right_label, sentence_words):
+            return None
+        if find_unsupported_words(left_label, script_words):
+            return None
+        return {
+            "template": "analogy",
             "left_emoji": _clean_emoji(raw_scene.get("left_emoji")),
             "left_label": left_label,
             "right_emoji": _clean_emoji(raw_scene.get("right_emoji")),
@@ -842,6 +895,30 @@ def collect_screen_text(scene):
     return " ".join(pieces)
 
 
+def validate_photo_subject(value, script_words):
+    """
+    Accept a photo subject only if the script itself names it.
+
+    Args:
+        value: The AI's "photo" field, hopefully a name like "Scott Bessent".
+        script_words (list[str]): Every cleaned word of the spoken script.
+
+    Returns:
+        str: The subject, or "" if it is missing, too long, or names
+             anything the script does not mention.
+
+    Example:
+        validate_photo_subject("Scott Bessent", ["scott", "bessent", "said"])
+        # → "Scott Bessent"
+    """
+    subject = _as_text(value, 6)
+    if not subject:
+        return ""
+    if find_unsupported_words(subject, script_words):
+        return ""
+    return subject
+
+
 def validate_scene(raw_scene, beat, script_words=None):
     """
     Turn one object from the AI's answer into a safe, complete scene.
@@ -879,6 +956,7 @@ def validate_scene(raw_scene, beat, script_words=None):
     fields = None
     if isinstance(raw_scene, dict):
         scene["footage"] = _as_text(raw_scene.get("footage"), 3).lower()
+        scene["photo"] = validate_photo_subject(raw_scene.get("photo"), script_words)
         fields = _validate_template_fields(raw_scene, beat, script_words)
 
     # Accuracy guard for every graphic except name cards: if this beat

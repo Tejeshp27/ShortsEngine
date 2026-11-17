@@ -1,14 +1,76 @@
 # =============================================================
-# channels/news.yaml — config for the "News Explained" channel
+# channels/news.yaml — config for the "News Made Simple" channel
 #
 # Every setting specific to this channel lives here.
 # To add a new channel, create a new .yaml file in this folder.
 # =============================================================
 
-name: "News Explained"                                    # display name of the channel
+name: "News Made Simple"                                  # display name of the channel (also the on-screen brand)
 niche: "US politics and current events"                   # what the channel covers
 audience: "College students who don't follow the news closely"  # who we write for
 tone: "Neutral, clear, engaging; explain jargon; present each side fairly"  # writing style
+slogan: "That's the news, made simple."                 # closing line of every video and the end card
+
+# Writing style for every script. All of it is sent to the writing model,
+# so changing a rule here changes the next script; no code edits needed.
+style:
+  hook:
+    rules:
+      - "The first sentence is under 10 words and lands in the first 2 seconds."
+      - "It must be true and come from the source; never exaggerate to get attention."
+    types:                                   # the writer picks the one that fits best
+      - "a surprising fact from the source"
+      - "a direct question to the viewer"
+      - "a 'here's what this means for you' line"
+    banned_openers: ["Today", "In a recent", "Recently", "News Made Simple", "Breaking"]  # also checked by code
+  language:                                  # plain language, about 8th-grade reading level
+    - "Write at about an 8th-grade reading level."
+    - "Use short sentences: most under 15 words, none over 25."
+    - "Explain every technical or political term in one short line the first time it appears, for example: 'A filibuster is when senators keep debating to block a vote.'"
+    - "Write numbers the way people say them: 'one point four trillion dollars', 'three percent'."
+  analogies:                                 # every analogy is listed in the notes for checking
+    - "Add one everyday analogy only when a concept is genuinely hard to understand; skip it when the idea is already simple."
+    - "Example: a government shutdown is like a household that can't agree on a budget, so some bills stop getting paid."
+    - "An analogy must never favor a side, change the facts, or make something sound bigger or smaller than the source says."
+    - "Never use an analogy for deaths, disasters, violence or other tragedies."
+  audience_rules:                            # engaging for everyone, without talking down
+    - "No slang that will age badly, and no internet memes."
+    - "Never talk down to viewers or assume they are uninformed."
+    - "No jokes about real people, victims or tragedies."
+  # The spoken sections, in order. "{slogan}" is replaced with the slogan above.
+  # Each name also appears on screen as the small section label. max_words is a
+  # per-section budget (models follow these far better than one total); together
+  # they add up to about target_length_seconds (187 words ≈ 75 s), checked in code.
+  sections:
+    - name: "Hook"
+      max_words: 20
+      guide: "One or two sentences that make people keep watching. Follow the hook rules."
+    - name: "What happened"
+      max_words: 40
+      guide: "The key facts in plain language: who, what, when, where."
+    - name: "Simple explanation"
+      max_words: 30
+      guide: "Explain the hardest idea in the story in simple words. Use an analogy here only if it truly helps."
+    - name: "Why it matters"
+      max_words: 25
+      guide: "Why it matters to a normal person: money, rights, safety, daily life. Only what the source supports."
+    - name: "What each side says"
+      max_words: 35
+      guide: "What each major side says, using the source's own attributions ('says', 'argues'). If the source gives only one side, say that."
+    - name: "What happens next"
+      max_words: 22
+      guide: "Upcoming steps the source mentions; otherwise say what is still unknown."
+    - name: "Closing line"
+      max_words: 15
+      guide: "One short sentence that wraps up the story, then end with exactly: {slogan}"
+
+# Automatic script check. A cheap model scores every new script 1-10 on hook
+# strength, clarity, neutrality and accuracy against the source. If any score
+# is under min_score, the script is rewritten ONCE and the reason is logged
+# in the script's "Quality check" section (about 0.5 cents per check).
+quality_check:
+  enabled: true
+  min_score: 7          # rewrite when any score is below this
 
 # Target video length in seconds (75s ≈ a short TikTok/Reel)
 target_length_seconds: 75
@@ -23,6 +85,7 @@ models:
   # kept stating claims as facts and most of its graphics had to be thrown away.
   storyboard: "claude-sonnet-4-6"
   writing: "claude-sonnet-4-6"   # better writer: produces the final script
+  review: "claude-haiku-4-5"      # cheap checker: scores each script (see quality_check)
 
 # Settings for each AI step
 publishing:
@@ -34,9 +97,10 @@ llm:
   ranking_max_tokens: 2000       # hard cap on how much the ranking model may write
   writing_max_tokens: 6000       # hard cap on how much the writing model may write
   storyboard_max_tokens: 6000    # hard cap on how much the storyboard model may write
+  review_max_tokens: 800         # hard cap for the script check (a short JSON answer)
   ranking_effort: "low"          # how hard the model "thinks" (low = cheapest)
   writing_effort: "medium"       # a bit more care for the final script
-  max_calls_per_run: 5           # spending guard: stop if a run tries more calls than this
+  max_calls_per_run: 7           # spending guard: rank + write + check + rewrite + recheck + storyboard = 6
 
 # How stories are chosen
 selection:
@@ -96,9 +160,32 @@ video:
   # ElevenLabs voice — used when tts_provider = "elevenlabs".
   # Use a voice name (e.g. "Rachel", "Josh") or paste a voice ID from your account.
   # Browse voices at elevenlabs.io/voice-library.
-  elevenlabs_voice: "onwK4e9ZLuTAKqWW03F9"  # Daniel - Steady Broadcaster
-  elevenlabs_model: "eleven_turbo_v2_5"   # voice model sent to ElevenLabs
+  # Chosen 2026-11-17 from output/voice_samples/ (Matilda reads ~3 words/s, Daniel ~2).
+  elevenlabs_voice: "XrExE9yKIg1WjnnlVkGX"  # Matilda - Knowledgable, Professional (upbeat)
+  elevenlabs_model: "eleven_multilingual_v2"  # more natural than turbo; may use ~2x credits per character on some plans
   elevenlabs_usd_per_1000_chars: 0.30     # conservative estimate; adjust to your plan's actual rate
+  elevenlabs_output_format: "mp3_44100_128"  # CD sample rate; the API default was 24 kHz (muffled)
+  # Voice tuning for an energetic explainer read. Lower stability = more expressive;
+  # style adds emphasis; speed 1.0 = normal (0.7-1.2 allowed).
+  elevenlabs_voice_settings:
+    stability: 0.35
+    similarity_boost: 0.75
+    style: 0.35
+    speed: 1.05
+    use_speaker_boost: true
+
+  # Natural pauses (see src/video/pacing.py). The voice engine's own pauses are
+  # replaced with these, in seconds, and captions stay in sync.
+  pacing:
+    enabled: true
+    after_hook: 0.45         # a beat after the hook so it sinks in
+    between_sections: 0.30   # short breath between parts of the story
+    after_sentence: 0.22     # end of an ordinary sentence
+    after_comma: 0.12        # a comma or dash
+    before_key_fact: 0.15    # tiny pause before a number lands
+    max_gap: 0.12            # longest gap allowed between words in one phrase
+    lead_in: 0.05            # silence before the first word
+    tail: 0.40               # silence after the last word
 
   # Kokoro voice — used when tts_provider = "kokoro".
   # American female: af_heart (warm), af_sarah (clear), af_bella (expressive)
@@ -108,8 +195,8 @@ video:
   # edge-tts voice — used when tts_provider = "edge" (fallback).
   voice: "en-US-AriaNeural"
 
-  font_size: 90                # caption font size (pixels on 1080×1920 canvas)
-  words_per_caption: 3         # how many words to show at once in captions
+  font_size: 104              # caption font size (pixels on 1080×1920); shrinks to fit the safe zone
+  words_per_caption: 3         # most words shown at once (captions also break at commas)
 
   # Animated video look — used by `--render --animated`.
   # Every frame is: stock footage (full screen) + an animated graphic for the
@@ -117,6 +204,13 @@ video:
   # different channel can have its own colours and backup footage.
   animation:
     fps: 30                    # frames per second (30 is standard for TikTok/Reels)
+    max_shot_seconds: 2.8      # the background picture changes at least this often
+    photos: true               # real photos of named people/places (Wikimedia, free licences only)
+    brand_bug: true            # channel name in a small pill, top left, on every frame
+    end_card_seconds: 2.0      # end card with name + slogan stays this long after the voice
+    # AI-generated images are NOT used in animated videos. If they are ever added,
+    # they may only show abstract ideas or analogies, never realistic people,
+    # events or places (a viewer could mistake them for real news footage).
     # How bright the background footage is. 1.0 = untouched, 0.6 = darkened to
     # 60% so white text is easy to read. Never set this near 0 (black screen).
     footage_brightness: 0.6
@@ -145,19 +239,50 @@ video:
       "microphone": 1            # studio microphone
       "military": 2              # helicopter, army truck
       "money": 3                 # dollar bills
+      # Added 2026-11-17 after checking Pixabay's preview images by eye:
+      "airport": 4               # terminal walkway, planes at gates, moving walkway, departure window
+      "airplane": 4              # wing above clouds (x3), plane in blue sky
+      "computer chip": 4         # processor pins, motherboard, chip close-ups
+      "hospital": 4              # dialysis ward, nurse at monitor, blood pressure, eye exam
+      "classroom": 4             # students at desks, class photo
+      "city traffic": 4          # aerial city streets, highway at night
+      "stock market": 1          # trader at laptop with charts (2nd result has no chart)
+      "factory": 1               # smokestack at sunset (2nd result is woodworking)
+      "oil refinery": 1          # refinery silhouette (2nd result is abstract paint)
+      # Checked and rejected: "white house" (cats), "supreme court" (tennis courts),
+      # "server room" (too dark), "data center" (abstract graphics), "police car".
     # Last-resort background (top colour, bottom colour) — a moving gradient shown
     # only if no footage can be downloaded at all (e.g. no internet).
     fallback_background: ["#101A3A", "#3A1050"]
 
-  # Background music — only used when you pass --music at the command line.
-  # Requires MUBERT_API_KEY and MUBERT_EMAIL in .env (free tier at mubert.com/api).
-  # music_mood options: focused, calm, intense, happy, sad, inspirational
-  # hook_sound_query: search term for the opening sound effect (via Freesound).
-  # Keep it short — single words work best with Freesound's search.
+  # Sound design for animated videos (see src/video/sound_design.py). Only sounds
+  # licensed for commercial use: Freesound CC0 (public domain), or your own tracks
+  # in assets/music/news/ listed with their licence in credits.yaml there.
+  sound:
+    enabled: true
+    hook_query: "whoosh impact"           # first-frame hit
+    transition_query: "whoosh"            # section changes
+    pop_query: "pop"                      # key numbers and stamped facts
+    music: true                           # quiet background music under the voice
+    music_query: "ambient electronic loop"  # Freesound CC0 search, used if you add no own tracks
+    music_volume: 0.12                    # before ducking (voice = 1.0); ducks further while speaking
+    effects_volume: 0.35                  # whooshes and pops (voice = 1.0)
+    target_lufs: -14.0                    # TikTok / Reels / Shorts loudness
+    true_peak: -1.5                       # highest allowed peak, dBTP
+    min_effect_gap: 1.2                   # never two effects closer than this (seconds)
+
+  # Checks before the final render (see src/video/animation/quality_gate.py).
+  quality_gate:
+    max_still_seconds: 3.0     # warn if a picture stays longer without a cut
+    target_lufs: -14.0         # warn if the soundtrack is off target...
+    lufs_tolerance: 1.0        # ...by more than this
+    max_true_peak: -1.0        # warn if peaks go above this (distortion on phones)
+    length_tolerance: 0.10     # warn if the video is over target_length_seconds by 10%+
+    stop_on_errors: true       # missing licence / caption outside safe zone stops the render
+
+  # Classic (non-animated) renders only: hook sound and Mubert music (--music).
   hook_sound_query: "whoosh impact"
   music_mood: "focused"
-  # music_volume: how loud the music is relative to the voiceover.
-  # 0.0 = silent, 1.0 = same level as voiceover. 0.12 (12%) is subtle and professional.
   music_volume: 0.12
 
 # Platforms an approved video is posted to ("Post now" button and schedule).

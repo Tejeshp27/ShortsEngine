@@ -21,25 +21,24 @@ import os
 
 import edge_tts
 
+from src.generation.sections import is_spoken_section
+
 
 # Where the generated audio files are cached.
 AUDIO_CACHE_FOLDER = os.path.join("cache", "audio")
 
-# The script sections that are read aloud, in the order they appear.
-# Other sections ("Notes for reviewer", "Sources") are never spoken.
-# The animation storyboard imports this list too, so both always agree
-# on exactly which words are in the video.
-SPOKEN_SECTIONS = ["Hook", "Story", "Why it matters",
-                   "What happens next", "Closing line"]
+# Which script sections are read aloud is decided in one place
+# (src/generation/sections.py), so the voiceover, the captions and the
+# animation storyboard always agree on exactly which words are spoken.
 
 
 def _extract_spoken_text(script_path):
     """
     Read a script file and return only the lines that will be spoken aloud.
 
-    The script is a Markdown file with sections like "## Hook", "## Story",
-    etc. Only those sections are read on camera. We skip "## Notes for
-    reviewer" and "## Sources" because those are not part of the video.
+    The script is a Markdown file with sections like "## Hook" and
+    "## What happened". They are all read aloud except the reviewer-only
+    ones ("## Notes for reviewer", "## Quality check", "## Sources").
 
     Args:
         script_path (str): Path to the .md script file.
@@ -62,7 +61,7 @@ def _extract_spoken_text(script_path):
             # Lines starting with ## are section headings.
             if stripped.startswith("## "):
                 section_name = stripped[3:].strip()
-                inside_spoken_section = section_name in SPOKEN_SECTIONS
+                inside_spoken_section = is_spoken_section(section_name)
                 continue  # Don't include the heading itself
 
             # Skip separator lines and empty lines at the top.
@@ -77,6 +76,36 @@ def _extract_spoken_text(script_path):
                 spoken_lines.append(stripped)
 
     return "\n".join(spoken_lines).strip()
+
+
+def spoken_section_word_counts(script_path):
+    """
+    Count the spoken words in each section of a script, in order.
+
+    The pacing step uses this to know where the hook ends and where
+    each new section starts, so it can place the right pauses there.
+
+    Args:
+        script_path (str): Path to the .md script file.
+
+    Returns:
+        list[int]: Words per spoken section, e.g. [14, 52, 30, 21].
+    """
+    counts = []
+    current = None
+    with open(script_path, "r", encoding="utf-8") as f:
+        for line in f:
+            stripped = line.strip()
+            if stripped.startswith("## "):
+                if current is not None:
+                    counts.append(current)
+                current = 0 if is_spoken_section(stripped[3:]) else None
+                continue
+            if current is not None and stripped and stripped != "---":
+                current += len(stripped.split())
+    if current is not None:
+        counts.append(current)
+    return counts
 
 
 def _audio_cache_path(script_path, voice, extension=".mp3"):
@@ -106,42 +135,42 @@ def _audio_cache_path(script_path, voice, extension=".mp3"):
     return audio_path, timing_path
 
 
-def _distribute_word_timing(sentence_boundaries):
+def match_words_to_boundaries(text, boundaries):
     """
-    Turn sentence-level timing into word-level timing.
+    Give every word of the script a start and end time.
 
-    edge-tts 7.x gives us start and duration for each whole sentence.
-    We split each sentence into words and divide the time evenly across
-    them. This isn't frame-perfect, but it's accurate enough for
-    3-words-at-a-time captions.
+    edge-tts reports one timing event per spoken word, but without the
+    punctuation ("traffic" instead of "traffic."). The rest of the program
+    needs the words exactly as written (one per space-separated word, as
+    text.split() gives them), so we walk through both lists side by side.
 
     Args:
-        sentence_boundaries (list[dict]): Each dict has "text", "start",
-                                          "end" keys (all in seconds).
+        text (str): The spoken text that was sent to edge-tts.
+        boundaries (list[dict]): One {"start", "end"} per spoken word, in order.
 
     Returns:
-        list[dict]: One dict per word: {"word", "start", "end"}.
+        list[dict]: One {"word", "start", "end"} per word of text.split().
+                    A token that is only punctuation (like "—") is given
+                    zero length at the previous word's end.
+
+    Example:
+        match_words_to_boundaries("Hi there.", [{"start": 0, "end": 0.2},
+                                                {"start": 0.3, "end": 0.6}])
+        # → [{"word": "Hi", ...}, {"word": "there.", "start": 0.3, "end": 0.6}]
     """
-    word_timings = []
-
-    for sentence in sentence_boundaries:
-        words = sentence["text"].split()
-        if not words:
-            continue
-
-        sentence_duration = sentence["end"] - sentence["start"]
-        time_per_word = sentence_duration / len(words)
-
-        for i, word in enumerate(words):
-            start = sentence["start"] + i * time_per_word
-            end = start + time_per_word
-            word_timings.append({
-                "word": word,
-                "start": round(start, 3),
-                "end": round(end, 3),
-            })
-
-    return word_timings
+    timings = []
+    next_event = 0
+    last_end = 0.0
+    for word in text.split():
+        has_letters_or_digits = any(character.isalnum() for character in word)
+        if has_letters_or_digits and next_event < len(boundaries):
+            event = boundaries[next_event]
+            next_event += 1
+            timings.append({"word": word, "start": event["start"], "end": event["end"]})
+            last_end = event["end"]
+        else:
+            timings.append({"word": word, "start": last_end, "end": last_end})
+    return timings
 
 
 async def _synthesize(text, voice, audio_path, timing_path):
@@ -152,9 +181,8 @@ async def _synthesize(text, voice, audio_path, timing_path):
     networking internally. (Async just means it can wait for the
     network without freezing — you don't need to understand it deeply.)
 
-    edge-tts 7.x emits SentenceBoundary events (not WordBoundary).
-    We use _distribute_word_timing to split each sentence into
-    evenly-spaced word timestamps.
+    We ask for "WordBoundary" events: one exact timing per spoken word,
+    so captions and natural pacing line up with the voice.
 
     Args:
         text (str): The spoken text to convert.
@@ -162,32 +190,31 @@ async def _synthesize(text, voice, audio_path, timing_path):
         audio_path (str): Where to save the .mp3 file.
         timing_path (str): Where to save the word-timing .json file.
     """
-    communicate = edge_tts.Communicate(text, voice)
+    communicate = edge_tts.Communicate(text, voice, boundary="WordBoundary")
 
     os.makedirs(os.path.dirname(audio_path), exist_ok=True)
 
-    sentence_boundaries = []
+    boundaries = []
 
-    # communicate.stream() yields audio chunks and "SentenceBoundary" events.
-    # We collect the audio into a file and the sentence events into a list.
+    # communicate.stream() yields audio chunks and "WordBoundary" events.
+    # We collect the audio into a file and the word events into a list.
     with open(audio_path, "wb") as audio_file:
         async for chunk in communicate.stream():
             if chunk["type"] == "audio":
                 audio_file.write(chunk["data"])
-            elif chunk["type"] == "SentenceBoundary":
+            elif chunk["type"] == "WordBoundary":
                 # offset and duration are in 100-nanosecond ticks.
                 start_seconds = chunk["offset"] / 10_000_000
                 duration_seconds = chunk["duration"] / 10_000_000
-                sentence_boundaries.append({
-                    "text": chunk["text"],
+                boundaries.append({
                     "start": round(start_seconds, 3),
                     "end": round(start_seconds + duration_seconds, 3),
                 })
 
-    word_boundaries = _distribute_word_timing(sentence_boundaries)
+    word_timings = match_words_to_boundaries(text, boundaries)
 
     with open(timing_path, "w", encoding="utf-8") as f:
-        json.dump(word_boundaries, f, indent=2)
+        json.dump(word_timings, f, indent=2)
 
 
 def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False,
@@ -235,6 +262,11 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False,
     model = voice_settings.get("elevenlabs_model", "eleven_turbo_v2_5")
     if tts_provider == "elevenlabs" and model != "eleven_turbo_v2_5":
         cache_voice = f"{tts_provider}:{voice}:{model}"
+    # Different voice tuning (energy, speed) sounds different, so it gets
+    # its own cache entry instead of reusing an old recording.
+    tuning = voice_settings.get("elevenlabs_voice_settings")
+    if tts_provider == "elevenlabs" and tuning:
+        cache_voice += ":" + json.dumps(tuning, sort_keys=True)
     audio_path, timing_path = _audio_cache_path(script_path, cache_voice, extension)
 
     # Already cached? Use the saved files.
@@ -242,7 +274,7 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False,
         print("  Voiceover loaded from cache.")
         with open(timing_path, "r", encoding="utf-8") as f:
             word_timings = json.load(f)
-        return audio_path, word_timings
+        return _paced(script_path, audio_path, word_timings, voice_settings)
 
     if dry_run:
         print("  [DRY RUN] Skipping TTS — no audio generated.")
@@ -282,4 +314,26 @@ def get_voiceover(script_path, voice, tts_provider="edge", dry_run=False,
         word_timings = json.load(f)
 
     print(f"  Voiceover ready: {len(word_timings)} words timed.")
-    return audio_path, word_timings
+    return _paced(script_path, audio_path, word_timings, voice_settings)
+
+
+def _paced(script_path, audio_path, word_timings, voice_settings):
+    """
+    Give the voiceover natural pauses (see pacing.py), if the channel wants them.
+
+    Args:
+        script_path (str): The script (to find where each section starts).
+        audio_path (str): The raw voiceover.
+        word_timings (list[dict]): Its word timings.
+        voice_settings (dict): The channel's "video" block.
+
+    Returns:
+        tuple: (audio path, word timings), paced when pacing is enabled.
+    """
+    # Only channels that add a "pacing" block get reshaped pauses, so old
+    # channels keep exactly the voiceover they had before.
+    if not voice_settings.get("pacing"):
+        return audio_path, word_timings
+    from src.video.pacing import apply_pacing
+    counts = spoken_section_word_counts(script_path)
+    return apply_pacing(audio_path, word_timings, counts, voice_settings)

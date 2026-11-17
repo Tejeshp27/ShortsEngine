@@ -26,7 +26,7 @@ def load_channel_config(channel_name):
 
     Example:
         config = load_channel_config("news")
-        print(config["name"])  # "News Explained"
+        print(config["name"])  # "News Made Simple"
     """
     # Build the path relative to the project root.
     # os.path.join handles slashes correctly on all operating systems.

@@ -72,8 +72,13 @@ def _get_voice_id(voice_name_or_id):
     except Exception as err:
         raise RuntimeError(f"ElevenLabs: could not fetch voices list: {err}")
 
+    # Library voices have long names such as "Liam - Energetic, Social Media
+    # Creator", so "Liam" matches the part before " - " as well.
+    wanted = voice_name_or_id.lower().strip()
     for voice in data.get("voices", []):
-        if voice["name"].lower() == voice_name_or_id.lower():
+        full_name = voice["name"].lower()
+        short_name = full_name.split(" - ")[0].strip()
+        if wanted in (full_name, short_name):
             return voice["voice_id"]
 
     # Not found by name — treat the input as a voice ID and hope for the best.
@@ -137,6 +142,30 @@ def _characters_to_words(characters, start_times, end_times):
     return words
 
 
+# How the voice sounds when the channel YAML does not say.
+DEFAULT_VOICE_TUNING = {
+    "stability": 0.50,          # 0 = very expressive, 1 = very steady
+    "similarity_boost": 0.75,   # how closely to match the original voice
+}
+
+
+def voice_tuning(settings):
+    """
+    Get the voice tuning sent to ElevenLabs (energy, steadiness, speed).
+
+    Args:
+        settings (dict): The channel's "video" block. Its optional
+                         "elevenlabs_voice_settings" overrides the defaults,
+                         e.g. {"stability": 0.35, "style": 0.3, "speed": 1.08}.
+
+    Returns:
+        dict: The voice_settings object for the API request.
+    """
+    tuning = dict(DEFAULT_VOICE_TUNING)
+    tuning.update(settings.get("elevenlabs_voice_settings") or {})
+    return tuning
+
+
 def synthesize_elevenlabs(text, voice, audio_path, timing_path, cost_tracker=None, settings=None):
     """
     Generate a voiceover MP3 and word-timing JSON using the ElevenLabs API.
@@ -177,17 +206,17 @@ def synthesize_elevenlabs(text, voice, audio_path, timing_path, cost_tracker=Non
 
     voice_id = _get_voice_id(voice)
 
-    url = f"{ELEVENLABS_API}/text-to-speech/{voice_id}/with-timestamps"
-
     settings = settings or {}
+    # 44.1 kHz at 128 kbps is CD-quality sample rate; the API's default can
+    # be lower (our earlier videos had 24 kHz audio, which sounds muffled).
+    output_format = settings.get("elevenlabs_output_format", "mp3_44100_128")
+    url = f"{ELEVENLABS_API}/text-to-speech/{voice_id}/with-timestamps?output_format={output_format}"
+
     model = settings.get("elevenlabs_model", MODEL_ID)
     payload = json.dumps({
         "text": text,
         "model_id": model,
-        "voice_settings": {
-            "stability": 0.50,          # 0=very expressive, 1=very stable
-            "similarity_boost": 0.75,   # how closely to match the original voice
-        },
+        "voice_settings": voice_tuning(settings),
     }).encode("utf-8")
 
     req = urllib.request.Request(
@@ -212,6 +241,11 @@ def synthesize_elevenlabs(text, voice, audio_path, timing_path, cost_tracker=Non
             data = json.loads(resp.read())
     except urllib.error.HTTPError as err:
         body = err.read().decode("utf-8", errors="replace")
+        # A 4xx answer (bad voice ID, no credits, bad key) means ElevenLabs
+        # refused the request, so nothing was made or billed: clear the
+        # estimate. Other failures (timeouts, 5xx) keep it as "uncertain".
+        if event_id is not None and 400 <= err.code < 500:
+            cost_tracker.settle(event_id, 0.0)
         raise RuntimeError(
             f"ElevenLabs API error {err.code}: {body[:500]}"
         )

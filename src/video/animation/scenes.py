@@ -407,12 +407,49 @@ def _get_initials(name):
     return (words[0][0] + words[-1][0]).upper()
 
 
+# Round photos already cut out this run, keyed by (path, diameter).
+_round_photos = {}
+
+
+def _round_photo(photo_path, diameter):
+    """
+    Cut a photo into a circle, for a name card (made once, then reused).
+
+    Args:
+        photo_path (str): A freely licensed JPEG from photos.py.
+        diameter (int): The circle's size in pixels.
+
+    Returns:
+        PIL.Image or None: An RGBA image with see-through corners.
+    """
+    key = (photo_path, diameter)
+    if key in _round_photos:
+        return _round_photos[key]
+    try:
+        picture = Image.open(photo_path).convert("RGB")
+    except OSError:
+        _round_photos[key] = None
+        return None
+    # Crop a square from the top-middle (where a portrait's face is),
+    # then shrink it to the circle's size.
+    side = min(picture.width, picture.height)
+    left = (picture.width - side) // 2
+    top = min((picture.height - side) // 5, picture.height - side)
+    picture = picture.crop((left, top, left + side, top + side)).resize((diameter, diameter))
+    mask = Image.new("L", (diameter, diameter), 0)
+    ImageDraw.Draw(mask).ellipse([0, 0, diameter - 1, diameter - 1], fill=255)
+    picture.putalpha(mask)
+    _round_photos[key] = picture
+    return picture
+
+
 def draw_person(frame, scene, time_in_scene, duration, colors):
     """
-    Draw a name card: a circle with the person's initials, name and role.
+    Draw a name card: a circle with the person's photo (or initials), name and role.
 
-    We show initials rather than a photo so we never misuse anyone's
-    picture.
+    The photo is only used when photos.py found a freely licensed one
+    (public domain or Creative Commons). Otherwise the card shows initials,
+    so we never misuse anyone's picture.
 
     Scene fields used:
         name (str): The person's name, as written in the script.
@@ -432,9 +469,16 @@ def draw_person(frame, scene, time_in_scene, duration, colors):
     if scale > 0.0:
         # Accent ring, dark centre, then the initials on top.
         draw_circle(frame, CENTER_X, circle_y, 210 * scale, colors["accent"])
-        draw_circle(frame, CENTER_X, circle_y, 186 * scale, CARD_COLOR)
-        draw_text(frame, _get_initials(name), CENTER_X, circle_y,
-                  int(150 * scale), colors["text"], outline=False)
+        photo = None
+        if scene.get("photo_path"):
+            photo = _round_photo(scene["photo_path"], 372)
+        if photo is not None and scale > 0.6:
+            paste_image(frame, photo.resize((int(372 * scale), int(372 * scale))),
+                        CENTER_X, circle_y)
+        else:
+            draw_circle(frame, CENTER_X, circle_y, 186 * scale, CARD_COLOR)
+            draw_text(frame, _get_initials(name), CENTER_X, circle_y,
+                      int(150 * scale), colors["text"], outline=False)
 
         # A small dot circles the ring forever, so the card never sits still.
         angle = time_in_scene * 2.0
@@ -588,6 +632,50 @@ def draw_versus(frame, scene, time_in_scene, duration, colors):
         draw_circle(frame, CENTER_X, 760, 92 * badge_scale, colors["text"])
         draw_text(frame, "VS", CENTER_X, 760, int(76 * badge_scale), CARD_COLOR,
                   outline=False)
+
+
+def draw_analogy(frame, scene, time_in_scene, duration, colors):
+    """
+    Show an everyday comparison: the real thing, "IS LIKE", the everyday thing.
+
+    Used when the script explains a hard idea with an analogy, so viewers
+    can SEE the comparison. The real thing slides in first; the everyday
+    thing follows from the other side.
+
+    Scene fields used:
+        left_emoji, left_label (str): Icon and words for the real thing.
+        right_emoji, right_label (str): Icon and words for the comparison.
+
+    Args:
+        frame (PIL.Image): The video frame to draw on.
+        scene (dict): The scene from the storyboard.
+        time_in_scene (float): Seconds since the scene began.
+        duration (float): How long the scene lasts, in seconds.
+        colors (dict): "accent", "second" and "text" colours.
+    """
+    top_amount = ease_out_cubic(progress(time_in_scene, 0.0, 0.4))
+    bottom_amount = ease_out_cubic(progress(time_in_scene, 0.45, 0.4))
+
+    _draw_versus_card(
+        frame, scene.get("left_emoji", ""), scene.get("left_label", ""),
+        top=370, slide_x=-VIDEO_WIDTH * (1 - top_amount),
+        stripe_color=colors["accent"], text_color=colors["text"],
+        time_in_scene=time_in_scene, delay=0.2,
+    )
+    _draw_versus_card(
+        frame, scene.get("right_emoji", ""), scene.get("right_label", ""),
+        top=810, slide_x=VIDEO_WIDTH * (1 - bottom_amount),
+        stripe_color=colors["second"], text_color=colors["text"],
+        time_in_scene=time_in_scene, delay=0.6,
+    )
+
+    # The "IS LIKE" badge drops in between the two cards and gently bobs.
+    badge = ease_out_back(progress(time_in_scene, 0.3, 0.35))
+    if badge > 0.0:
+        bob = 6 * math.sin(time_in_scene * 4.0)
+        # The cards end at y=710 and start at y=810; the 96-pixel pill sits between.
+        _draw_pill(frame, "IS LIKE", 712 + bob, 400, 44,
+                   colors["accent"], 1.0, CARD_COLOR, min(badge, 1.0))
 
 
 def draw_bullet_list(frame, scene, time_in_scene, duration, colors):
@@ -886,6 +974,7 @@ SCENE_DRAWERS = {
     "timeline": draw_timeline,
     "bar_chart": draw_bar_chart,
     "stamp": draw_stamp,
+    "analogy": draw_analogy,
 }
 
 

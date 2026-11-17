@@ -43,21 +43,28 @@ _clip_search_results = {}
 _fallback_pictures = {}
 
 
+# Footage is decoded this much bigger than the screen, so the visible
+# window can slowly pan across it (the picture is never still).
+FOOTAGE_OVERSIZE = 1.1
+
+
 class FootageReader:
     """
     Plays one stock video clip, handing out one frame at a time.
 
     FFmpeg does the heavy lifting in a separate process: it decodes the
-    clip, crops it to 9:16, darkens it, and loops it forever. This class
-    just reads the finished frames from FFmpeg one by one.
+    clip, scales it to fill a frame slightly bigger than 9:16, darkens it,
+    and loops it forever. This class reads those frames one by one and
+    cuts out a slowly moving 1080×1920 window (a gentle pan).
 
     Example:
-        reader = FootageReader("cache/stock_video/abc.mp4", fps=30, brightness=0.6)
-        frame = reader.read_frame()   # a 1080×1920 Pillow image
+        reader = FootageReader("cache/stock_video/abc.mp4", fps=30, brightness=0.6,
+                               start_seconds=4.0)
+        frame = reader.read_frame(0.5, direction=1)   # halfway through the shot
         reader.close()
     """
 
-    def __init__(self, clip_path, fps, brightness):
+    def __init__(self, clip_path, fps, brightness, start_seconds=0.0):
         """
         Start FFmpeg playing the clip.
 
@@ -66,24 +73,30 @@ class FootageReader:
             fps (int): Frames per second of the final video.
             brightness (float): 1.0 keeps the clip as it is; 0.6 darkens it
                                 to 60% so white text stands out on top.
+            start_seconds (float): Where in the clip to start. Starting the
+                                   same clip at different points makes each
+                                   reuse look like a new shot.
         """
+        self.width = int(VIDEO_WIDTH * FOOTAGE_OVERSIZE)
+        self.height = int(VIDEO_HEIGHT * FOOTAGE_OVERSIZE)
         # Each frame is width × height pixels, and each pixel is 3 bytes
         # (one each for red, green and blue).
-        self.bytes_per_frame = VIDEO_WIDTH * VIDEO_HEIGHT * 3
+        self.bytes_per_frame = self.width * self.height * 3
 
         # The filter chain, in order:
-        #   scale + crop  → fill the tall 9:16 frame, trimming the sides
+        #   scale + crop  → fill the (slightly oversized) tall frame
         #   fps           → match the final video's frame rate
         #   colorchannelmixer → multiply red, green and blue to darken
         video_filter = (
-            f"scale={VIDEO_WIDTH}:{VIDEO_HEIGHT}:force_original_aspect_ratio=increase,"
-            f"crop={VIDEO_WIDTH}:{VIDEO_HEIGHT},"
+            f"scale={self.width}:{self.height}:force_original_aspect_ratio=increase,"
+            f"crop={self.width}:{self.height},"
             f"fps={fps},"
             f"colorchannelmixer=rr={brightness}:gg={brightness}:bb={brightness}"
         )
         command = [
             "ffmpeg", "-loglevel", "error",
             "-stream_loop", "-1",        # loop the clip forever
+            "-ss", f"{start_seconds:.2f}",
             "-i", clip_path,
             "-vf", video_filter,
             "-an",                       # ignore the clip's own sound
@@ -94,9 +107,13 @@ class FootageReader:
             command, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL
         )
 
-    def read_frame(self):
+    def read_frame(self, shot_progress=0.0, direction=1):
         """
-        Get the next frame of the clip.
+        Get the next frame of the clip, as a slowly panning 1080×1920 window.
+
+        Args:
+            shot_progress (float): How far through the shot we are, 0.0 to 1.0.
+            direction (int): 1 pans left-to-right, -1 right-to-left.
 
         Returns:
             PIL.Image or None: A 1080×1920 image, or None if FFmpeg could
@@ -106,7 +123,11 @@ class FootageReader:
         data = self.process.stdout.read(self.bytes_per_frame)
         if len(data) < self.bytes_per_frame:
             return None
-        return Image.frombytes("RGB", (VIDEO_WIDTH, VIDEO_HEIGHT), data)
+        picture = Image.frombytes("RGB", (self.width, self.height), data)
+        amount = shot_progress if direction > 0 else 1.0 - shot_progress
+        left = int((self.width - VIDEO_WIDTH) * amount)
+        top = (self.height - VIDEO_HEIGHT) // 2
+        return picture.crop((left, top, left + VIDEO_WIDTH, top + VIDEO_HEIGHT))
 
     def close(self):
         """Stop FFmpeg and free the clip."""
@@ -295,7 +316,11 @@ def find_footage_for_scenes(scenes, footage_topics):
             clip_path = previous_clip_path
 
         scene["clip_path"] = clip_path
+        scene["clip_credit"] = None
         if clip_path is not None:
+            # Imported here so tests can run without the network module.
+            from src.video.stock_video import get_clip_credit
+            scene["clip_credit"] = get_clip_credit(clip_path)
             scenes_with_footage += 1
             previous_clip_path = clip_path
 

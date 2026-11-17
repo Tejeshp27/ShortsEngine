@@ -339,7 +339,36 @@ pass. The user checked the new dashboard pages.
 - Untracked MP4s can be deleted from their own page. 7 tests in tests/test_video_delete.py.
 - Connected accounts (news): YouTube, Instagram (+Facebook), TikTok (sandbox app).
 
+**Q-series video quality upgrade (2026-11-17, Claude Code, branch `feat/meta-publishing`):**
+Full write-up in docs/video-quality-upgrade.md. Summary:
+- Q.2 Scripts: channel renamed "News Made Simple"; slogan + all style rules + seven
+  spoken sections with `max_words` budgets live in `channels/news.yaml` (`style:`).
+  `generation/reviewer.py`: Haiku scores hook/clarity/neutrality/accuracy (1-10) +
+  code checks (banned opener, slogan, length per section); <7 → ONE Sonnet rewrite,
+  logged in the script's `## Quality check` (never spoken). `generation/sections.py`
+  decides spoken sections (everything except Notes/Sources/Quality check), so old
+  scripts still work. max_calls_per_run 7; job allowance includes check + rewrite.
+- Q.3 Voice: `video/pacing.py` reshapes pauses from word timings (detects the real
+  end of each word from the audio); edge-tts now uses real WordBoundary timings;
+  ElevenLabs tuning/output format from YAML; 4xx errors settle the estimate to $0.
+  Voice chosen by the user 2026-11-17: ElevenLabs Matilda (XrExE9yKIg1WjnnlVkGX) on
+  eleven_multilingual_v2 (samples in output/voice_samples/). Kokoro and Chatterbox
+  need Python ≤3.13 (venv is 3.15). macOS voices: non-commercial only.
+- Q.4 Visuals: `animation/photos.py` (Wikimedia, licence allow-list), `animation/shots.py`
+  (cut every ≤2.8 s, pan/zoom), analogy template, photo name cards, ≤8-word beats,
+  1-3-word keyword captions in the safe zone (`drawing.SAFE_*`), brand bug, end card,
+  `video/sound_design.py` (Freesound CC0 / own tracks with credits.yaml, ducking,
+  two-pass -14 LUFS). Stock clips now record source + licence. Credits file per video.
+- Q.5 `animation/quality_gate.py` runs before drawing; errors stop the render.
+- A number range ("thirty to fifty billion") can never become one big-number graphic.
+- 366 offline tests pass (tests/test_quality_upgrade.py). Session spend ≈ $1.42
+  (mostly ElevenLabs character estimates).
+
 **Next human steps:**
+- Listen to the CC0 music pick ("Stoned Song") or add own licensed tracks to
+  assets/music/news/ with a credits.yaml. Check the ElevenLabs plan covers
+  multilingual_v2 credits (~1,050 characters per 75-second video).
+- Watch draft #6 (FAA, upgraded render) and give visual feedback.
 - Configure approved developer apps/account credentials to validate real OAuth
   and statistics. Existing .env tokens can be explicitly imported per channel.
 - Watch an animated render and give visual feedback; no paid render was needed

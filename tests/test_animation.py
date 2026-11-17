@@ -515,15 +515,24 @@ class TestCaptions:
                       {"word_start": 4, "word_count": 3}]
         groups = build_caption_groups(scene_list, make_word_timings(text), 3)
 
-        # Scene one has 4 words: shown as one group of 4, not 3 + a lonely 1.
-        assert [word["text"] for word in groups[0]["words"]] == ["ONE", "TWO", "THREE", "FOUR"]
-        assert [word["text"] for word in groups[1]["words"]] == ["FIVE", "SIX", "SEVEN"]
+        # Scene one has 4 words: shown as 2 + 2 (never more than 3 at once,
+        # and never a lonely last word), and scene two starts fresh.
+        assert [word["text"] for word in groups[0]["words"]] == ["ONE", "TWO"]
+        assert [word["text"] for word in groups[1]["words"]] == ["THREE", "FOUR"]
+        assert [word["text"] for word in groups[2]["words"]] == ["FIVE", "SIX", "SEVEN"]
 
     def test_punctuation_is_removed_and_text_is_capitalised(self):
         """Captions show clean capital letters."""
         scene_list = [{"word_start": 0, "word_count": 2}]
-        groups = build_caption_groups(scene_list, make_word_timings("Hello, world."), 3)
+        groups = build_caption_groups(scene_list, make_word_timings("Hello world."), 3)
         assert [word["text"] for word in groups[0]["words"]] == ["HELLO", "WORLD"]
+
+    def test_captions_break_at_commas(self):
+        """A comma ends a caption, so captions follow the spoken phrases."""
+        scene_list = [{"word_start": 0, "word_count": 3}]
+        groups = build_caption_groups(scene_list, make_word_timings("Well, hello world."), 3)
+        assert [word["text"] for word in groups[0]["words"]] == ["WELL"]
+        assert [word["text"] for word in groups[1]["words"]] == ["HELLO", "WORLD"]
 
     def test_caption_stays_until_the_next_one(self):
         """Each caption remains on screen until the following caption starts."""
@@ -690,7 +699,7 @@ class TestRendererHelpers:
         assert get_scene_colors(2, settings)["accent"] == (255, 0, 0)
 
     def test_section_details(self):
-        """Section starts are marked and the hook shows the channel name."""
+        """Section starts are marked; the hook has no label (the brand bug shows the name)."""
         scene_list = [
             {"section": "Hook", "start": 0.0},
             {"section": "Story", "start": 5.0},
@@ -698,7 +707,7 @@ class TestRendererHelpers:
         ]
         add_section_details(scene_list, "News Explained")
 
-        assert scene_list[0]["section_label"] == "NEWS EXPLAINED"
+        assert scene_list[0]["section_label"] == ""
         assert scene_list[1]["starts_section"] is True
         assert scene_list[2]["starts_section"] is False
         assert scene_list[2]["section_start"] == 5.0

@@ -513,11 +513,9 @@ def render_video(script_path, story_title, channel_key, voice,
 
         from src.video.animation.renderer import render_animated_video
 
-        duration = _get_audio_duration(audio_path)
         video_path = _output_video_path(channel_key, script_path)
-        sfx_path, music_path, music_volume = _prepare_extra_audio(
-            channel_config, channel_key, duration, use_music
-        )
+        # Music and sound effects come from sound_design.py (licensed sounds
+        # only, ducking music, -14 LUFS), set under video.sound in the YAML.
         render_animated_video(
             script_path=script_path,
             channel_config=channel_config,
@@ -526,13 +524,11 @@ def render_video(script_path, story_title, channel_key, voice,
             video_path=video_path,
             llm=llm,
             font_size=font_size,
-            sfx_path=sfx_path,
-            music_path=music_path,
-            music_volume=music_volume,
             use_footage=not no_paid_visuals,
+            channel_key=channel_key,
         )
         size_mb = os.path.getsize(video_path) / (1024 * 1024)
-        print(f"  Video saved: {video_path} ({size_mb:.1f} MB, {duration:.1f}s)")
+        print(f"  Video saved: {video_path} ({size_mb:.1f} MB)")
         return video_path
 
     # --- Step 2: Scene plan (optional — requires llm) ---

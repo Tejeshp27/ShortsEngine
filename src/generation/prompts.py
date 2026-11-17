@@ -75,6 +75,154 @@ def build_ranking_user_message(stories):
     return "\n".join(lines)
 
 
+# The script layout used when a channel's YAML has no "style.sections"
+# list. These are general news-script parts, not specific to one channel.
+DEFAULT_SECTIONS = [
+    {"name": "Hook", "guide": "One or two sentences for the first 3 seconds that make people keep watching."},
+    {"name": "Story", "guide": "What happened, in plain language."},
+    {"name": "Why it matters", "guide": "Why the audience should care."},
+    {"name": "What happens next", "guide": "Upcoming steps, only if the source mentions them; "
+                                           "otherwise say what is still unknown."},
+    {"name": "Closing line", "guide": "One short sentence to end the video."},
+]
+
+# What the reviewer-only notes must contain, for every channel.
+NOTES_GUIDE = (
+    "Bullet points for the human fact-checker. The first bullet starts with "
+    "'Analogies:' and copies every analogy in the script word for word, with "
+    "one short reason it is fair and accurate (or says 'Analogies: none'). Then "
+    "list anything unclear, any claim you were unsure about, and anything to "
+    "double-check."
+)
+
+
+def script_sections(config):
+    """
+    Get the list of spoken sections a channel's scripts must have.
+
+    Args:
+        config (dict): The channel config. Uses style.sections if present.
+
+    Returns:
+        list[dict]: One {"name", "guide", "max_words"} per section, in
+                    speaking order (max_words is None when not set).
+                    Any "{slogan}" in a guide is replaced with the
+                    channel's slogan.
+
+    Example:
+        script_sections(config)[0]["name"]   # → "Hook"
+    """
+    style = config.get("style") or {}
+    sections = style.get("sections") or DEFAULT_SECTIONS
+    slogan = config.get("slogan", "")
+
+    filled = []
+    for section in sections:
+        guide = section.get("guide", "").replace("{slogan}", slogan)
+        if section.get("max_words"):
+            guide += f" At most {section['max_words']} words."
+        filled.append({"name": section["name"], "guide": guide,
+                       "max_words": section.get("max_words")})
+    return filled
+
+
+def section_names(config):
+    """
+    List just the names of a channel's spoken sections.
+
+    Args:
+        config (dict): The channel config.
+
+    Returns:
+        list[str]: e.g. ["Hook", "What happened", ..., "Closing line"].
+    """
+    names = []
+    for section in script_sections(config):
+        names.append(section["name"])
+    return names
+
+
+def bullet_lines(items):
+    """
+    Turn a list of rules into "- rule" lines for a prompt.
+
+    Args:
+        items (list[str] or None): The rules.
+
+    Returns:
+        str: One rule per line, each starting with "- ".
+    """
+    lines = []
+    for item in items or []:
+        lines.append(f"- {item}")
+    return "\n".join(lines)
+
+
+def build_style_rules(config):
+    """
+    Write the channel's style rules (hook, language, analogies) as prompt text.
+
+    Every rule comes from the channel YAML's "style" block, so another
+    channel can have a completely different voice without code changes.
+
+    Args:
+        config (dict): The channel config.
+
+    Returns:
+        str: The rules as text, or "" if the channel has no style block.
+    """
+    style = config.get("style")
+    if not style:
+        return ""
+
+    parts = []
+    hook = style.get("hook", {})
+    if hook:
+        hook_text = "HOOK RULES:\n"
+        hook_text += bullet_lines(hook.get("rules"))
+        if hook.get("types"):
+            hook_text += "\n- Use one of these hook types: " + "; ".join(hook["types"]) + "."
+        if hook.get("banned_openers"):
+            quoted = []
+            for opener in hook["banned_openers"]:
+                quoted.append(f'"{opener}"')
+            hook_text += "\n- Never start the script with " + ", ".join(quoted) + "."
+        parts.append(hook_text)
+
+    if style.get("language"):
+        parts.append("LANGUAGE RULES:\n" + bullet_lines(style["language"]))
+    if style.get("analogies"):
+        parts.append("ANALOGY RULES:\n" + bullet_lines(style["analogies"]))
+    if style.get("audience_rules"):
+        parts.append("AUDIENCE RULES:\n" + bullet_lines(style["audience_rules"]))
+    return "\n\n".join(parts) + "\n\n"
+
+
+def build_format_rules(config):
+    """
+    Describe the exact Markdown sections the script must have.
+
+    Args:
+        config (dict): The channel config.
+
+    Returns:
+        str: The FORMAT part of the writing prompt.
+    """
+    lines = ["FORMAT: Reply with exactly these Markdown sections, in this order, and nothing else:"]
+    for section in script_sections(config):
+        lines.append(f"## {section['name']}")
+        lines.append(f"({section['guide']})")
+    lines.append("## Notes for reviewer")
+    lines.append(f"({NOTES_GUIDE})")
+    lines.append("")
+    lines.append(
+        "Every section except 'Notes for reviewer' is spoken aloud, so write "
+        "them as natural speech: no bullet points, no stage directions, no emojis, "
+        "and no section names inside the text."
+    )
+    return "\n".join(lines)
+
+
 def build_writing_system_prompt(config):
     """
     Write the standing instructions for the script-writing model.
@@ -83,7 +231,8 @@ def build_writing_system_prompt(config):
     why the LLM client marks it for prompt caching.
 
     Args:
-        config (dict): The channel config (niche, audience, tone, length).
+        config (dict): The channel config (niche, audience, tone, length,
+                       and optionally slogan + style rules).
 
     Returns:
         str: The system prompt text.
@@ -97,8 +246,8 @@ def build_writing_system_prompt(config):
         f"Audience: {config['audience']}.\n"
         f"Tone: {config['tone']}.\n"
         f"Length: the spoken script should take about {seconds} seconds, "
-        f"which is roughly {words} words in total.\n\n"
-        "ACCURACY RULES (most important):\n"
+        f"which is roughly {words} words in total. Do not go over {words + 10} words.\n\n"
+        "ACCURACY RULES (most important, they override every other rule):\n"
         "- Use ONLY facts stated in the source article provided. Do not add facts "
         "from memory.\n"
         "- Never invent quotes, numbers, names, dates or events.\n"
@@ -106,27 +255,13 @@ def build_writing_system_prompt(config):
         "guess. Mention it under 'Notes for reviewer' instead.\n\n"
         "FAIRNESS RULES:\n"
         "- Explain what happened, why it matters and what each major side says, "
-        "if the source gives their views.\n"
+        "if the source gives their views. If the source gives only one side, say "
+        "so plainly instead of inventing the other.\n"
         "- No opinions, no loaded or emotional language, and never tell viewers "
         "what to think.\n"
         "- Explain any jargon in plain words.\n\n"
-        "FORMAT: Reply with exactly these Markdown sections and nothing else:\n"
-        "## Hook\n"
-        "(One or two sentences for the first 3 seconds that make people keep watching.)\n"
-        "## Story\n"
-        "(What happened, in plain language.)\n"
-        "## Why it matters\n"
-        "(Why the audience should care.)\n"
-        "## What happens next\n"
-        "(Upcoming steps, only if the source mentions them; otherwise say what is "
-        "still unknown.)\n"
-        "## Closing line\n"
-        "(One short sentence to end the video.)\n"
-        "## Notes for reviewer\n"
-        "(Bullet points: anything unclear, any claim you were unsure about, and "
-        "anything the reviewer should double-check. Write 'None' if there is nothing.)\n\n"
-        "The first five sections are spoken aloud, so write them as natural speech: "
-        "no bullet points, no stage directions, no emojis."
+        + build_style_rules(config)
+        + build_format_rules(config)
     )
 
 

@@ -292,6 +292,55 @@ def _log_credit(query, video_id, photographer):
         f.write(f"Video: {video_id} | Query: {query} | By: {photographer}\n")
 
 
+# Both stock sites allow free commercial use without payment. Neither
+# requires credit, but we record it anyway (see get_clip_credit).
+STOCK_LICENCES = {
+    "Pexels": {"name": "Pexels License", "url": "https://www.pexels.com/license/"},
+    "Pixabay": {"name": "Pixabay Content License", "url": "https://pixabay.com/service/license-summary/"},
+}
+
+
+def get_clip_credit(clip_path):
+    """
+    Get the source, author and licence of a downloaded stock clip.
+
+    Args:
+        clip_path (str): A clip from get_video_clip().
+
+    Returns:
+        dict or None: {"source", "title", "author", "licence", "licence_url",
+                       "page_url"}, or None if no details were saved.
+
+    Example:
+        get_clip_credit("cache/stock_video/abc.mp4")["licence"]
+        # → "Pixabay Content License"
+    """
+    meta_path = clip_path.replace(".mp4", "_meta.json")
+    if not os.path.exists(meta_path):
+        return None
+    with open(meta_path, "r", encoding="utf-8") as f:
+        meta = json.load(f)
+
+    source = meta.get("source", "")
+    licence = meta.get("licence", "")
+    licence_url = meta.get("licence_url", "")
+    if not source:
+        # Clips downloaded before sources were recorded. They can only have
+        # come from Pexels or Pixabay, and both licences allow commercial use.
+        source = "Pixabay or Pexels (recorded before source tracking)"
+        licence = "Pixabay Content License or Pexels License"
+        licence_url = STOCK_LICENCES["Pixabay"]["url"]
+
+    return {
+        "source": source,
+        "title": f"{meta.get('query', '')} (video {meta.get('id', '?')})",
+        "author": meta.get("photographer", "Unknown"),
+        "licence": licence,
+        "licence_url": licence_url,
+        "page_url": meta.get("page_url", ""),
+    }
+
+
 def get_video_clip(query, variant=0):
     """
     Find one stock video clip matching the query and download it.
@@ -334,6 +383,8 @@ def get_video_clip(query, variant=0):
         is_portrait = False
         photographer = "Unknown"
         video_id = 0
+        source = ""
+        page_url = ""
 
         # Priority 1: Pexels portrait (best quality for 9:16 output).
         videos = _search_pexels_video(query, orientation="portrait")
@@ -343,6 +394,7 @@ def get_video_clip(query, variant=0):
             download_url, is_portrait = _pick_best_video_file(files, prefer_portrait=True)
             photographer = video_obj.get("user", {}).get("name", "Unknown")
             video_id = video_obj.get("id", 0)
+            source, page_url = "Pexels", video_obj.get("url", "")
 
         # Priority 2: Pexels landscape (crop to 9:16 during frame extraction).
         if not download_url:
@@ -353,6 +405,7 @@ def get_video_clip(query, variant=0):
                 download_url, is_portrait = _pick_best_video_file(files, prefer_portrait=False)
                 photographer = video_obj.get("user", {}).get("name", "Unknown")
                 video_id = video_obj.get("id", 0)
+                source, page_url = "Pexels", video_obj.get("url", "")
 
         # Priority 3: Pixabay vertical (free, no attribution required).
         if not download_url:
@@ -362,6 +415,7 @@ def get_video_clip(query, variant=0):
                 download_url, is_portrait = _pick_pixabay_video_url(video_obj)
                 photographer = video_obj.get("user", "Unknown")
                 video_id = video_obj.get("id", 0)
+                source, page_url = "Pixabay", video_obj.get("pageURL", "")
 
         # Priority 4: Pixabay horizontal (crop to 9:16).
         if not download_url:
@@ -371,6 +425,7 @@ def get_video_clip(query, variant=0):
                 download_url, is_portrait = _pick_pixabay_video_url(video_obj)
                 photographer = video_obj.get("user", "Unknown")
                 video_id = video_obj.get("id", 0)
+                source, page_url = "Pixabay", video_obj.get("pageURL", "")
 
         if not download_url:
             # No clip found anywhere — the caller decides what to show instead.
@@ -388,6 +443,10 @@ def get_video_clip(query, variant=0):
                 "query": query,
                 "id": video_id,
                 "photographer": photographer,
+                "source": source,
+                "page_url": page_url,
+                "licence": STOCK_LICENCES[source]["name"],
+                "licence_url": STOCK_LICENCES[source]["url"],
             }, f)
 
         _log_credit(query, video_id, photographer)

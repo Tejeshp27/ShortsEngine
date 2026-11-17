@@ -34,10 +34,15 @@ RSS feeds ──► dedupe + filter ──► Claude Haiku (rank) ──► Clau
 
 1. **Fetches** stories from RSS feeds (NPR, PBS NewsHour, BBC)
 2. **Ranks** them with Claude Haiku (~$0.001/run) to find the most newsworthy story
-3. **Writes** a neutral, sourced script with Claude Sonnet — hook, story, why it matters, what's next
+3. **Writes** a neutral, sourced script with Claude Sonnet in the channel's style ("News Made
+   Simple": hook → what happened → simple explanation/analogy → why it matters → each side →
+   what's next → slogan), then **self-checks** it with Claude Haiku (hook, clarity, neutrality,
+   accuracy against the source, plus word-count checks in code) and rewrites once if needed
 4. **Saves** every script to the database as `drafted` for human review
-5. **Renders** a fully animated 9:16 MP4: stock footage playing full-screen the whole time,
-   an animated graphic for every sentence, and word-by-word captions (see below)
+5. **Renders** a fully animated 9:16 MP4: a new shot every 1–3 seconds (licensed stock footage
+   or real Creative Commons photos of named people and places), an animated graphic for every
+   sentence, keyword captions in the safe zone, naturally paced voice, ducking music and sound
+   effects at -14 LUFS — after an automatic **quality gate** (see below)
 6. **Approves** scripts and videos through a FastAPI web dashboard
 7. **Publishes** approved videos as Instagram and Facebook Page Reels (Meta Graph API)
    and YouTube Shorts (YouTube Data API), using resumable uploads so no public
@@ -45,7 +50,7 @@ RSS feeds ──► dedupe + filter ──► Claude Haiku (rank) ──► Clau
 8. **Collects daily account and public-post metrics** from connected accounts and
    feeds saved performance back into ranking; live connections require approved platform access
 
-A typical full run costs **$0.04–$0.06** in AI API calls (script ≈ 1–3¢, animated storyboard ≈ 3¢).
+A typical full run costs **$0.05–$0.08** in AI API calls (script + self-check ≈ 2–4¢, animated storyboard ≈ 3–4¢), plus the voice (free, or ~$0.30 with ElevenLabs at the configured rate).
 
 ---
 
@@ -127,9 +132,10 @@ python -m src.main --report
 
 | Layer | What it is | Code |
 |-------|-----------|------|
-| 1. Footage | A real stock video clip playing full-screen, so the background is never blank or still | `src/video/animation/footage.py` |
-| 2. Graphic | One animated graphic per sentence — nine templates: headline, name card, icon label, counting number, versus, bullet list, timeline, bar chart, stamp | `src/video/animation/scenes.py` |
-| 3. Overlays | Word-by-word captions with the spoken word highlighted, a progress bar, a section label, and a wipe between sections | `src/video/animation/overlays.py` |
+| 1. Background | A new shot at least every 2.8 s: a freely licensed photo of the person/place named (Wikimedia Commons, slow zoom) or a hand-checked stock clip (slow pan) | `photos.py`, `footage.py`, `shots.py` |
+| 2. Graphic | One animated graphic per sentence — ten templates: headline, name card (with photo), icon label, counting number, versus, analogy, bullet list, timeline, bar chart, stamp | `src/video/animation/scenes.py` |
+| 3. Overlays | 1–3-word captions with the keyword in the accent colour, inside the platforms' safe zone; brand bug, section label, progress bar, section wipes and an end card | `src/video/animation/overlays.py` |
+| Sound | Paced voice, quiet music that ducks under it, whooshes and pops — CC0 or your own licensed tracks only, mixed to -14 LUFS | `src/video/pacing.py`, `src/video/sound_design.py` |
 
 **How it works**
 
@@ -148,6 +154,12 @@ python -m src.main --report
 4. **Render loop** (`renderer.py`) — for each of the ~30 frames per second: take the next
    picture from the footage clip, draw the graphic and overlays on it with Pillow, and pipe it
    straight to FFmpeg. A 95-second video renders in about 90 seconds.
+
+5. **Quality gate** (`quality_gate.py`) — before drawing any frame, the plan is checked: no shot
+   over 3 s, every scene has a visual, every clip/photo/sound has a licence and credit, captions
+   stay in the safe zone, the soundtrack is about -14 LUFS, and the video is near the target
+   length. Errors stop the render; warnings are saved in `<video>_quality.json`. Credits are
+   saved in `<video>_credits.txt`. See `docs/video-quality-upgrade.md` for the full audit.
 
 Colours, frame rate, footage topics and the storyboard model are all per-channel settings
 under `video.animation` and `models.storyboard` in the channel YAML. Icons are Google's

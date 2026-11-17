@@ -17,10 +17,13 @@ from src.generation.prompts import (
     WORDS_PER_SECOND,
     build_writing_system_prompt,
     build_writing_user_message,
+    section_names,
 )
+from src.generation.reviewer import format_quality_section, review_and_improve
+from src.generation.sections import is_spoken_section
 
-# These sections are read aloud, so only they count toward the video length.
-SPOKEN_SECTIONS = ["Hook", "Story", "Why it matters", "What happens next", "Closing line"]
+# The sections a script must have when no channel config is given.
+DEFAULT_SECTION_NAMES = ["Hook", "Story", "Why it matters", "What happens next", "Closing line"]
 
 
 def slugify(text, max_length=60):
@@ -87,34 +90,40 @@ def count_spoken_words(script_text):
 
     Returns:
         int: Number of words in the spoken sections only
-             (the reviewer notes are not read aloud).
+             (the reviewer notes and quality check are not read aloud).
     """
     sections = extract_sections(script_text)
     total = 0
-    for name in SPOKEN_SECTIONS:
-        total += len(sections.get(name, "").split())
+    for name, text in sections.items():
+        if is_spoken_section(name):
+            total += len(text.split())
     return total
 
 
-def find_missing_sections(script_text):
+def find_missing_sections(script_text, required_names=None):
     """
     List the required spoken sections that the model forgot.
 
     Args:
         script_text (str): The full script from the model.
+        required_names (list[str] or None): The channel's section names
+            (from prompts.section_names). None uses the default five.
 
     Returns:
         list[str]: Names of missing sections (empty if all are present).
     """
+    if required_names is None:
+        required_names = DEFAULT_SECTION_NAMES
     sections = extract_sections(script_text)
     missing = []
-    for name in SPOKEN_SECTIONS:
+    for name in required_names:
         if name not in sections:
             missing.append(name)
     return missing
 
 
-def build_script_file(story, script_text, config, writing_model, run_date, dry_run=False):
+def build_script_file(story, script_text, config, writing_model, run_date, dry_run=False,
+                      quality_text=""):
     """
     Put together the full Markdown file: details, script, and sources.
 
@@ -125,6 +134,8 @@ def build_script_file(story, script_text, config, writing_model, run_date, dry_r
         writing_model (str): The model that wrote the script.
         run_date (str): Today's date as "YYYY-MM-DD".
         dry_run (bool): If True, mark the file as a dry-run placeholder.
+        quality_text (str): The "## Quality check" section, or "" if the
+                            script was not checked.
 
     Returns:
         str: The complete file contents.
@@ -149,6 +160,9 @@ def build_script_file(story, script_text, config, writing_model, run_date, dry_r
     lines.append("")
     lines.append(script_text.strip())
     lines.append("")
+    if quality_text:
+        lines.append(quality_text)
+        lines.append("")
     lines.append("---")
     lines.append("")
     lines.append("## Sources")
@@ -207,14 +221,22 @@ def write_script(story, article_text, config, channel_key, llm):
         purpose="writing",
     )
 
+    quality_text = ""
     if not llm.dry_run:
-        missing = find_missing_sections(script_text)
+        # Score the draft with the cheap model and rewrite it once if it
+        # falls short (see reviewer.py). Turned off with quality_check.enabled.
+        if (config.get("quality_check") or {}).get("enabled", False):
+            script_text, report = review_and_improve(script_text, story, article_text, config, llm)
+            quality_text = format_quality_section(report)
+            print(f"  {quality_text.splitlines()[2][2:]}")
+
+        missing = find_missing_sections(script_text, section_names(config))
         if missing:
             print(f"  WARNING: The script is missing these sections: {', '.join(missing)}")
 
     run_date = date.today().isoformat()
     file_text = build_script_file(story, script_text, config, writing_model,
-                                  run_date, dry_run=llm.dry_run)
+                                  run_date, dry_run=llm.dry_run, quality_text=quality_text)
 
     output_path = choose_output_path(channel_key, run_date, story["title"])
     os.makedirs(os.path.dirname(output_path), exist_ok=True)

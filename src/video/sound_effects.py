@@ -72,7 +72,9 @@ def get_hook_sound(query="news intro impact hit"):
         "query": query,
         "token": api_key,
         "fields": "id,name,previews,duration,license",
-        "filter": "duration:[0 TO 3]",  # only short sounds
+        # Only short sounds, and only CC0 (public domain): other Freesound
+        # licences may forbid commercial use or require credit.
+        "filter": 'duration:[0 TO 3] license:"Creative Commons 0"',
         "page_size": 10,
         "sort": "rating_desc",          # highest-rated first
     })

@@ -19,6 +19,16 @@ from PIL import ImageDraw, ImageEnhance, ImageFont
 VIDEO_WIDTH = 1080
 VIDEO_HEIGHT = 1920
 
+# The "safe zone": the part of the screen that TikTok, Reels and Shorts
+# never cover with their own buttons and text. Captions must stay inside.
+#   - top 220 px: the app's top bar (Following / For You, search)
+#   - right 150 px: the like / comment / share buttons
+#   - bottom 440 px: the username, description and music line
+SAFE_LEFT = 90
+SAFE_RIGHT = 930
+SAFE_TOP = 220
+SAFE_BOTTOM = 1480
+
 # The project root folder, worked out from this file's location
 # (this file is at <root>/src/video/animation/drawing.py).
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(

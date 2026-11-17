@@ -167,7 +167,14 @@ def paid_ai_steps(config, kind, payload):
         steps.append(("ranking", RANKING_INPUT_CEILING))
     if kind == "generate":
         article_chars = config.get("articles", {}).get("max_chars", 6000)
-        steps.append(("writing", article_chars * TOKENS_PER_ARTICLE_CHAR_CEILING + WRITING_PROMPT_CEILING))
+        writing_input = article_chars * TOKENS_PER_ARTICLE_CHAR_CEILING + WRITING_PROMPT_CEILING
+        steps.append(("writing", writing_input))
+        # The automatic script check (reviewer.py): a score, at most one
+        # rewrite (which also carries the first draft), and a second score.
+        if (config.get("quality_check") or {}).get("enabled", False):
+            steps.append(("review", writing_input))
+            steps.append(("rewrite", writing_input + WRITING_PROMPT_CEILING))
+            steps.append(("review", writing_input))
     if job_renders_video(kind, payload) and payload.get("animated", True):
         steps.append(("storyboard", STORYBOARD_INPUT_CEILING))
     return steps

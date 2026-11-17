@@ -91,7 +91,7 @@ def channel_config(channel):
                     the YAML is broken, or the channel has no name.
 
     Example:
-        channel_config("news")["name"]   # → "News Explained"
+        channel_config("news")["name"]   # → "News Made Simple"
     """
     if not re.fullmatch(VALID_CHANNEL_NAME, channel):
         raise ValueError("Choose a valid channel.")
