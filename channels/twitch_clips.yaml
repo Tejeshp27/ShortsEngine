@@ -186,6 +186,11 @@ schedule:
   timezone: "America/Chicago"      # your local time zone
   post_times: ["12:00", "19:00"]   # 24-hour clock
 
+# Raw-source collection settings for the current acquisition-first phase.
+acquisition:
+  only: true                  # current phase: acquire/store sources; skip automatic editing and posting
+  max_upload_mb: 2048          # bounded browser upload size; large existing recordings can use local-path import
+
 # Free, explainable local scoring. Scores estimate usefulness, not future views.
 analysis:
   max_clips_per_recording: 3   # maximum distinct moments from each completed recording

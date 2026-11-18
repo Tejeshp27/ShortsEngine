@@ -7,9 +7,14 @@
 import json
 import re
 import secrets
+import shutil
+import subprocess
+from pathlib import Path
 
 import yaml
-from fastapi import APIRouter, Form, Request
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse
+from starlette.concurrency import run_in_threadpool
 
 from src.clips.automation import set_enabled
 from src.clips.settings import find_approved_streamer, load_clip_settings
@@ -19,6 +24,117 @@ from src.dashboard.settings import channel_config, list_channels
 from src.storage.database import get_connection
 
 router = APIRouter()
+
+
+@router.get("/clips/{channel}/sources")
+def raw_sources_page(request: Request, channel: str):
+    """Read a private channel's acquisition library for this request; return raw-source status and upload controls."""
+    from src.clips.acquisition import source_library
+    config = clip_config(channel)
+    return render_page(request, "clip_sources.html", {
+        "channel":channel, "config":config, "settings":load_clip_settings(config),
+        **source_library(channel, config), "submission_id":secrets.token_urlsafe(24),
+    })
+
+
+@router.get("/clips/{channel}/sources/{kind}/{source_id}/file")
+def raw_source_file(channel: str, kind: str, source_id: int):
+    """Serve one channel's permitted stored source by kind/ID; return private ranged video playback or a 404."""
+    import mimetypes
+    from src.clips.acquisition import local_source
+    from src.clips.settings import StreamerNotApproved
+    try:
+        path = local_source(channel, clip_config(channel), kind, source_id)
+    except (ValueError, StreamerNotApproved):
+        path = None
+    if path is None:
+        raise HTTPException(404, "This source has no accessible local video.")
+    return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0] or "application/octet-stream",
+                        headers={"Cache-Control":"no-store"})
+
+
+async def store_source_upload(file, config):
+    """
+    Save one browser-uploaded source under a generated staging filename.
+
+    Args:
+        file: FastAPI's uploaded file, never trusted as a filesystem path.
+        config: Channel settings containing the bounded upload-size limit.
+
+    Returns:
+        A completed staging path for the existing importer; removes fragments on failure.
+    """
+    from src.clips.finder import UPLOAD_EXTENSIONS
+    extension = Path(file.filename or "").suffix.lower()
+    if extension not in UPLOAD_EXTENSIONS:
+        raise ValueError("Choose an MP4, MOV, MKV or WebM source video.")
+    maximum = max(1, min(32768, int(config.get("acquisition", {}).get("max_upload_mb", 2048)))) * 1024 ** 2
+    folder = Path("cache/clips/incoming")
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / (secrets.token_hex(16) + extension)
+    partial = path.with_suffix(extension + ".part")
+    size = 0
+    try:
+        with partial.open("xb") as destination:
+            while True:
+                chunk = await file.read(1024 * 1024)
+                if not chunk:
+                    break
+                size += len(chunk)
+                if size > maximum:
+                    raise ValueError("Source exceeds this channel's browser upload limit.")
+                if shutil.disk_usage(folder).free < len(chunk) + 5 * 1024 ** 3:
+                    raise ValueError("Keep at least 5 GB free before importing source footage.")
+                destination.write(chunk)
+        if not size:
+            raise ValueError("The source file is empty.")
+        partial.replace(path)
+        return path
+    except Exception:
+        partial.unlink(missing_ok=True)
+        raise
+
+
+@router.post("/clips/{channel}/sources/upload")
+async def upload_raw_source(request: Request, channel: str, file: UploadFile = File(...),
+                            username: str = Form(...), platform: str = Form(...),
+                            confirmed: bool = Form(False), form_token: str = Form("")):
+    """
+    Import a permission-confirmed browser video for a creator into the existing raw cache; return to its source library.
+
+    Args:
+        request: The authenticated browser request.
+        channel: The target clips channel.
+        file: The uploaded completed source video.
+        username: Its approved creator login, used for attribution.
+        platform: twitch or kick, matching that creator.
+        confirmed: The user's confirmation that the file is complete and authorized.
+        form_token: The existing session's CSRF token.
+
+    Returns:
+        A redirect after fingerprinting/import. No analysis, rendering or publishing job is launched here.
+    """
+    from src.clips.recordings import import_recording
+    from src.clips.settings import StreamerNotApproved
+    require_form_token(request, form_token)
+    config = clip_config(channel)
+    try:
+        find_approved_streamer(load_clip_settings(config), username, channel, platform)
+    except StreamerNotApproved as error:
+        raise ValueError(str(error)) from error
+    if not confirmed:
+        raise ValueError("Confirm this completed source is authorized before importing it.")
+    path = None
+    try:
+        path = await store_source_upload(file, config)
+        await run_in_threadpool(import_recording, channel, config, str(path), username, platform, True)
+    except (subprocess.CalledProcessError, OSError) as error:
+        raise ValueError("The source could not be read as a completed video. Check the file and available disk space.") from error
+    finally:
+        await file.close()
+        if path is not None:
+            path.unlink(missing_ok=True)
+    return redirect(f"/clips/{channel}/sources")
 
 
 def clip_config(channel):

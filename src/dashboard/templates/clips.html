@@ -2,6 +2,8 @@
 {% extends 'base.html' %}
 {% block title %}{{ config.name }} clips{% endblock %}
 {% block content %}
+<p><a class="btn btn-primary" href="/clips/{{ channel }}/sources">Open source-video library</a></p>
+{% if config.get('acquisition',{}).get('only') %}<section class="panel"><h2>Acquisition only</h2><p>Automatic cycles currently collect source footage. Analysis, editing and scheduled posting are paused.</p></section>{% endif %}
 <div class="page-heading"><div><div class="eyebrow"><a href="/clips">Stream clips</a> / {{ channel }}</div><h1>{{ config.name }}</h1><p>Recordings → scored highlights → captioned video → review → publishing queue.</p></div><a class="btn" href="/channels/{{ channel }}">Publishing accounts</a></div>
 <section class="panel"><div class="section-heading"><div><h2>Automation</h2><p>{{ 'Running' if (automation.enabled if automation else settings.automation.enabled) else 'Paused' }} · checks every {{ settings.automation.poll_seconds }} seconds · {{ 'review required' if settings.automation.require_approval else 'automatic approval enabled' }} · {{ 'publishing dry run' if settings.automation.publish_dry_run else 'scheduled uploads enabled' }}</p></div>
 <form method="post" action="/clips/{{ channel }}/automation"><input type="hidden" name="form_token" value="{{ form_token }}"><input type="hidden" name="enabled" value="{{ 'false' if (automation.enabled if automation else settings.automation.enabled) else 'true' }}"><button class="btn btn-primary">{{ 'Stop automation' if (automation.enabled if automation else settings.automation.enabled) else 'Start automation' }}</button></form></div>

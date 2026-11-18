@@ -5,6 +5,56 @@
 Read this file at the start of every session before reviewing or changing code.
 Update this file whenever significant behavior or architecture changes.
 
+### Resume here — owner stepping away (2026-11-18)
+
+The owner requested saving the handoff and committing all current work. The next
+session should resume **source acquisition**, then editing, then posting. Read
+`docs/video-acquisition-plan.md` and the latest `AUTOMATION_STATUS.md` first. This
+handoff takes priority over historical "next human steps" farther down this file.
+
+1. Check `git status`, the installed launchd services and
+   `output/runtime/health.json`. Preserve existing work and do not reinstall or
+   rebuild the working supervisor, source library, importer or editing pipeline.
+   Last verified: **503 tests pass**, 67 discovered sources, **0 stored creator
+   originals**, zero real creator clips/publications. Discovery counts can change;
+   query current state rather than treating this snapshot as live status.
+2. Keep `acquisition.only: true` in `channels/twitch_clips.yaml`. The private site
+   at `http://localhost:8000/clips/twitch_clips/sources` supports raw-source upload,
+   playback, seeking and duplicate prevention. Browser upload is a fallback, not
+   the requested unattended acquisition solution. Do not restart browser connection
+   troubleshooting unless it is needed for a concrete supported media route.
+3. Next engineering step: add bounded official Twitch **Get Videos** discovery
+   alongside existing Get Clips, reusing per-channel creator settings, database
+   identities and the source library. Recheck current official documentation and
+   existing source adapters before coding. Store source type/ID, creator, title,
+   duration and official URL; skip duplicates and label metadata as discovered,
+   never downloaded. Add offline tests; do not build another job queue or dashboard.
+4. Establish a real permitted automatic media-delivery route before claiming
+   acquisition works. Existing Twitch clip downloads need broadcaster/editor
+   authorization; the owner does not know Jason and cannot sign in as him. Do not
+   repeat that request. Twitch app credentials work, but a viewer login/public URL
+   does not establish download access. Full-VOD discovery alone also supplies no
+   video bytes. Kick credentials are absent; a general official VOD-download
+   connector has not been identified. Inspect current official interfaces and any
+   already-configured authorized recording/feed sources. Implement a provider
+   adapter only when its permitted interface and access are known; no speculative
+   private playback scraping or access-control bypasses. If all remaining routes
+   need owner action, document the precise missing access and ask one question.
+5. Reuse existing fingerprinted ingestion for a confirmed route. Bound transfers,
+   check disk space, use temporary files and atomic completion, retain attribution,
+   retry transient failures and skip known source IDs before downloading. Prove a
+   real authorized original plays with audio, repeats without duplication and
+   survives interrupted processing/restart. Record actual evidence; synthetic
+   uploads and remote metadata are not acquired creator footage.
+6. Update status, setup instructions and the plan as facts change; run pytest.
+   Editing starts after real-source acquisition is demonstrated, and posting comes
+   after editing. Keep account selection and publishing setup deferred. Do not
+   incur costs, expose credentials or push commits without an owner instruction.
+
+The Mac services run independently while the Mac is awake, powered, online and
+logged in. `AUTOMATION_STATUS.md` has a runtime-maintained section that may change
+after a commit; do not discard its audit or stop services just to hide that diff.
+
 ## What this project is
 
 **ShortsEngine** is a multi-channel content automation platform. It finds news and other
@@ -215,6 +265,26 @@ shortsengine/
    permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
+
+**Acquisition-first phase (2026-11-18, Codex, latest owner direction):** prioritize
+getting Twitch/Kick originals into the site; editing comes next, posting afterward.
+Plan: `docs/video-acquisition-plan.md`. First step implemented: private raw-source
+library at `/clips/twitch_clips/sources`, using existing discovery/recording tables
+and cache; browser upload of authorized completed recordings, original playback
+with range requests, existing fingerprint deduplication and permission checks.
+`src/clips/acquisition.py` separates discovered links from real local bytes.
+`acquisition.only: true` in the configured channel stops automatic cycles before
+Whisper/analysis/rendering and skips scheduled posting. Source upload only imports
+the original; it does not launch an editing job. Default browser limit is 2048 MB.
+New routes/template/tests reuse current authentication/CSRF, FFprobe and importer.
+**503 tests pass**; a real original synthetic video was uploaded, replayed byte
+for byte with seeking and imported twice without duplication in an isolated test.
+Actual acquisition-only worker job completed with 67 discovered entries, **0 stored
+creator sources**, no renders/uploads. Download access for Jason remains absent;
+Kick polling credentials are absent. Full-VOD/authorized feed adapters are later
+steps, not claimed implemented. No new dependency or paid service. Updated README,
+automation status and setup/launch notes. The owner has requested committing this
+working step with the resume instructions above; see Git history for its commit.
 
 **Independent automation pass (2026-11-18, Codex):** audited first; **476 baseline
 tests passed**, real dashboard HTTP/privacy checks passed, and live official Twitch

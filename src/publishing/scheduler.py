@@ -531,6 +531,8 @@ def run_scheduler(dry_run=False, only_channel=None):
             continue
         if not config.get("enabled", True):
             continue
+        if config.get("type") == "clips" and config.get("acquisition", {}).get("only", False):
+            continue
         if config.get("type") == "clips" and not dry_run:
             conn = get_connection()
             try:

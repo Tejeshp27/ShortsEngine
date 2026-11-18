@@ -1,6 +1,21 @@
 <!-- Engineering audit and evidence; the supervisor maintains only its marked live-status section. -->
 # Automation status — November 18, 2026 launch
 
+**Latest direction: acquisition first, editing second, posting third.** The first
+step of [the acquisition plan](docs/video-acquisition-plan.md) is implemented:
+private source-video library, browser import and original playback, with automatic
+analysis/editing/scheduled posting paused by `acquisition.only: true`.
+**503 tests pass**. Real-media upload/playback/deduplication were verified using an
+isolated original synthetic test video. The real acquisition-only cycle lists
+67 discoveries and **0 locally acquired creator videos**. Source access is still
+the next milestone; no automated remote VOD acquisition is being claimed.
+
+**Session handoff saved:** the owner is stepping away. Resume instructions are at
+the top of `CLAUDE.md`: next engineering step is bounded official Twitch VOD
+discovery, followed by establishing actual permitted automatic media delivery.
+Keep acquisition-only mode enabled; editing and posting remain deferred. Commit
+the current working step locally; no remote push was requested.
+
 **The Mac supervisor is installed and running. The system is not yet an autonomous
 public clipping channel: authorized media access and clipping-channel account
 connections remain unresolved, and TikTok inbox delivery still needs a human Post.**
@@ -147,8 +162,8 @@ Suggested commit after review: `feat: supervise clip automation with launchd and
 <!-- RUNTIME_STATUS_START -->
 ## Live supervisor status
 
-Updated: 2026-11-18 16:02:55 CST · PID 17351
-Free disk: 171.33 GB · Low-disk pause: False
+Updated: 2026-11-18 16:54:39 CST · PID 20796
+Free disk: 171.7 GB · Low-disk pause: False
 
 - twitch_clips: queue enabled=True; recordings=0; finished clips=0.
   - No authorized recording imported; remote media access still needs verification.

@@ -1,6 +1,14 @@
 <!-- November 18 launch log: verified evidence, owner actions and real publication counts. -->
 # Today’s launch — November 18, 2026 (America/Chicago)
 
+**Latest scope change:** the owner requested acquisition first, then editing, then
+posting. Step 1 of `docs/video-acquisition-plan.md` is implemented and tested: raw
+source library, direct browser import and private original playback. The channel
+is acquisition-only; automatic analysis/editing/scheduled posting are paused.
+503 tests pass. Live discovery lists 67 sources, but acquired creator videos and
+all publication counts remain zero. The earlier upload-today goal is deferred
+while the acquisition milestone is established.
+
 **Automation update:** completed a fresh audit before adding runtime work. Mac
 launchd supervisor/dashboard services are installed and crash recovery passed.
 Official Twitch discovery saved 32 public metadata candidates (five Jason clips),

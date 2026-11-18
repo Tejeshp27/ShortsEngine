@@ -1,5 +1,17 @@
 # ShortsEngine
 
+**Current focus: acquire source footage first.** Open the private
+[source-video library](http://localhost:8000/clips/twitch_clips/sources) to distinguish
+discovered Twitch links from stored original files, upload an authorized recording
+from Twitch/Kick, and play stored footage. No manual path entry or file movement
+is needed for browser uploads. This upload fallback is not unattended remote
+acquisition. The configured channel now uses `acquisition.only: true`, which pauses
+automatic transcription, editing and scheduled posting while source collection runs.
+See [the staged acquisition plan](docs/video-acquisition-plan.md).
+For the next development session, follow **Resume here** in [CLAUDE.md](CLAUDE.md):
+add bounded official VOD discovery, then establish and verify actual permitted
+media delivery. Discovery alone does not acquire editable video.
+
 The independent Mac clips supervisor is now installed with launchd. See
 [automation status](AUTOMATION_STATUS.md) for measured capabilities, current
 source/account blockers and live counts, and [human setup](HUMAN_SETUP_GUIDE.md)

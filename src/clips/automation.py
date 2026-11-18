@@ -110,6 +110,14 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
         scan_inboxes(channel, config, errors)
     except Exception as error:
         errors.append(safe_error(error))
+    from src.clips.acquisition import acquisition_only
+    if acquisition_only(config):
+        from src.clips.acquisition import source_library
+        library = source_library(channel, config)
+        return {"video_ids":[], "sources":statuses, "errors":errors,
+                "stored_sources":library["stored_count"], "listed_sources":library["listed_count"],
+                "message":"Acquisition-only cycle complete. Discovery and authorized imports ran; "
+                          "transcription, editing and publishing are paused."}
     process_recordings(channel, config)
     waiting = clips_with_status(channel, "picked") + clips_with_status(channel, "downloaded")
     made = []

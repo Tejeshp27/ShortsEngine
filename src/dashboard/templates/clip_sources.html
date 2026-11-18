@@ -1,0 +1,22 @@
+{# Raw source library: remote discoveries are distinct from stored, playable video files. #}
+{% extends 'base.html' %}
+{% block title %}Source videos — {{ config.name }}{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow"><a href="/clips/{{ channel }}">{{ config.name }}</a></div><h1>Source videos</h1><p>{{ stored_count }} stored locally · {{ listed_count }} sources listed (latest 100 per type).</p></div></div>
+{% if config.get('acquisition',{}).get('only') %}<section class="panel"><h2>Acquisition phase</h2><p>Automatic cycles discover and store footage. Transcription, editing and scheduled posting are paused.</p></section>{% endif %}
+<section class="panel"><h2>Add an authorized video</h2><p>Upload a completed recording or official clip export from either platform. The site stores the original, checks the video and avoids duplicate copies. This is the upload fallback; automatic remote acquisition still needs a supported media source.</p>
+<form method="post" enctype="multipart/form-data" action="/clips/{{ channel }}/sources/upload">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<div class="form-group"><label>Video file <input type="file" name="file" accept=".mp4,.mov,.mkv,.webm" required></label></div>
+<div class="form-group"><label>Creator <select name="username" required>{% for creator in settings.streamers %}{% if creator.enabled %}<option value="{{ creator.username }}">{{ creator.username }} ({{ creator.platform }})</option>{% endif %}{% endfor %}</select></label></div>
+<div class="form-group"><label>Platform <select name="platform"><option value="twitch">Twitch</option><option value="kick">Kick</option></select></label></div>
+<label class="checkbox"><input type="checkbox" name="confirmed" value="true" required> This recording is complete and I have permission to use it.</label>
+<p class="note">Browser upload limit: {{ config.get('acquisition',{}).get('max_upload_mb',2048) }} MB. Larger existing recordings can use the local import on the stream clips page.</p>
+<button class="btn btn-primary">Store source video</button></form></section>
+<form method="post" action="/clips/{{ channel }}/run"><input type="hidden" name="form_token" value="{{ form_token }}"><input type="hidden" name="submission_id" value="{{ submission_id }}"><button class="btn">Check for new sources</button></form>
+{% for source in sources %}<section class="panel"><h2>{{ source.title }}</h2><p>{{ source.platform|title }} / {{ source.streamer }} · {{ '%.1f'|format(source.duration) }} seconds</p><p><strong>{{ source.state }}</strong></p>
+{% if source.available %}<video controls preload="none" style="width:100%;max-height:480px" src="{{ source.playback_url }}"></video>
+{% else %}<p class="note">This entry is a discovery record. The site does not yet have an editable video file.</p>{% endif %}
+{% if source.external_url %}<a class="btn" href="{{ source.external_url }}" target="_blank" rel="noopener noreferrer">View official source</a>{% endif %}
+</section>{% else %}<p>No sources yet. Add a completed recording or check for sources.</p>{% endfor %}
+{% endblock %}
