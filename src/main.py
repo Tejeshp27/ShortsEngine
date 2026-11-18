@@ -50,9 +50,7 @@ from src.storage.history import load_processed, mark_processed, remove_processed
 from src.storage.queries import (
     add_video_cost,
     get_videos_by_status,
-    save_cost_event,
     save_video,
-    set_video_cost,
     set_video_path,
 )
 
@@ -505,9 +503,6 @@ def run_render_pipeline(args, config):
         llm = LLMClient(dry_run=False,
                         max_calls=config["llm"]["max_calls_per_run"], cost_tracker=tracker)
 
-    # Pass channel_config whenever visuals, animation or music is requested —
-    # all three read settings from it.
-    needs_config = use_visuals or use_animated or use_music
     try:
         video_path = render_video(
             script_path=script_path,

@@ -91,3 +91,35 @@ def test_verification_failure_keeps_upload_reservation(runtime_space, monkeypatc
     assert connection.execute("SELECT status FROM publishing_deliveries").fetchone()[0] == "succeeded"
     assert connection.execute("SELECT COUNT(*) FROM platform_posts").fetchone()[0] == 0
     connection.close()
+
+
+@pytest.mark.parametrize("status,waited,expected", [
+    (None, 0, True),                       # never checked before
+    ("uploaded", 60, False),               # still processing, checked a minute ago
+    ("uploaded", 5 * 60, True),            # still processing, five minutes passed
+    ("processed", 5 * 60, False),          # private YouTube video: waits for a person
+    ("processed", 6 * 60 * 60, True),
+    ("SEND_TO_USER_INBOX", 60 * 60, False),
+    ("failed", 10 ** 7, False),            # finished answers are never asked again
+    ("not_found", 10 ** 7, False),
+    ("FAILED", 10 ** 7, False),
+    ("public", 10 ** 7, False),
+])
+def test_check_interval_depends_on_last_answer(status, waited, expected):
+    """Feed saved statuses and waiting times; assert stable or finished uploads are not polled every five minutes."""
+    checked_at = None if status is None else 1000.0
+    assert verification.is_due_for_check(status, checked_at, 1000.0 + waited) == expected
+
+
+def test_private_youtube_upload_is_not_repolled_every_run(runtime_space, monkeypatch):
+    """Verify a processed private upload twice in a row; assert the platform is asked only once (protects API quota)."""
+    from src.dashboard import accounts
+    add_delivery()
+    monkeypatch.setattr(accounts,"get_account",Mock(return_value={"id":1}))
+    monkeypatch.setattr(accounts,"access_token",Mock(return_value="test-token"))
+    check=Mock(return_value={"status":"processed","public_url":"","details":{}})
+    monkeypatch.setattr(verification,"fetch_status",check)
+    assert verification.verify_deliveries()[0]["status"] == "processed"
+    monkeypatch.setattr(verification.time,"time",Mock(return_value=verification.time.time() + 10 * 60))
+    assert verification.verify_deliveries() == []
+    check.assert_called_once()

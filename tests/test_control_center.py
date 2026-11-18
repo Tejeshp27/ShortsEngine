@@ -4,7 +4,6 @@
 # account isolation without spending money or touching real files.
 # =============================================================
 
-import json
 import re
 import shutil
 import time
@@ -21,7 +20,7 @@ from src.dashboard.app import create_app
 from src.storage import database
 from src.storage.database import create_tables, get_connection
 from src.storage.finance import CostTracker, add_money_entry, money_summary, utc_now
-from src.storage.queries import approve_video, get_video_by_id, save_video, set_video_path
+from src.storage.queries import approve_video, get_video_by_id, save_video
 
 PROJECT = Path(__file__).resolve().parents[1]
 SCRIPT = """# Test story

@@ -33,7 +33,6 @@ from src.video.animation.drawing import (
     SAFE_LEFT,
     SAFE_RIGHT,
     draw_text,
-    fit_font_size,
     get_font,
     hex_to_rgb,
     text_width,

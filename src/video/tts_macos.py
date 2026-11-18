@@ -33,9 +33,6 @@ import json
 import os
 import subprocess
 import tempfile
-import wave
-
-import numpy as np
 
 
 def _add_section_pauses(text):

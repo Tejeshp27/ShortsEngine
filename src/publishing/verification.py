@@ -11,6 +11,49 @@ import httpx
 
 from src.storage.database import get_connection
 
+# How long to wait before asking a platform about the same upload again.
+# A video still being processed is checked often; a video that only
+# changes when a person acts (making it public, posting from the TikTok
+# inbox) is checked rarely so it cannot use up the daily API quota.
+CHECK_AGAIN_SOON_SECONDS = 5 * 60
+CHECK_AGAIN_LATER_SECONDS = 6 * 60 * 60
+MAXIMUM_CHECKS_PER_RUN = 10
+
+# Answers that never change on their own: stop asking about these uploads.
+# (YouTube uses lowercase words; TikTok uses capitals.)
+FINISHED_STATUSES = {"failed", "rejected", "deleted", "not_found", "FAILED"}
+
+# Answers that only change after a person does something on the platform:
+# a processed YouTube video that is still private, a TikTok video waiting in
+# the inbox, or a TikTok post that finished but is not public.
+WAITING_FOR_PERSON_STATUSES = {"processed", "SEND_TO_USER_INBOX", "PUBLISH_COMPLETE"}
+
+
+def is_due_for_check(last_status, last_checked_at, now):
+    """
+    Decide whether an upload should be checked again on this run.
+
+    Args:
+        last_status: The answer saved from the previous check, or None if never checked.
+        last_checked_at: When that check happened (seconds since 1970), or None.
+        now: The current time in the same units.
+
+    Returns:
+        True if the platform should be asked again now, otherwise False.
+
+    Example:
+        is_due_for_check(None, None, 1000)            # → True (never checked)
+        is_due_for_check("failed", 0, 10 ** 9)        # → False (will never change)
+    """
+    if last_checked_at is None:
+        return True
+    if last_status == "public" or last_status in FINISHED_STATUSES:
+        return False
+    waited = now - last_checked_at
+    if last_status in WAITING_FOR_PERSON_STATUSES:
+        return waited >= CHECK_AGAIN_LATER_SECONDS
+    return waited >= CHECK_AGAIN_SOON_SECONDS
+
 
 def create_table():
     """Add a persistent upload-verification table if needed; return nothing and retain all delivery history."""
@@ -76,22 +119,37 @@ def fetch_status(platform, post_id, token):
 
 
 def verify_deliveries():
-    """Check at most ten due clip deliveries every five minutes each; return verified rows without re-uploading anything."""
+    """
+    Ask YouTube/TikTok about accepted clip uploads that are due a check; never re-upload anything.
+
+    Returns:
+        A list with one result per upload checked on this run (at most ten).
+        How often each upload is checked depends on its last answer; see is_due_for_check.
+    """
     from src.dashboard.accounts import access_token, get_account, safe_error
 
     create_table()
     connection = get_connection()
     try:
-        rows = connection.execute("""
-            SELECT d.*, v.channel FROM publishing_deliveries d
+        candidates = connection.execute("""
+            SELECT d.*, v.channel, p.status AS last_status, p.checked_at AS last_checked_at
+            FROM publishing_deliveries d
             JOIN videos v ON v.id=d.video_id JOIN clips c ON c.video_id=v.id
             LEFT JOIN publishing_checks p ON p.video_id=d.video_id AND p.platform=d.platform
             WHERE d.status='succeeded' AND d.post_id IS NOT NULL AND d.platform IN ('youtube','tiktok')
-              AND (p.checked_at IS NULL OR (p.checked_at < ? AND p.status <> 'public'))
-            ORDER BY COALESCE(p.checked_at,0) LIMIT 10
-        """, (time.time()-300,)).fetchall()
+              AND (p.status IS NULL OR p.status <> 'public')
+            ORDER BY COALESCE(p.checked_at,0)
+        """).fetchall()
     finally:
         connection.close()
+    # Oldest checks come first, so every upload gets its turn.
+    now = time.time()
+    rows = []
+    for candidate in candidates:
+        if len(rows) >= MAXIMUM_CHECKS_PER_RUN:
+            break
+        if is_due_for_check(candidate["last_status"], candidate["last_checked_at"], now):
+            rows.append(candidate)
     results = []
     for row in rows:
         try:

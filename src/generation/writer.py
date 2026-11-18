@@ -151,7 +151,7 @@ def build_script_file(story, script_text, config, writing_model, run_date, dry_r
         lines.append("")
     lines.append(f"- **Channel:** {config['name']}")
     lines.append(f"- **Date:** {run_date}")
-    lines.append(f"- **Status:** draft — needs human review before use")
+    lines.append("- **Status:** draft — needs human review before use")
     lines.append(f"- **Written by:** {writing_model}")
     lines.append(f"- **Spoken words:** {spoken_words} "
                  f"(~{estimated_seconds}s; target {config['target_length_seconds']}s)")

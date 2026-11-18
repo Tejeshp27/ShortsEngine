@@ -57,7 +57,6 @@ from src.dashboard.auth import (
 from src.storage.database import create_tables
 from src.storage.queries import (
     approve_video,
-    get_all_videos,
     get_video_by_id,
     get_videos_by_status,
     reject_video,

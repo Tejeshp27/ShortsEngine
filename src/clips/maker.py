@@ -29,7 +29,7 @@ from src.clips.transcribe import TranscriptionError, transcribe_clip
 from src.generation.llm import CallLimitReached, LLMError
 from src.storage.database import get_connection
 from src.storage.finance import CostTracker
-from src.storage.queries import get_video_by_id, save_video, set_video_path
+from src.storage.queries import get_video_by_id, set_video_path
 
 # Shortest moment the review form accepts, in seconds.
 MIN_RETRIM_SECONDS = 3

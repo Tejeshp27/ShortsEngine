@@ -10,9 +10,7 @@
 
 import json
 import os
-import tempfile
 
-import pytest
 
 from src.video.charts import _parse_chart_data, make_chart
 from src.video.stock import _pick_best_photo, _cache_path_for_query, fetch_stock_photo
@@ -179,7 +177,6 @@ class TestFetchStockPhoto:
         """When PEXELS_API_KEY is set, the function should attempt to fetch
         (we mock urllib so no real network call is made)."""
         import unittest.mock as mock
-        import urllib.request
 
         monkeypatch.setenv("PEXELS_API_KEY", "fake-key-for-test")
 

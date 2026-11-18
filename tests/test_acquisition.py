@@ -10,7 +10,7 @@ from unittest.mock import Mock
 import pytest
 import yaml
 
-from src.clips import acquisition, automation, maker, monitor, recordings, store
+from src.clips import automation, maker, monitor, recordings, store
 from src.clips.demo import demo_config
 from src.dashboard import jobs
 from src.generation.llm import LLMClient

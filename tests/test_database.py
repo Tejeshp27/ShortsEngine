@@ -6,9 +6,6 @@
 # in a temp folder so tests never interfere with each other.
 # =============================================================
 
-import os
-import sys
-import tempfile
 
 import pytest
 

@@ -10,9 +10,7 @@
 
 import json
 import os
-import tempfile
 
-import pytest
 
 from src.video.scene_planner import (
     _split_into_segments,

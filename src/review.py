@@ -13,7 +13,6 @@
 # and waits for your decision.
 # =============================================================
 
-import os
 
 from src.storage.queries import (
     approve_video,
@@ -43,7 +42,7 @@ def _print_video_summary(video):
     if video["video_path"]:
         print(f"Video    : {video['video_path']}")
     else:
-        print(f"Video    : (not yet rendered)")
+        print("Video    : (not yet rendered)")
     print(f"Cost     : ${video['total_cost_usd']:.4f}")
     print(f"Created  : {video['created_at']}")
 

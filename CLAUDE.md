@@ -15,7 +15,7 @@ handoff takes priority over historical "next human steps" farther down this file
 1. Check `git status`, the installed launchd services and
    `output/runtime/health.json`. Preserve existing work and do not reinstall or
    rebuild the working supervisor, source library, importer or editing pipeline.
-   Last verified: **503 tests pass**, 67 discovered sources, **0 stored creator
+   Last verified: **514 tests pass** (2026-11-18 review), 67 discovered sources, **0 stored creator
    originals**, zero real creator clips/publications. Discovery counts can change;
    query current state rather than treating this snapshot as live status.
 2. Keep `acquisition.only: true` in `channels/twitch_clips.yaml`. The private site
@@ -265,6 +265,17 @@ shortsengine/
    permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
+
+**Full-repo review (2026-11-18, Claude Code):** audited security (login gate,
+CSRF on every POST, path guards, allow-listed dynamic SQL, `.env` 0600,
+dashboard bound to 127.0.0.1), Python 3.11 compatibility for CI/Docker, and
+the Codex clips/runtime modules. Fixed one latent bug: `verify_deliveries`
+re-polled every non-public upload every 5 minutes forever (private YouTube
+validation uploads, TikTok inbox items, failed/deleted uploads), which would
+exhaust YouTube's daily quota within weeks. Finished answers are now never
+re-checked and person-dependent states (private/inbox) every 6 hours
+(`is_due_for_check` in `publishing/verification.py`). Removed unused imports
+and a stale variable. **514 tests pass.**
 
 **Acquisition-first phase (2026-11-18, Codex, latest owner direction):** prioritize
 getting Twitch/Kick originals into the site; editing comes next, posting afterward.

@@ -15,13 +15,11 @@
 # =============================================================
 
 import json
-import os
 import urllib.request
 import urllib.parse
 from datetime import datetime, timezone
 
 from src.storage.database import get_connection
-from src.storage.queries import get_videos_by_status
 
 
 def _ensure_metrics_table():
