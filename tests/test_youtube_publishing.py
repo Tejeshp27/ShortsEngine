@@ -135,12 +135,21 @@ def test_public_youtube_upload_is_recorded(approved_video, monkeypatch):
 
 
 def test_private_youtube_upload_succeeds_but_is_not_a_public_post(approved_video, monkeypatch):
-    """A private (unaudited) upload is delivered, but not recorded as public."""
+    """
+    A private upload is delivered, but not recorded as public.
+
+    Args:
+        approved_video: The ID of an approved rendered video in an isolated test database.
+        monkeypatch: The pytest helper that temporarily replaces functions and settings.
+
+    Returns:
+        Nothing; assertions verify the expected behavior.
+    """
     monkeypatch.setattr(youtube, "upload_short", Mock(return_value={"id": "vid12345678", "public": False}))
     messages, fully_posted = scheduler.publish_video_now("news", {"platforms": ["youtube"]}, approved_video)
     assert fully_posted
     assert public_posts() == []
-    assert "private" in messages[0] and "YouTube Studio" in messages[0]
+    assert "non-public" in messages[0] and "YouTube Studio" in messages[0]
 
 
 # ---------------------------------------------------------------------------

@@ -29,10 +29,31 @@
 import json
 import os
 import urllib.request
+import urllib.error
 import urllib.parse
+
+from src.publishing.errors import NothingPublishedError
 
 
 TIKTOK_API_BASE = "https://open.tiktokapis.com/v2"
+
+
+def chunk_plan(video_size):
+    """
+    Given a file's size in bytes, return TikTok chunk size/count with trailing bytes merged into the final chunk.
+
+    Args:
+        video_size: The total video file size, in bytes.
+
+    Returns:
+        A pair containing the upload chunk size and total number of chunks.
+    """
+    if not 0 < video_size <= 4 * 1024 ** 3:
+        raise NothingPublishedError("TikTok files must be nonempty and no larger than 4 GB.")
+    # 32 MiB guarantees multiple chunks above 64 MiB. The final chunk
+    # can be larger than the others, as required by TikTok's transfer guide.
+    chunk_size = min(video_size, 32 * 1024 ** 2)
+    return chunk_size, max(1, video_size // chunk_size)
 
 
 def _tiktok_post(endpoint, payload, access_token):
@@ -102,6 +123,7 @@ def upload_to_drafts(video_path, access_token=None):
         raise RuntimeError(f"Video file not found: {video_path}")
 
     video_size = os.path.getsize(video_path)
+    chunk_size, total_chunks = chunk_plan(video_size)
 
     # Step 1: Tell TikTok we're about to upload and get an upload URL.
     # The inbox endpoint accepts only "source_info" (how the file arrives);
@@ -110,32 +132,35 @@ def upload_to_drafts(video_path, access_token=None):
         "source_info": {
             "source": "FILE_UPLOAD",
             "video_size": video_size,
-            "chunk_size": video_size,     # single chunk (up to 64 MB)
-            "total_chunk_count": 1,
+            "chunk_size": chunk_size,
+            "total_chunk_count": total_chunks,
         },
     }
 
-    init_response = _tiktok_post(
-        "/post/publish/inbox/video/init/", init_payload, token
-    )
+    try:
+        init_response = _tiktok_post("/post/publish/inbox/video/init/", init_payload, token)
+    except urllib.error.HTTPError as error:
+        if 400 <= error.code < 500:
+            raise NothingPublishedError(f"TikTok rejected upload initialization (HTTP {error.code}).") from error
+        raise
     publish_id = init_response["data"]["publish_id"]
     upload_url = init_response["data"]["upload_url"]
 
     # Step 2: Upload the video bytes.
-    with open(video_path, "rb") as f:
-        video_bytes = f.read()
-
-    upload_request = urllib.request.Request(
-        upload_url,
-        data=video_bytes,
-        method="PUT",
-    )
-    upload_request.add_header("Content-Type", "video/mp4")
-    upload_request.add_header("Content-Range", f"bytes 0-{video_size - 1}/{video_size}")
-
-    with urllib.request.urlopen(upload_request, timeout=120) as resp:
-        if resp.status not in (200, 201, 204):
-            raise RuntimeError(f"TikTok video upload failed with HTTP {resp.status}")
+    with open(video_path, "rb") as video_file:
+        offset = 0
+        for index in range(total_chunks):
+            size = chunk_size
+            if index == total_chunks - 1:
+                size = video_size - offset
+            video_bytes = video_file.read(size)
+            upload_request = urllib.request.Request(upload_url, data=video_bytes, method="PUT")
+            upload_request.add_header("Content-Type", "video/mp4")
+            upload_request.add_header("Content-Range", f"bytes {offset}-{offset + len(video_bytes) - 1}/{video_size}")
+            with urllib.request.urlopen(upload_request, timeout=120) as resp:
+                if resp.status not in (200, 201, 204, 206):
+                    raise RuntimeError(f"TikTok video upload failed with HTTP {resp.status}")
+            offset += len(video_bytes)
 
     print(f"  Uploaded to TikTok inbox (publish_id: {publish_id})")
     print("  Open the TikTok app → inbox → tap the notification to review and post.")

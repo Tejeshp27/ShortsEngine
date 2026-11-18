@@ -41,6 +41,7 @@ models:
 llm:
   max_calls_per_run: 15          # most paid AI calls one run may make (one per clip)
   clip_pick_max_tokens: 300      # hard cap on how much the model may write per clip (a short JSON answer)
+  clip_metadata_max_tokens: 400  # hard cap for optional speech assessment/title/description in the new pipeline
 
 # ---------------------------------------------------------------
 # Approved streamers. Each one needs written permission FIRST.
@@ -64,7 +65,58 @@ llm:
 #       height: 0.30  # webcam height, as a fraction of the stream height
 #     # No facecam set → the whole video is a centred vertical crop instead of a split screen.
 # ---------------------------------------------------------------
-streamers: []
+# The owner confirmed consent for these eight creators in this conversation.
+# The date records that confirmation; the original agreement dates/methods
+# were not supplied. No permission screenshots or API authorizations are implied.
+streamers:
+  - username: "kaicenat"                    # Kai Cenat's Twitch login
+    platform: "twitch"                     # source platform
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/twitch/kaicenat" # completed recordings from this creator only
+  - username: "adinross"                    # Adin Ross's Kick login
+    platform: "kick"                       # source platform; local recordings supply the footage
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/kick/adinross" # completed recordings from this creator only
+  - username: "stableronaldo"               # Stable Ronaldo's Twitch login (corrected spelling)
+    platform: "twitch"                     # source platform
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/twitch/stableronaldo" # completed recordings from this creator only
+  - username: "adapt"                       # Adapt's Twitch login
+    platform: "twitch"                     # source platform
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/twitch/adapt" # completed recordings from this creator only
+  - username: "marlon"                      # Marlon's Twitch login
+    platform: "twitch"                     # source platform
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/twitch/marlon" # completed recordings from this creator only
+  - username: "lacy"                        # Lacy's Twitch login
+    platform: "twitch"                     # source platform
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/twitch/lacy" # completed recordings from this creator only
+  - username: "jasontheween"                # JasonTheWeen's Twitch login
+    platform: "twitch"                     # source platform
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/twitch/jasontheween" # completed recordings from this creator only
+  - username: "silky"                       # Silky's Twitch login
+    platform: "twitch"                     # source platform
+    permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
+    permission_date: "2026-11-17"           # date the owner confirmed consent here
+    enabled: true                          # allow authorized ingestion; automation remains paused below
+    recording_directory: "recordings/twitch/silky" # completed recordings from this creator only
 
 # Which clips to look at and how long the finished videos may be.
 clips:
@@ -82,6 +134,7 @@ transcription:
 
 # How the 1080x1920 vertical video is laid out.
 layout:
+  template: gaming           # gaming: facecam split when configured; reaction: crop; conversation: whole frame on blur
   facecam_panel_height: 720   # pixels at the top used for the webcam (the gameplay gets the other 1200)
   gameplay_focus_x: 0.5       # which part of the gameplay to keep: 0 = left side, 0.5 = middle, 1 = right side
 
@@ -92,6 +145,15 @@ captions:
   text_color: "#FFFFFF"       # colour of the words
   highlight_color: "#FFE14D"  # colour of the word being spoken right now
   center_y: 1330              # height of the caption line (kept above TikTok's bottom text)
+  font_path: ""              # optional local TTF/OTF path; empty uses bundled Montserrat
+  outline_color: "#000000"   # outline color for contrast on bright gameplay
+  outline_width: 6           # outline thickness in output pixels
+
+# Optional editing of genuine audio silence. Reactions/game sounds stay intact.
+editing:
+  remove_long_silence: false   # opt in after reviewing this channel; preserves caption timing through cuts
+  silence_db: -45             # audio below this dB level counts as silent
+  minimum_silence_seconds: 2.5 # keep shorter pauses; remove only the middle of longer silent gaps
 
 # The hook title shown at the start of the video.
 hook_title:
@@ -104,7 +166,7 @@ credit:
   font_size: 40               # text height in pixels
 
 # Where approved clips go. TikTok receives them as drafts (you post in the app);
-# YouTube receives them as Shorts (private until Google audits your API project).
+# YouTube receives them with the privacy setting below; start with private.
 platforms: [tiktok, youtube]
 
 # Caption text. TikTok: you paste it in the app (drafts cannot carry a caption).
@@ -115,8 +177,7 @@ publishing:
 
 # YouTube upload settings.
 youtube:
-  privacy: public   # public, unlisted or private. Until Google audits your API project,
-                    # YouTube forces every upload to private anyway.
+  privacy: private  # private for validation; choose public or unlisted explicitly when ready
   category_id: 20   # YouTube's "Gaming" category
 
 # Automatic sending to TikTok drafts. While the dashboard runs, the newest
@@ -124,3 +185,31 @@ youtube:
 schedule:
   timezone: "America/Chicago"      # your local time zone
   post_times: ["12:00", "19:00"]   # 24-hour clock
+
+# Free, explainable local scoring. Scores estimate usefulness, not future views.
+analysis:
+  max_clips_per_recording: 3   # maximum distinct moments from each completed recording
+  minimum_score: 55           # estimated 0–100 score required before rendering
+  candidate_seconds: 35       # preferred duration before sentence/context adjustments
+  context_seconds: 5          # begin this many seconds before a detected reaction peak
+  use_llm: false              # optional metered Claude metadata; local text is free by default
+  weights:                    # relative weights; unavailable dimensions are excluded
+    entertainment: 0.25       # excitement terms plus audio contrast, not a semantic certainty
+    hook: 0.20                # an interesting opening in the first six seconds
+    audience: 0.15            # omitted unless real engagement data is available
+    clarity: 0.20             # speech coverage and complete endings
+    audio: 0.10               # audible sound, penalizing probable clipping
+    visual: 0.10              # sampled frame changes; does not recognize game events
+  excitement_terms: [wow, what, wait, unbelievable, "no way", amazing, why]  # speech cues to look for
+
+# Start from /clips/twitch_clips, or use the CLI watch command.
+automation:
+  enabled: false              # initial Start/Stop state; dashboard choice is persisted in SQLite
+  poll_seconds: 300           # seconds between monitoring/ingestion cycles
+  stable_file_seconds: 60     # ignore recently modified inbox files; use completed recordings only
+  max_recordings_per_run: 1   # bound expensive local work in each cycle
+  max_attempts: 3             # stop automatic retries after this many analysis/render failures
+  retry_seconds: 300          # initial retry delay; doubles after subsequent failures
+  require_approval: false     # owner requested autonomous clips; auto-approve only passing exports without quality warnings
+  publish_dry_run: true       # scheduled publishing logs a plan and sends nothing until false
+  max_uploads_per_day: 3      # distinct videos attempted per local day; both destinations share the reservation

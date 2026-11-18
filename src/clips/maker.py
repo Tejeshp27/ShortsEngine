@@ -18,6 +18,8 @@
 # =============================================================
 
 import os
+import json
+import subprocess
 from datetime import datetime, timezone
 
 from src.clips.moments import clean_hook_title, pick_moment
@@ -193,6 +195,9 @@ def words_for(clip, settings):
     Returns:
         list[dict]: The timed words.
     """
+    if clip.get("recording_id"):
+        from src.clips.recordings import recording_row, recording_words
+        return recording_words(recording_row(clip["recording_id"]), settings)
     cache_name = f"{clip['source']}_{clip['id']}"
     return transcribe_clip(clip["file_path"], cache_name, settings.transcription.whisper_model,
                            settings.transcription.language)
@@ -215,10 +220,37 @@ def render_and_save(config, settings, clip, moment, words, video_path, notes_pat
     from src.video.clip_render import render_clip_video
 
     facecam = facecam_for(clip, settings)
-    render_clip_video(clip["file_path"], moment["start"], moment["end"], words,
-                      moment["hook_title"], clip["credit_text"], facecam, settings, video_path)
+    if settings.layout.template == "reaction":
+        facecam = None
+    temporary_path = os.path.splitext(video_path)[0] + ".rendering.mp4"
+    from src.clips.editing import remove_long_silence
+    edited_source = os.path.splitext(video_path)[0] + ".edited.mp4"
+    os.makedirs(os.path.dirname(video_path), exist_ok=True)
+    editing_note = ""
+    try:
+        source, start, end, captions, cleanup = remove_long_silence(
+            clip["file_path"], moment["start"], moment["end"], words, edited_source, config.get("editing", {}))
+    except (ValueError, OSError, subprocess.CalledProcessError):
+        # Silence removal is optional; keep the original audio and timings if it fails.
+        source, start, end, captions, cleanup = clip["file_path"], moment["start"], moment["end"], words, None
+        editing_note = "Optional silence trimming failed; original audio and timing preserved."
+    try:
+        render_clip_video(source, start, end, captions,
+                          moment["hook_title"], clip["credit_text"], facecam, settings, temporary_path)
+    finally:
+        if cleanup and os.path.exists(cleanup):
+            os.remove(cleanup)
+    from src.clips.quality import check_export
+    report = check_export(temporary_path, end - start)
+    if editing_note:
+        report["editing_note"] = editing_note
+    update_clip(clip["id"], quality_json=json.dumps(report))
+    if not report["passed"]:
+        raise ValueError("Clip failed quality checks: " + " ".join(report["errors"]))
+    os.replace(temporary_path, video_path)
     hashtags = config.get("publishing", {}).get("hashtags", [])
-    caption = build_post_caption(moment["hook_title"], clip, hashtags)
+    from src.clips.metadata import publishing_caption
+    caption = publishing_caption(clip, moment["hook_title"], hashtags)
     write_notes(notes_path, clip, moment, words, caption, settings)
 
 
@@ -251,6 +283,7 @@ def make_clip_video(channel_key, config, settings, clip, llm, dry_run=False):
     Returns:
         int or None: The new video's ID, or None in a dry run.
     """
+    facecam_for(clip, settings)
     words = words_for(clip, settings)
 
     tracker = None
@@ -277,13 +310,27 @@ def make_clip_video(channel_key, config, settings, clip, llm, dry_run=False):
     video_path, notes_path = output_paths(channel_key, clip)
     render_and_save(config, settings, clip, moment, words, video_path, notes_path)
 
-    video_id = save_video(channel=channel_key, story_title=moment["hook_title"],
-                          story_url=clip["clip_url"] or clip["credit_text"],
-                          script_path=notes_path, cost_usd=0.0)
-    set_video_path(video_id, video_path)
+    # Save the draft and its clip link together: a crash cannot leave an
+    # unlinked draft that would be created a second time on recovery.
+    from src.storage.finance import utc_now
+    connection = get_connection()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        existing = connection.execute("SELECT video_id FROM clips WHERE id=?", (clip["id"],)).fetchone()
+        if existing["video_id"]:
+            return existing["video_id"]
+        cursor = connection.execute("""
+            INSERT INTO videos (channel, story_title, story_url, script_path, video_path, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (channel_key, moment["hook_title"], clip["clip_url"] or clip["credit_text"],
+              notes_path, video_path, utc_now()))
+        video_id = cursor.lastrowid
+        connection.execute("UPDATE clips SET status='rendered', video_id=? WHERE id=?", (video_id, clip["id"]))
+        connection.commit()
+    finally:
+        connection.close()
     if tracker is not None:
         tracker.attach_video(video_id)
-    update_clip(clip["id"], status="rendered", video_id=video_id)
     return video_id
 
 

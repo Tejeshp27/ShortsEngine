@@ -197,7 +197,8 @@ def transcribe_clip(video_path, cache_name, model_name="small.en", language="en"
         TranscriptionError: If whisper.cpp is missing or fails.
     """
     os.makedirs(TRANSCRIPT_CACHE_FOLDER, exist_ok=True)
-    cache_path = os.path.join(TRANSCRIPT_CACHE_FOLDER, f"{cache_name}.json")
+    # A different language/model must not silently reuse an older transcript.
+    cache_path = os.path.join(TRANSCRIPT_CACHE_FOLDER, f"{cache_name}_{model_name}_{language}.json")
     if os.path.exists(cache_path):
         with open(cache_path, "r", encoding="utf-8") as file:
             return json.load(file)
@@ -227,6 +228,7 @@ def transcribe_clip(video_path, cache_name, model_name="small.en", language="en"
         words = words_from_whisper_json(json.load(file))
     os.remove(output_base + ".json")
 
-    with open(cache_path, "w", encoding="utf-8") as file:
+    with open(cache_path + ".part", "w", encoding="utf-8") as file:
         json.dump(words, file)
+    os.replace(cache_path + ".part", cache_path)
     return words

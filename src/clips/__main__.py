@@ -10,6 +10,8 @@
 #   run                find + make in one go (the normal daily command)
 #   upload FILE        add a clip file an approved streamer sent you (Kick has no clip API)
 #   list               show the channel's clips and where each one is
+#   cut FILE           make a free exact-timestamp draft from an authorized recording
+#   export IDS         package checked clips and text for official manual uploads
 #
 # Every command needs --channel, e.g.:
 #   python -m src.clips --channel twitch_clips run --dry-run
@@ -62,6 +64,31 @@ def parse_arguments():
 
     list_command = commands.add_parser("list", help="Show this channel's clips")
     add_dry_run_option(list_command)
+    cycle = commands.add_parser("cycle", help="Monitor, ingest, score and render using the persistent worker")
+    add_dry_run_option(cycle)
+    record = commands.add_parser("record", help="Import a full authorized recording and prepare multiple highlights")
+    record.add_argument("file", help="Path to a completed local recording")
+    record.add_argument("--streamer", required=True, help="An approved streamer")
+    record.add_argument("--platform", choices=["twitch", "kick"], required=True)
+    record.add_argument("--i-own-this", action="store_true", dest="i_own_this")
+    add_dry_run_option(record)
+    watch = commands.add_parser("watch", help="Keep checking this channel until Ctrl-C")
+    add_dry_run_option(watch)
+    cut = commands.add_parser("cut", help="Render a 15–60 second timestamp selection without paid AI")
+    cut.add_argument("file", help="A completed authorized recording")
+    cut.add_argument("--streamer", required=True)
+    cut.add_argument("--platform", choices=["twitch", "kick"], required=True)
+    cut.add_argument("--start", type=float, required=True, help="Start seconds in the source")
+    cut.add_argument("--end", type=float, required=True, help="End seconds in the source")
+    cut.add_argument("--title", required=True, help="A truthful hook title")
+    cut.add_argument("--i-own-this", action="store_true", dest="i_own_this")
+    add_dry_run_option(cut)
+    export = commands.add_parser("export", help="Package videos and metadata for official manual uploads")
+    export.add_argument("video_ids", nargs="+", type=int, help="IDs from the review queue")
+    export.add_argument("--output", required=True, help="A new folder inside output/")
+    export.add_argument("--platform", choices=["both", "youtube", "tiktok"], default="both",
+                        help="Manual destinations; choose one when the other already has the video")
+    add_dry_run_option(export)
     return parser.parse_args()
 
 
@@ -213,11 +240,117 @@ def main():
             run_make(args, config)
         elif args.command == "upload":
             run_upload(args, config)
+        elif args.command in ("cycle", "record"):
+            run_cycle(args)
+        elif args.command == "watch":
+            run_watch(args)
+        elif args.command in ("cut", "export"):
+            run_launch(args, config)
         else:
             run_list(args)
     except (StreamerNotApproved, TwitchError, ValueError) as error:
         print(f"ERROR: {error}")
         raise SystemExit(1)
+
+
+def run_launch(args, config):
+    """
+    Run a free timestamp cut or manual-upload export and print the result.
+
+    Args:
+        args: Parsed command options, including channel and dry_run.
+        config: The selected clips channel's current settings.
+
+    Returns:
+        Nothing; prints the draft ID or bundle location, with no approval or upload.
+    """
+    import json
+    from src.clips.launch import cut_recording, export_bundle, validate_interval
+
+    if args.command == "export":
+        platforms = ["youtube", "tiktok"] if args.platform == "both" else [args.platform]
+        result = export_bundle(args.channel, config, args.video_ids, args.output, args.dry_run, platforms)
+        if args.dry_run:
+            print(json.dumps(result, indent=2))
+        else:
+            print(f"Exported {len(result['clips'])} clips to {args.output}. No uploads performed.")
+        return
+    settings = load_clip_settings(config)
+    find_approved_streamer(settings, args.streamer, args.channel, args.platform)
+    validate_interval(args.start, args.end, settings.clips.moment_max_seconds)
+    if not args.i_own_this:
+        raise ValueError("cut requires --i-own-this and an approved streamer.")
+    if args.dry_run:
+        print("Dry run: would import, transcribe and render the selection. No media read, paid calls or uploads.")
+        return
+    video_id = cut_recording(args.channel, config, args.file, args.streamer, args.platform,
+                             args.start, args.end, args.title, args.i_own_this)
+    print(f"Video {video_id} is ready for review at /videos/{video_id}. Nothing uploaded.")
+
+
+def run_cycle(args):
+    """
+    Queue one cycle or authorized recording from CLI arguments; wait for its worker and print the result.
+
+    Args:
+        args: The options parsed from the command line.
+
+    Returns:
+        Nothing; the worker result is printed after completion.
+    """
+    import json
+    import time
+    import uuid
+    from src.dashboard.jobs import enqueue_job, job_record, launch_job
+
+    payload = {}
+    if args.command == "record":
+        payload["recording"] = {"path": args.file, "streamer": args.streamer,
+                                 "platform": args.platform, "confirmed": args.i_own_this}
+        if not args.i_own_this:
+            raise ValueError("record requires --i-own-this and an approved streamer.")
+    job_id, created = enqueue_job(args.channel, "clip_pipeline", payload, args.dry_run, uuid.uuid4().hex)
+    if created:
+        launch_job(job_id)
+    print(f"Job {job_id}; dashboard: /jobs/{job_id}")
+    while True:
+        job = job_record(job_id)
+        if job["status"] not in ("queued", "running"):
+            print(json.dumps(job["result"], indent=2))
+            if job["error"]:
+                raise ValueError(job["error"])
+            return
+        time.sleep(1)
+
+
+def run_watch(args):
+    """
+    Run CLI monitoring and the publishing schedule until Ctrl-C; dry-run arguments perform only one harmless cycle.
+
+    Args:
+        args: The options parsed from the command line.
+
+    Returns:
+        Nothing; monitoring runs until interrupted by the user.
+    """
+    import threading
+    from src.clips.automation import queue_due_channels, set_enabled
+    from src.publishing.scheduler import run_scheduler
+
+    if args.dry_run:
+        args.command = "cycle"
+        return run_cycle(args)
+    set_enabled(args.channel, True)
+    stopped = threading.Event()
+    print("Monitoring started. Ctrl-C stops checks; active workers finish safely.")
+    try:
+        while not stopped.is_set():
+            queue_due_channels(args.channel)
+            run_scheduler(only_channel=args.channel)
+            stopped.wait(15)
+    except KeyboardInterrupt:
+        set_enabled(args.channel, False)
+        print("Monitoring paused.")
 
 
 if __name__ == "__main__":

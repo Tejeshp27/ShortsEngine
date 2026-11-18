@@ -71,8 +71,7 @@ it does not implement a Twitch clip editor.
 The only browser job that posts is **Post now** on an approved, rendered video
 (tick "I understand this video will be posted publicly"). It posts to every platform
 in the channel's `platforms:` list: Instagram and Facebook Page Reels go public at
-once; TikTok lands in the inbox; YouTube Shorts stay private until the Google
-project is audited. Already-successful platforms are skipped, so
+once; TikTok lands in the inbox; YouTube uses the channel's requested privacy, checked against the upload response. Already-successful platforms are skipped, so
 clicking again after fixing a problem only retries the rest. A channel `schedule:`
 block posts the newest approved video automatically at set times.
 
@@ -183,8 +182,8 @@ real developer app and account.
 ### YouTube
 
 YouTube Shorts use the official **YouTube Data API v3** with Google's OAuth login.
-It is free; uploads use about 1,600 of the default 10,000 daily quota units, so
-roughly six uploads a day.
+Check your Google Cloud project quotas. Current documentation lists 100 uploads/day
+in a separate video-upload quota bucket; see [the current quota guide](https://developers.google.com/youtube/data/guides/quota_and_compliance_audits).
 
 1. In Google Cloud Console create a project and enable **YouTube Data API v3**.
 2. **OAuth consent screen**: choose External, add your Google account as a test
@@ -200,12 +199,13 @@ The login asks for `youtube.upload` and `youtube.readonly` with offline access, 
 the one-hour access token renews automatically. Pasting a token is disabled for
 YouTube because it could not be renewed.
 
-**Private until audited:** Google forces uploads from unaudited API projects to
-private. Post now still succeeds (the video is in YouTube Studio), but it is not
-counted as a public post. Make it public in Studio, then record its video ID on
-the video page so statistics are collected; or apply for Google's API audit. The
-channel's `youtube.privacy` setting is used once the project is audited. YouTube's
-API reports views, likes and comments but not shares, so shares stay empty.
+**Privacy:** the channel's `youtube.privacy` setting requests private, unlisted or
+public uploads. The app counts a public post only when YouTube's response says
+public. A private/unlisted upload still succeeds as a delivery. After changing it
+to public in Studio, record its video ID on the video page to collect statistics.
+Current upload documentation no longer says unverified projects are categorically
+restricted to private uploads. YouTube reports views, likes and comments but not
+shares, so shares stay empty.
 
 ### Encryption and daily collection
 
@@ -281,3 +281,10 @@ Developer references:
 - [TikTok OAuth token lifecycle](https://developers.tiktok.com/docs/en/oauth-user-access-token-management)
 - [Meta's official Instagram API collection](https://www.postman.com/meta/instagram/collection/6yqw8pt/instagram-api)
 - [PyCA cryptography](https://github.com/pyca/cryptography) — selected over lower-level alternatives for its adoption and authenticated-encryption recipe.
+
+
+### Stream clips automation
+
+Open **Stream clips** for streamer permissions, live status, recording ingestion,
+scored candidates and Start/Stop controls. Review and scheduled-publishing dry runs
+are enabled by default. [Operating guide](stream-clips.md).

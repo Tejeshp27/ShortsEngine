@@ -12,11 +12,10 @@
 # "#Shorts" in the description helps YouTube recognise it.
 #
 # Important limits (see docs/control-center.md):
-#   - Each upload uses ~1,600 of the free 10,000 daily quota units,
-#     so about 6 uploads a day.
-#   - Until Google audits the API project, YouTube forces every upload
-#     to "private". Make it public in YouTube Studio, or apply for the
-#     audit. We only count a video as a public post if YouTube says so.
+#   - Check the project's current quota in Google Cloud. The current
+#     docs list 100 video uploads/day in a separate upload quota bucket.
+#   - Always read the returned privacy status. Account settings can
+#     affect it. We count public posts only when YouTube says public.
 #
 # Library note: Google's google-api-python-client is the most-used way
 # to call this API, but two plain HTTP requests (httpx, already used for
@@ -211,7 +210,7 @@ def upload_short(video_path, title, description, token, channel_config):
 
     Returns:
         dict: {"id": the YouTube video ID, "public": True if YouTube says
-               the video is public (False while the project is unaudited)}.
+               the video is public (False for private/unlisted uploads)}.
 
     Raises:
         NothingPublishedError: The first step failed; no video exists.

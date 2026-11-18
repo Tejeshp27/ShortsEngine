@@ -18,6 +18,9 @@
 </p>{% endif %}
 {% if video.reviewer_notes %}<div class="notice">Review notes: {{ video.reviewer_notes }}</div>{% endif %}
 {% if clip %}<h2>Clip</h2>
+{% if clip.highlight_score is not none %}<p>Estimated highlight score: <strong>{{ clip.highlight_score }}/100</strong> · <a href="/clips/{{ video.channel }}">See signal breakdown</a></p>{% endif %}
+{% if clip_quality %}<p class="note">Technical quality: {{ 'passed' if clip_quality.passed else 'failed' }} · {{ clip_quality.duration }} seconds</p>{% for warning in clip_quality.get('warnings',[]) %}<p class="notice">{{ warning }}</p>{% endfor %}{% endif %}
+{% if video.status != 'posted' and not deliveries and not public_posts %}<details><summary>Edit publishing title and description</summary><form method="post" action="/video/{{ video.id }}/metadata"><input type="hidden" name="form_token" value="{{ form_token }}"><div class="form-group"><label>Title<input name="title" maxlength="100" required value="{{ video.story_title }}"></label></div><div class="form-group"><label>Description<textarea name="description" maxlength="1500" rows="4">{{ clip_metadata.get('description','') }}</textarea></label></div><label class="checkbox"><input type="checkbox" name="youtube" value="true" {% if 'youtube' in destinations %}checked{% endif %}> YouTube Shorts</label><label class="checkbox"><input type="checkbox" name="tiktok" value="true" {% if 'tiktok' in destinations %}checked{% endif %}> TikTok inbox</label><p class="note">Attribution is added automatically. Saving returns the video to review. Use Re-cut below to change the text burned into the video.</p><button class="btn">Save metadata</button></form></details>{% endif %}
 <p class="note">Credit: <strong>{{ clip.credit_text }}</strong> · Original clip {{ '%.1f'|format(clip.duration_seconds) }}s · Moment used {{ '%.1f'|format(clip.start_seconds or 0) }}s to {{ '%.1f'|format(clip.end_seconds or 0) }}s{% if clip.pick_reason %} · {{ clip.pick_reason }}{% endif %}</p>
 {% if video.status != 'posted' and not deliveries and not public_posts %}<details>
 <summary>Change the moment or hook title</summary>
@@ -113,7 +116,7 @@
 </div>
 <section class="panel">
 {% if video.status == 'approved' and has_video_file and destinations %}<h3>Post now</h3>
-<p class="note">Posts to: {{ destinations|join(', ') }}. Instagram and Facebook Reels go public immediately; TikTok lands in your TikTok inbox for you to post; YouTube stays private until Google audits your API project. Platforms that already succeeded are skipped.</p>
+<p class="note">Posts to: {{ destinations|join(', ') }}. Instagram and Facebook Reels go public immediately; TikTok lands in your TikTok inbox for you to post; YouTube uses the channel's configured privacy setting. Platforms that already succeeded are skipped.</p>
 <form method="post" action="/video/{{ video.id }}/publish">
 <input type="hidden" name="form_token" value="{{ form_token }}">
 <input type="hidden" name="submission_id" value="{{ submission_id }}">
@@ -127,7 +130,7 @@
 <p class="note">TikTok drafts arrive without a caption (the API has no caption field for drafts). Copy this into the TikTok app before posting.</p>
 <textarea readonly rows="6" aria-label="Caption to paste in TikTok">{{ post_caption }}</textarea>{% endif %}
 <p class="note">Record a post after you publish it in the platform app. A TikTok inbox upload is not a public post. These IDs let the daily collector find the video's statistics.</p>
-{% for post in public_posts %}<p>{{ platform_names[post.platform] }} · {{ post.post_id }} <span class="badge">Confirmed public</span>
+{% for post in public_posts %}<p>{{ platform_names[post.platform] }} · {% if post.platform == 'youtube' %}<a href="https://www.youtube.com/watch?v={{ post.post_id|urlencode }}" target="_blank" rel="noopener noreferrer">Watch published video ↗</a>{% else %}{{ post.post_id }}{% endif %} <span class="badge">Confirmed public</span>
 </p>{% endfor %}
 {% if video.status in ['approved', 'posted'] %}<details>
 <summary>Record an already-published post</summary>
@@ -153,7 +156,7 @@
 </form>
 </details>{% else %}<p class="muted">Approve this video before recording a public post.</p>{% endif %}
 {% if deliveries %}<details>
-<summary>Upload history</summary>{% for delivery in deliveries %}<p class="meta">{{ platform_names.get(delivery.platform, delivery.platform) }} · {{ delivery.status }} · {{ delivery.post_id or 'No returned ID' }}</p>{% endfor %}</details>{% endif %}</section>
+<summary>Upload history</summary>{% for delivery in deliveries %}<p class="meta">{{ platform_names.get(delivery.platform, delivery.platform) }} · {{ delivery.status }} · {{ delivery.post_id or 'No returned ID' }}{% if delivery.platform == 'youtube' and delivery.status == 'succeeded' %} · <a href="https://www.youtube.com/watch?v={{ delivery.post_id|urlencode }}" target="_blank" rel="noopener noreferrer">Open upload ↗</a>{% endif %}</p>{% endfor %}</details>{% endif %}</section>
 {% if visual_plan %}<details class="panel">
 <summary>Visual plan</summary>
 <div class="table-wrap">

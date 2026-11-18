@@ -216,6 +216,138 @@ shortsengine/
 
 ## Current phase
 
+**Independent automation pass (2026-11-18, Codex):** audited first; **476 baseline
+tests passed**, real dashboard HTTP/privacy checks passed, and live official Twitch
+monitoring worked with corrected credentials. Existing signal scoring, media,
+Whisper, account, queue and publishing code was reused. Added independent
+`src/clips/runtime.py` and Mac installer `src/clips/service.py`; installed
+`com.shortsengine.clips` and `com.shortsengine.dashboard` user LaunchAgents.
+The supervisor now runs without Terminal/Codex, maintains health and rotating JSON
+logs, periodically recovers stale jobs, protects low disk and cleans only old
+idle temporary fragments. Killed the installed supervisor deliberately; launchd
+restarted it under a new PID with a fresh heartbeat. Login-at-start configuration
+is installed; no full reboot was performed. Mac must be powered, awake, online
+and logged in. Cloud Compose runtime/healthcheck prepared; Docker is absent so
+container build/deployment is still unverified and no paid server was provisioned.
+Added official YouTube/TikTok post-status polling in
+`src/publishing/verification.py`, persisting confirmed public URLs separately from
+accepted uploads/inbox notifications without resetting duplicate reservations.
+Optional silence-edit failures preserve original media/timing. Dashboard access
+logs omit OAuth callback query strings. The user explicitly requested autonomous
+clips: `require_approval` is now false for clean technically passing clips; news
+review stays mandatory. Scheduled clip publishing remains a dry run because
+footage access/destination connections remain unresolved. The existing database
+automation flag was already enabled and was preserved.
+Live discovery found 32 public metadata candidates, including five Jason clips;
+none are downloaded/rendered creator footage. Creator recordings, clip-channel
+account connections and live upload tests are absent. TikTok public Direct Post
+remains incompatible with this private utility's current use under official
+guidelines; no bypass was added. First human step and exact limits are in
+`HUMAN_SETUP_GUIDE.md`; `AUTOMATION_STATUS.md` records the audit and auto-updating
+counts. The final full suite has **495 passing tests** (21.68 seconds). New coverage includes
+runtime, safe cleanup, recovery, source/account readiness, upload-state contracts,
+persistent verification and optional editing fallback. Existing original synthetic
+Whisper/render evidence from today is retained; it does not count toward publication.
+
+**Today launch readiness (2026-11-18, Codex):** verified the existing pipeline
+before extending it; baseline **460 tests passed**. Added free `clips cut` for
+exact 15–60 second authorized selections and `clips export` for checked MP4/text/
+review-note bundles for official manual uploads. Reuses existing Whisper, renderer,
+permissions and review; no new dependencies or paid services. Exports reject bad
+media/audio warnings, revoked sources, duplicate bytes/overlapping moments and
+active or uncertain/completed uploads to the requested destinations. A TikTok-only
+export can finish the second destination after YouTube has received a clip.
+Sixteen new regression cases; **476 tests pass**. Fresh real whisper.cpp transcribed
+70 words from original synthetic media, rendered a checked 20-second 1080×1920
+H.264/AAC draft and exported a manual bundle. Audio mean −18.0 dB, peak −1.5 dB;
+sample-frame inspection passed. A separate automatic scoring/render/export check
+also passed. Reports: `output/launch_2026_11_18/smoke/{report,automatic_report}.json`.
+Whisper GPU initialization needed execution outside the assistant sandbox.
+The owner selected JasonTheWeen; no matching recording was found in accessible
+local/OneDrive folders, and iCloud remained blocked by macOS privacy controls after
+an approved retry. The supplied Twitch credentials were saved with owner-only `.env`
+permissions. An initial HTTP 403 was resolved by correcting the client ID: the
+official token endpoint now returns HTTP 200 and Jason's official channel lookup
+also succeeds. The `connect jasontheween` CLI was canceled when the owner clarified
+they do not know Jason and cannot obtain broadcaster authorization. Investigate
+Twitch's official viewer-created clip download/share UI, using the owner's account
+and the channel's permitted settings. This differs from the restricted download
+API. Actual Jason controls/reuse scope remain unverified; browser inventory reported
+the access host unavailable. Unattended acquisition is not demonstrated. App login
+alone does not authorize downloads. No credential/token values were logged in project docs.
+Existing Google/TikTok app credentials and news-account connections were detected,
+but clips has no connected destinations; the owner deferred account selection.
+**Zero real creator clips and zero uploads/publications** so far; synthetic checks
+do not count. Live clips OAuth/uploads remain unvalidated. See
+`TODAY_LAUNCH_CHECKLIST.md` for exact owner steps, counts, evidence and blockers.
+Changed this pass: `src/clips/launch.py`, `src/clips/__main__.py`,
+`tests/test_clip_launch.py`, `README.md`, `CLAUDE.md`, `TODAY_LAUNCH_CHECKLIST.md`.
+
+**Clips completion checks (2026-11-17, Codex):** inbox scans now isolate corrupt
+files and unreadable folders, report source-specific errors on the existing job
+page, and count only newly imported recordings toward the per-cycle limit.
+Unchanged-file checks include the channel/creator/platform so reassigned inboxes
+cannot silently bypass attribution conflicts. The demo rejects empty macOS
+speech before encoding and uses a finite test-video duration. Five regression
+cases added; **460 tests pass**. A separate-worker dry run passed with an isolated
+database. The real Whisper demo transcribed 70 words and produced a checked
+21.43-second 1080×1920 H.264/AAC draft (79.7/100); sample-frame review passed.
+Report: output/clips_finish_verification_2026_11_17/report.json. macOS speech
+needed execution outside the sandbox; no paid calls or uploads were made.
+README, operating guide and handoff updated. Live account uploads and Docker
+remain unvalidated; the existing credential/hosting steps below still apply.
+
+**Configured creator sources (2026-11-17, Codex):** added KaiCenat, StableRonaldo,
+Adapt, Marlon, Lacy, JasonTheWeen and Silky on Twitch, plus AdinRoss on Kick, at
+the user's request. Consent notes record the user's report in this conversation;
+the original agreement dates/methods were not supplied. Each creator has a separate
+completed-recording inbox under recordings/. No facecam coordinates were guessed.
+Review, paused automation and publishing dry runs remain the configured defaults.
+Twitch app secret and creator download logins were absent during the readiness
+check; Kick app credentials were also absent. Creator-footage acquisition therefore
+still needs official access or a supplied authorized recording. A source-config
+test checks parsing, attribution and nonoverlapping inboxes. README updated.
+Verified: **455 tests pass**. The configured channel's one-cycle run recorded
+all eight sources as unknown due to the missing credentials, with no downloads
+or creator videos produced. The separate synthetic-media demo completed with
+real Whisper-derived word timings, a 79.7/100 candidate and a passing export gate;
+report: output/creator_setup_demo_2026_11_17/report.json. Nothing was uploaded.
+
+**Clips automation extension (2026-11-17, Codex):**
+- Extended the existing app; news/Meta workflows remain available. New private
+  `/clips` pages manage sources, permission notes, completed recordings, scoring,
+  automation, retry resets and configurable review/publishing dry runs.
+- New `src/clips/{schema,recordings,signals,monitor,automation,metadata,quality,editing,demo}.py`
+  reuse the job worker, raw SQLite, existing renderer and publishing scheduler.
+  New schema tables/columns are additive. Recording hashes, cached word timings,
+  bounded retry/backoff, atomic draft links, per-video destinations and daily
+  upload reservations support restart recovery and duplicate prevention.
+- Existing `find/make/run` retain the older Claude picker. New `record/cycle/watch`
+  use free local scoring by default, with optional metered Claude speech assessment
+  and metadata. Review and scheduled dry runs default on. The user's broad request
+  explicitly authorizes opt-in automatic approval for clips; news review stays mandatory.
+- Official Kick channel polling added; media comes only from completed creator
+  recordings. Twitch still downloads authorized official clips, not arbitrary VODs.
+  True-silence trimming is optional. Templates use fixed crops/facecam rectangles
+  or a full-frame blurred fill; no automated subject tracking or live chat collector.
+  Optional supplied engagement counts are supported; scores are estimates.
+- Public TikTok Direct Post remains unavailable: current guidelines restrict
+  private upload utilities/cross-platform copying. Authorized inbox/manual export
+  is the supported path. TikTok transfers now handle large files in chunks.
+- Current YouTube docs changed: uploads are not categorically forced private for
+  unverified projects, and the default upload quota is a separate 100/day bucket.
+  Older notes below reflect previous assumptions. Actual returned privacy controls
+  public-post recording. Clips YAML now requests private uploads for validation.
+- Real local demo used macOS speech + whisper.cpp (70 words), rendered a checked
+  1080×1920 H.264/AAC draft; no paid calls or publishing. See docs/stream-clips.md.
+  Real OAuth/API posting still needs app/account validation. No deployment performed.
+- No new Python dependency; existing tools suffice. Docker adds a pinned
+  whisper.cpp CPU build and persistent models/recording mounts; container validation
+  remains necessary on the target host. **454 tests pass** (425 existing + 29 new
+  cases); actual background-worker dry run and real local media demo also passed.
+  See docs/clips-handoff.md for the changed-file list and verification limits.
+
+
 **Phases 1–7 code complete. M-series visual upgrade (M.1–M.6) code complete.
 A-series animated video engine (A.1–A.5) code complete — this is now the main way to render.**
 

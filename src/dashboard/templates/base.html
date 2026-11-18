@@ -16,7 +16,7 @@
 <span class="brand-mark">SE</span> ShortsEngine</a>
   <div class="nav-label">Workspace</div>
   <nav class="nav-links" aria-label="Main navigation">
-    {% for path, label in [('/', 'Overview'), ('/channels', 'Channels'), ('/library', 'Video library'), ('/videos', 'Review queue'), ('/money', 'Money'), ('/analytics', 'Analytics'), ('/jobs', 'Activity'), ('/new', 'New video')] %}
+    {% for path, label in [('/', 'Overview'), ('/channels', 'Channels'), ('/clips', 'Stream clips'), ('/library', 'Video library'), ('/videos', 'Review queue'), ('/money', 'Money'), ('/analytics', 'Analytics'), ('/jobs', 'Activity'), ('/new', 'New video')] %}
     <a href="{{ path }}" {% if request.url.path == path or (path != '/' and request.url.path.startswith(path + '/')) %}aria-current="page"{% endif %}>{{ label }}</a>
     {% endfor %}
   </nav>

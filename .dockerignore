@@ -20,6 +20,8 @@ output/
 cache/
 data/
 models/
+recordings/
+permissions/
 shortsengine.db
 *.db
 

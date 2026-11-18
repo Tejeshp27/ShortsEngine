@@ -8,7 +8,7 @@
 <h1>{{ config.name }}</h1>
 <p>{{ config.niche }}</p>
 </div>
-<a class="btn btn-primary" href="/new?channel={{ channel }}">+ New video</a>
+<a class="btn btn-primary" href="{{ '/clips/' + channel if config.get('type') == 'clips' else '/new?channel=' + channel }}">{{ 'Manage stream clips' if config.get('type') == 'clips' else '+ New video' }}</a>
 </div>
 {% if card %}{{ ui.totals(card.totals) }}{% endif %}
 <div class="section-heading">
@@ -38,7 +38,7 @@
 {% else %}<p class="muted">No account connected.</p>{% endif %}
 <details {% if not matches %}open{% endif %}>
 <summary>{{ 'Reconnect account' if matches else 'Connect an account' }}</summary>
-<p class="note">{% if platform == 'instagram' %}Requires a professional Instagram account linked to a Facebook Page, and a Meta developer app with the relevant permissions. Facebook Page posting uses this connection too.{% elif platform == 'youtube' %}Requires a Google Cloud project with the YouTube Data API v3 and an OAuth client. Until Google audits the project, uploads stay private. Set the OAuth consent screen to "In production", or the login expires every 7 days.{% else %}Requires a TikTok developer app with Login Kit and statistics permissions.{% endif %}</p>
+<p class="note">{% if platform == 'instagram' %}Requires a professional Instagram account linked to a Facebook Page, and a Meta developer app with the relevant permissions. Facebook Page posting uses this connection too.{% elif platform == 'youtube' %}Requires a Google Cloud project with the YouTube Data API v3 and an OAuth client. Choose private uploads while validating the workflow; YouTube reports the resulting privacy status. Set the OAuth consent screen to "In production", or the login expires every 7 days.{% else %}Requires a TikTok developer app with Login Kit and statistics permissions.{% endif %}</p>
 <form method="post" action="/channels/{{ channel }}/accounts/{{ platform }}/connect">
 <input type="hidden" name="form_token" value="{{ form_token }}">{% if platform == 'instagram' %}<div class="form-group">
 <label for="oauth-id">Instagram professional account ID</label>

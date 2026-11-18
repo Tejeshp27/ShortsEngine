@@ -65,6 +65,8 @@ class ApprovedStreamer(BaseModel):
     permission_date: date
     permission_proof: str = ""
     facecam: FacecamBox | None = None
+    enabled: bool = True
+    recording_directory: str = ""
 
 
 class ClipLimits(BaseModel):
@@ -87,6 +89,36 @@ class LayoutSettings(BaseModel):
     """How the vertical video is split between webcam and gameplay."""
     facecam_panel_height: int = Field(default=720, ge=300, le=1200)
     gameplay_focus_x: float = Field(default=0.5, ge=0, le=1)
+    template: str = Field(default="gaming", pattern=r"^(gaming|reaction|conversation)$")
+
+
+class AnalysisSettings(BaseModel):
+    """Control local highlight estimates; inputs are YAML values, returned as checked settings."""
+
+    max_clips_per_recording: int = Field(default=3, ge=1, le=20)
+    minimum_score: float = Field(default=55, ge=0, le=100)
+    candidate_seconds: float = Field(default=35, ge=5, le=180)
+    context_seconds: float = Field(default=5, ge=0, le=30)
+    use_llm: bool = False
+    weights: dict[str, float] = {
+        "entertainment": 0.25, "hook": 0.20, "audience": 0.15,
+        "clarity": 0.20, "audio": 0.10, "visual": 0.10,
+    }
+    excitement_terms: list[str] = ["wow", "what", "wait", "unbelievable", "no way", "amazing", "why"]
+
+
+class AutomationSettings(BaseModel):
+    """Control repeated runs; YAML inputs set intervals, retries, review, and daily upload limits."""
+
+    enabled: bool = False
+    poll_seconds: int = Field(default=300, ge=30, le=86400)
+    stable_file_seconds: int = Field(default=60, ge=5, le=3600)
+    max_recordings_per_run: int = Field(default=1, ge=1, le=20)
+    max_attempts: int = Field(default=3, ge=1, le=10)
+    retry_seconds: int = Field(default=300, ge=10, le=86400)
+    require_approval: bool = True
+    publish_dry_run: bool = True
+    max_uploads_per_day: int = Field(default=3, ge=0, le=100)
 
 
 class CaptionSettings(BaseModel):
@@ -96,6 +128,9 @@ class CaptionSettings(BaseModel):
     text_color: str = Field(default="#FFFFFF", pattern=r"^#[0-9A-Fa-f]{6}$")
     highlight_color: str = Field(default="#FFE14D", pattern=r"^#[0-9A-Fa-f]{6}$")
     center_y: int = Field(default=1330, ge=300, le=1600)
+    font_path: str = ""
+    outline_color: str = Field(default="#000000", pattern=r"^#[0-9A-Fa-f]{6}$")
+    outline_width: int = Field(default=6, ge=0, le=20)
 
 
 class HookTitleSettings(BaseModel):
@@ -123,6 +158,8 @@ class ClipChannelSettings(BaseModel):
     captions: CaptionSettings = CaptionSettings()
     hook_title: HookTitleSettings = HookTitleSettings()
     credit: CreditSettings = CreditSettings()
+    analysis: AnalysisSettings = AnalysisSettings()
+    automation: AutomationSettings = AutomationSettings()
 
 
 def is_clips_channel(config):
@@ -236,7 +273,7 @@ def load_clip_settings(config):
     # Only pass the sections this file understands; the rest (name,
     # schedule, publishing...) is used by other parts of the program.
     sections = {}
-    for key in ("streamers", "clips", "transcription", "layout", "captions", "hook_title", "credit"):
+    for key in ("streamers", "clips", "transcription", "layout", "captions", "hook_title", "credit", "analysis", "automation"):
         if config.get(key) is not None:
             sections[key] = config[key]
 
@@ -251,6 +288,16 @@ def load_clip_settings(config):
         check_facecam_fits(streamer)
     check_permission_dates(settings.streamers)
     check_no_repeats(settings.streamers)
+    expected_weights = {"entertainment", "hook", "audience", "clarity", "audio", "visual"}
+    if set(settings.analysis.weights) != expected_weights:
+        raise ValueError("analysis.weights must contain entertainment, hook, audience, clarity, audio and visual.")
+    total = 0
+    for weight in settings.analysis.weights.values():
+        if not 0 <= weight <= 100:
+            raise ValueError("Analysis weights must be finite numbers between 0 and 100.")
+        total += weight
+    if total <= 0:
+        raise ValueError("At least one analysis weight must be positive.")
     return settings
 
 
@@ -295,7 +342,7 @@ def find_approved_streamer(settings, username, channel_key="twitch_clips", platf
     for streamer in settings.streamers:
         if streamer.username.lower() != wanted:
             continue
-        if platform is None or streamer.platform == platform:
+        if streamer.enabled and (platform is None or streamer.platform == platform):
             return streamer
     where = ""
     if platform:
@@ -329,4 +376,8 @@ def approved_streamers_to_use(settings, only_username=None, channel_key="twitch_
     if not settings.streamers:
         raise ValueError(f"No approved streamers yet. Add one to channels/{channel_key}.yaml "
                          "after they agree in writing.")
-    return list(settings.streamers)
+    result = []
+    for streamer in settings.streamers:
+        if streamer.enabled:
+            result.append(streamer)
+    return result

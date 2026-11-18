@@ -118,7 +118,10 @@ async def app_lifespan(app):
     """
     from src.analytics.accounts import daily_collection_loop
     from src.publishing.scheduler import publishing_loop
+    from src.clips.automation import automation_loop
     stopped = threading.Event()
+    if os.getenv("DASHBOARD_AUTO_CLIPS", "true").lower() == "true":
+        threading.Thread(target=automation_loop, args=(stopped,), daemon=True).start()
     if os.getenv("DASHBOARD_AUTO_COLLECT", "true").lower() == "true":
         thread = threading.Thread(target=daily_collection_loop, args=(stopped,), daemon=True)
         thread.start()
@@ -602,8 +605,8 @@ def caption_to_paste(video, clip):
     except ValueError:
         return ""
     if clip is not None:
-        from src.clips.maker import build_post_caption
-        return build_post_caption(video["story_title"], clip,
+        from src.clips.metadata import publishing_caption
+        return publishing_caption(clip, video["story_title"],
                                   config.get("publishing", {}).get("hashtags", []))
     from src.publishing.tiktok import build_caption
     return build_caption(video["story_title"], video["story_url"], config)
@@ -653,11 +656,31 @@ def video_detail(request: Request, video_id: int):
         "render_estimate": render_estimate,
         "channel_estimate": channel_estimate,
         "visual_plan": load_visual_plan(video["script_path"]),
-        "destinations": posting_destinations(video["channel"]),
+        "destinations": clip_posting_destinations(video),
         "clip": clip,
+        "clip_metadata": json.loads(clip.get("metadata_json", "{}") or "{}") if clip else {},
+        "clip_quality": json.loads(clip.get("quality_json", "{}") or "{}") if clip else {},
         "clip_max_seconds": clip_max_seconds,
         "post_caption": caption_to_paste(video, clip),
     })
+
+
+def clip_posting_destinations(video):
+    """
+    Read channel defaults and a clip's destination choices; return platform names for the review page.
+
+    Args:
+        video: The finished video's database row, including its ID and channel.
+
+    Returns:
+        The platform names shown on the review page.
+    """
+    from src.dashboard.settings import channel_config
+    from src.publishing.scheduler import video_platforms
+    try:
+        return video_platforms(video, channel_config(video["channel"]))
+    except ValueError:
+        return []
 
 
 @router.post("/video/{video_id}/approve")
@@ -837,6 +860,8 @@ def create_app():
     app.include_router(router)
     from src.dashboard.routes import router as control_router
     app.include_router(control_router)
+    from src.dashboard.clip_routes import router as clip_router
+    app.include_router(clip_router)
     app.add_exception_handler(ValueError, input_error_page)
     app.add_exception_handler(sqlite3.IntegrityError, database_conflict_page)
     return app
@@ -905,7 +930,8 @@ def main():
 
     host = os.getenv("DASHBOARD_HOST", "127.0.0.1")
     port = int(os.getenv("DASHBOARD_PORT", "8000"))
-    uvicorn.run(app, host=host, port=port)
+    # OAuth callback query strings contain one-use login codes; keep them out of access logs.
+    uvicorn.run(app, host=host, port=port, access_log=False)
 
 
 if __name__ == "__main__":

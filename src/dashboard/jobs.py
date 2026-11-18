@@ -40,15 +40,15 @@ from src.storage.database import get_connection
 from src.storage.finance import ROUNDING_TOLERANCE, spent_today, utc_now
 
 ACTIVE_STATUSES = ("queued", "running")
-JOB_KINDS = ("discover", "generate", "render", "sync", "publish", "clip_render")
+JOB_KINDS = ("discover", "generate", "render", "sync", "publish", "clip_render", "clip_pipeline")
 
 # Heavy jobs use a lot of memory and CPU (rendering peaked at 1.1 GB),
 # so only `max_in_progress` of them may be active at once.
-HEAVY_KINDS = ("generate", "render", "clip_render")
+HEAVY_KINDS = ("generate", "render", "clip_render", "clip_pipeline")
 
 # Clips channels (src/clips/) find and make their videos from the command
 # line; from the browser they can only re-cut, post and collect statistics.
-CLIP_CHANNEL_KINDS = ("clip_render", "publish", "sync")
+CLIP_CHANNEL_KINDS = ("clip_render", "publish", "sync", "clip_pipeline")
 
 # Worst-case input sizes, in tokens, used for spending allowances.
 RANKING_INPUT_CEILING = 35000
@@ -169,6 +169,13 @@ def paid_ai_steps(config, kind, payload):
         list[tuple]: (purpose, input token ceiling) pairs, e.g. [("writing", 36000)].
     """
     steps = []
+    if kind == "clip_pipeline" and config.get("analysis", {}).get("use_llm", False):
+        from src.clips.settings import load_clip_settings
+        settings = load_clip_settings(config)
+        count = settings.analysis.max_clips_per_recording * settings.automation.max_recordings_per_run
+        count = min(count, config.get("llm", {}).get("max_calls_per_run", 15))
+        for index in range(count):
+            steps.append(("clip_pick", 10000))
     if kind == "discover" and payload.get("rank"):
         steps.append(("ranking", RANKING_INPUT_CEILING))
     if kind == "generate":
@@ -257,10 +264,12 @@ def estimate_job(config, kind, payload):
     prices = load_pricing()
     total = voice_cost
     for purpose, input_ceiling in steps:
-        model = config["models"].get(purpose, config["models"]["writing"])
+        model = config["models"].get(purpose) or config["models"].get("writing")
         if model not in prices:
             raise ValueError(f"Add {model} to config/pricing.yaml before creating a paid job.")
         max_tokens = config["llm"].get(f"{purpose}_max_tokens", 6000)
+        if kind == "clip_pipeline":
+            max_tokens = config.get("llm", {}).get("clip_metadata_max_tokens", 400)
         # Input is priced as a prompt-cache write, the most expensive kind.
         total += calculate_cost(prices, model, 0, max_tokens, cache_write_tokens=input_ceiling)
     return round(total + ALLOWANCE_CUSHION_USD, 2)
@@ -307,7 +316,7 @@ def check_job_request(config, kind, submission_id, settings):
     from src.clips.settings import is_clips_channel
     if is_clips_channel(config) and kind not in CLIP_CHANNEL_KINDS:
         raise ValueError("Clips channels make new videos with: python -m src.clips --channel <name> run")
-    if kind == "clip_render" and not is_clips_channel(config):
+    if kind in ("clip_render", "clip_pipeline") and not is_clips_channel(config):
         raise ValueError("Only videos made from stream clips can be re-cut.")
     if not submission_id or len(submission_id) > 100:
         raise ValueError("Reload the page before submitting this form.")
@@ -372,6 +381,8 @@ def check_not_duplicate(active_jobs, channel, kind, payload):
             raise ValueError("This video is already being posted.")
         if kind == "clip_render" and options.get("video_id") == payload.get("video_id"):
             raise ValueError("This clip is already being re-cut.")
+        if kind == "clip_pipeline":
+            raise ValueError("This channel already has a clips pipeline running.")
 
 
 def check_capacity(active_jobs, kind, settings):

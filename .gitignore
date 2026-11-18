@@ -39,3 +39,6 @@ data/
 
 # --- Streamer permission screenshots (private DMs; keep them, never commit them) ---
 permissions/
+
+# Creator-supplied media is private and can be very large.
+/recordings/

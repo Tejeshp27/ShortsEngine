@@ -38,6 +38,10 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
+      # Exercise real clipping/quality tests instead of skipping them in CI.
+      - name: Install FFmpeg
+        run: sudo apt-get update && sudo apt-get install -y ffmpeg
+
       # Step 4: Run all tests.
       # The ANTHROPIC_API_KEY is not needed here because tests use mocks
       # and --dry-run mode — no real API calls are made in CI.

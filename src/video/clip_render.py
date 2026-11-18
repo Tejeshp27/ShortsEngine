@@ -27,7 +27,7 @@ import json
 import os
 import subprocess
 
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageFont
 
 from src.video.animation.drawing import (
     SAFE_LEFT,
@@ -65,6 +65,7 @@ HOOK_BOX_COLOR = (255, 255, 255, 240)
 HOOK_TEXT_COLOR = (15, 15, 15)
 # The credit sits on a see-through dark pill.
 CREDIT_BOX_COLOR = (0, 0, 0, 150)
+_caption_fonts = {}
 
 
 # ---------------------------------------------------------------------------
@@ -237,18 +238,49 @@ def draw_caption(layer, group, active_word, settings):
     for word in group["words"]:
         texts.append(word["word"])
     line = " ".join(texts)
-    size = fit_font_size(line, SAFE_RIGHT - SAFE_LEFT, settings.font_size, min_size=44)
+    size = settings.font_size
+    font = caption_font(settings.font_path, size)
+    max_width = SAFE_RIGHT - SAFE_LEFT - settings.outline_width * 2
+    while font.getlength(line) > max_width and size > 24:
+        size -= 4
+        font = caption_font(settings.font_path, size)
+    if font.getlength(line) > max_width:
+        raise ValueError("A caption is too wide for the safe area. Use fewer words per caption or shorten the transcript word.")
 
     # Draw the words one by one from left to right, so each word can
     # have its own colour. The line as a whole is centred.
-    space = text_width(" ", size)
-    x = OUTPUT_WIDTH / 2 - text_width(line, size) / 2
+    space = font.getlength(" ")
+    x = (SAFE_LEFT + SAFE_RIGHT - font.getlength(line)) / 2
+    draw = ImageDraw.Draw(layer)
     for word_number, text in enumerate(texts):
         color = hex_to_rgb(settings.text_color)
         if word_number == active_word:
             color = hex_to_rgb(settings.highlight_color)
-        draw_text(layer, text, x, settings.center_y, size, color, anchor="lm")
-        x += text_width(text, size) + space
+        draw.text((x, settings.center_y), text, font=font, fill=color, anchor="lm",
+                  stroke_width=settings.outline_width, stroke_fill=hex_to_rgb(settings.outline_color))
+        x += font.getlength(text) + space
+
+
+def caption_font(path, size):
+    """
+    Load a configured local TTF/OTF font path at a size; return a cached font or the bundled Montserrat default.
+
+    Args:
+        path: The local file path to read or create.
+        size: A font size in pixels, or a video size in bytes in transfer tests.
+
+    Returns:
+        A reusable Pillow font at the requested size.
+    """
+    if not path:
+        return get_font(size)
+    key = (path, size)
+    if key not in _caption_fonts:
+        try:
+            _caption_fonts[key] = ImageFont.truetype(path, size)
+        except OSError as error:
+            raise ValueError("Caption font could not be loaded. Check captions.font_path in the channel YAML.") from error
+    return _caption_fonts[key]
 
 
 # ---------------------------------------------------------------------------
@@ -522,6 +554,16 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
     plan = plan_layout(source["width"], source["height"], facecam,
                        settings.layout.facecam_panel_height, settings.layout.gameplay_focus_x)
     video_filter = build_video_filter(plan, FRAMES_PER_SECOND)
+    if settings.layout.template == "conversation":
+        # Preserve the entire wide picture for conversations and gameplay
+        # where a fixed crop would remove a participant or the score HUD.
+        video_filter = (
+            "[0:v]split=2[bg][fg];"
+            "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:2[back];"
+            "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[front];"
+            "[back][front]overlay=(W-w)/2:(H-h)/2,setsar=1,"
+            f"fps={FRAMES_PER_SECOND},format=rgb24[out]"
+        )
 
     folder = os.path.dirname(output_path)
     if folder:
@@ -579,10 +621,24 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
         encoder.stdin.close()
     except BrokenPipeError:
         pass  # the encoder stopped early; its log explains why (checked below)
+    except BaseException:
+        # Time limits and Ctrl-C must stop both FFmpeg children too.
+        decoder.terminate()
+        encoder.terminate()
+        raise
     finally:
+        if not encoder.stdin.closed:
+            try:
+                encoder.stdin.close()
+            except (BrokenPipeError, OSError):
+                pass
         decoder.stdout.close()
-        decoder.wait()
-        encoder.wait()
+        for process in (decoder, encoder):
+            try:
+                process.wait(timeout=20)
+            except subprocess.TimeoutExpired:
+                process.kill()
+                process.wait()
         log_file.close()
         if audio_path and os.path.exists(audio_path):
             os.remove(audio_path)

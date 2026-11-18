@@ -25,6 +25,7 @@
 # =============================================================
 
 import os
+import json
 from datetime import datetime, timezone, timedelta
 from zoneinfo import ZoneInfo
 
@@ -166,6 +167,26 @@ def claim_delivery(video_id, platform):
     conn = get_connection()
     try:
         conn.execute("BEGIN IMMEDIATE")
+        clip = conn.execute("SELECT * FROM clips WHERE video_id=?", (video_id,)).fetchone()
+        if clip:
+            from src.clips.settings import find_approved_streamer, load_clip_settings
+            from src.dashboard.settings import channel_config
+            config = channel_config(clip["channel"])
+            settings = load_clip_settings(config)
+            if not config.get("enabled", True):
+                return False
+            find_approved_streamer(settings, clip["streamer"], clip["channel"], clip["platform"])
+            quality = json.loads(clip["quality_json"] or "{}")
+            if quality and not quality.get("passed"):
+                return False
+            zone = ZoneInfo(config.get("schedule", {}).get("timezone", "UTC"))
+            day = datetime.now(zone).date().isoformat()
+            reserved = conn.execute("SELECT 1 FROM clip_publish_limits WHERE channel=? AND day=? AND video_id=?",
+                                    (clip["channel"], day, video_id)).fetchone()
+            count = conn.execute("SELECT COUNT(*) FROM clip_publish_limits WHERE channel=? AND day=?",
+                                 (clip["channel"], day)).fetchone()[0]
+            if not reserved and count >= settings.automation.max_uploads_per_day:
+                return False
         ready = conn.execute("""
             SELECT id FROM videos WHERE id=? AND status='approved'
             AND NOT EXISTS (SELECT 1 FROM jobs WHERE video_id=videos.id AND status IN ('queued', 'running'))
@@ -177,6 +198,8 @@ def claim_delivery(video_id, platform):
             "INSERT OR IGNORE INTO publishing_deliveries VALUES (?, ?, 'sending', NULL)",
             (video_id, platform),
         )
+        if clip and cursor.rowcount == 1:
+            conn.execute("INSERT OR IGNORE INTO clip_publish_limits VALUES (?, ?, ?)", (clip["channel"], day, video_id))
         conn.commit()
         return cursor.rowcount == 1
     finally:
@@ -251,6 +274,32 @@ def channel_platforms(config):
     return platforms
 
 
+def video_platforms(video, config):
+    """
+    Read channel defaults and an optional clip metadata override; return this video's configured destinations.
+
+    Args:
+        video: The finished video's database row, including its ID and channel.
+        config: The channel settings loaded from YAML.
+
+    Returns:
+        The enabled destinations selected for this video.
+    """
+    from src.clips.store import get_clip_for_video
+    platforms = channel_platforms(config)
+    clip = get_clip_for_video(video["id"])
+    if clip:
+        metadata = json.loads(clip["metadata_json"] or "{}")
+        selected = metadata.get("platforms")
+        if isinstance(selected, list):
+            result = []
+            for platform in platforms:
+                if platform in selected:
+                    result.append(platform)
+            return result
+    return platforms
+
+
 def unsupported_platforms(platforms):
     """Return the platforms in the list that this program cannot post to."""
     unsupported = []
@@ -306,13 +355,13 @@ def clip_caption(video, config):
     Videos from a clips channel (src/clips/) must credit and link the
     streamer; news videos return None and keep their normal caption.
     """
-    from src.clips.maker import build_post_caption
+    from src.clips.metadata import publishing_caption
     from src.clips.store import get_clip_for_video
     clip = get_clip_for_video(video["id"])
     if clip is None:
         return None
     hashtags = config.get("publishing", {}).get("hashtags", [])
-    return build_post_caption(video["story_title"], clip, hashtags)
+    return publishing_caption(clip, video["story_title"], hashtags)
 
 
 def send_to_platform(platform, video, config, credentials):
@@ -320,7 +369,7 @@ def send_to_platform(platform, video, config, credentials):
 
     TikTok lands in your TikTok inbox (you post it in the app). Instagram
     and Facebook Reels go public immediately. YouTube is public only if
-    the channel asks for it and Google has audited the API project.
+    the channel asks for it and the returned privacy status is public.
 
     Returns:
         dict: {"id": the ID the platform sent back,
@@ -393,7 +442,7 @@ def publish_to_platform(channel_key, config, video, platform):
     if result["public"] and platform in PLATFORMS_WITH_STATISTICS:
         record_public_post(video["id"], platform, result["id"])
     if platform == "youtube" and not result["public"]:
-        return (f"YouTube: uploaded as private (ID {result['id']}). Make it public in "
+        return (f"YouTube: uploaded with non-public privacy (ID {result['id']}). Make it public in "
                 "YouTube Studio, then record its post ID here to collect its views.")
     return f"{name}: done (ID {result['id']})."
 
@@ -433,8 +482,10 @@ def publish_video(channel_key, config, video):
     Returns:
         tuple: (list of messages, one per platform; True if now fully posted)
     """
-    platforms = channel_platforms(config)
+    platforms = video_platforms(video, config)
     messages = []
+    if not platforms:
+        return ["Select at least one destination for this video."], False
     for platform in platforms:
         messages.append(publish_to_platform(channel_key, config, video, platform))
     fully_posted = mark_posted_if_complete(video["id"], platforms)
@@ -460,13 +511,13 @@ def publish_video_now(channel_key, config, video_id):
     if not video["video_path"] or not os.path.isfile(video["video_path"]):
         raise ValueError("Render this video before posting it.")
 
-    platforms = channel_platforms(config)
+    platforms = video_platforms(video, config)
     if not platforms or unsupported_platforms(platforms):
         raise ValueError("Set this channel's platforms to tiktok, instagram, facebook and/or youtube.")
     return publish_video(channel_key, config, video)
 
 
-def run_scheduler(dry_run=False):
+def run_scheduler(dry_run=False, only_channel=None):
     """Post one approved video per channel time slot; dry_run only prints the plan.
 
     Only channels with a `schedule:` block take part. A video is marked
@@ -476,6 +527,21 @@ def run_scheduler(dry_run=False):
         create_tables()
     now_utc = datetime.now(timezone.utc)
     for channel_key, config in _load_all_channels():
+        if only_channel and channel_key != only_channel:
+            continue
+        if not config.get("enabled", True):
+            continue
+        if config.get("type") == "clips" and not dry_run:
+            conn = get_connection()
+            try:
+                state = conn.execute("SELECT enabled FROM clip_automation WHERE channel=?", (channel_key,)).fetchone()
+            finally:
+                conn.close()
+            enabled = config.get("automation", {}).get("enabled", False)
+            if state:
+                enabled = bool(state["enabled"])
+            if not enabled:
+                continue
         schedule = config.get("schedule")
         if not schedule:
             continue
@@ -486,7 +552,8 @@ def run_scheduler(dry_run=False):
         if not platforms or unsupported_platforms(platforms):
             print(f"[{channel_key}] Configure supported posting platforms first.")
             continue
-        if dry_run:
+        clip_dry_run = config.get("type") == "clips" and config.get("automation", {}).get("publish_dry_run", True)
+        if dry_run or clip_dry_run:
             print(f"[{channel_key}] [DRY RUN] Would check slot {slot}: {platforms}")
             continue
         video = select_slot_video(channel_key, slot)

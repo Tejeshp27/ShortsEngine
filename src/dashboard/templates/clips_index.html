@@ -1,0 +1,7 @@
+{# Private entry point for managing streamer channels and recording automation. #}
+{% extends 'base.html' %}
+{% block title %}Stream clips{% endblock %}
+{% block content %}
+<div class="page-heading"><div><div class="eyebrow">Production</div><h1>Stream clips</h1><p>Authorized Twitch and Kick recordings, ranked and prepared for review.</p></div></div>
+<div class="split">{% for channel in channels %}<section class="panel"><h2>{{ channel.name }}</h2><p>{{ channel.niche }}</p><a class="btn btn-primary" href="/clips/{{ channel.key }}">Manage streamers and automation →</a><a class="btn" href="/channels/{{ channel.key }}">Connect publishing accounts</a></section>{% else %}<p>Add a channel YAML with type: clips.</p>{% endfor %}</div>
+{% endblock %}

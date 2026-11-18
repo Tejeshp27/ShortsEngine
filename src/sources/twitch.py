@@ -20,6 +20,7 @@
 # =============================================================
 
 import os
+import time
 from datetime import datetime, timedelta, timezone
 
 import httpx
@@ -76,8 +77,9 @@ def get_app_token():
         TwitchError: If the credentials are missing or Twitch refuses them.
     """
     client_id, client_secret = twitch_credentials()
-    if client_id in _app_token_cache:
-        return _app_token_cache[client_id]
+    saved = _app_token_cache.get(client_id)
+    if saved and saved["expires_at"] > time.time() + 60:
+        return saved["token"]
 
     response = httpx.post(TWITCH_TOKEN_URL, timeout=REQUEST_TIMEOUT_SECONDS, data={
         "client_id": client_id,
@@ -88,7 +90,8 @@ def get_app_token():
     if response.status_code != 200 or "access_token" not in data:
         raise TwitchError(f"Twitch refused the app credentials: {data.get('message', response.status_code)}")
 
-    _app_token_cache[client_id] = data["access_token"]
+    _app_token_cache[client_id] = {"token": data["access_token"],
+                                   "expires_at": time.time() + data.get("expires_in", 3600)}
     return data["access_token"]
 
 

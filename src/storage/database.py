@@ -149,5 +149,7 @@ def create_tables():
 
     from src.storage.control_schema import create_control_tables
     create_control_tables(conn)
+    from src.clips.schema import create_clip_automation_tables
+    create_clip_automation_tables(conn)
     conn.commit()
     conn.close()

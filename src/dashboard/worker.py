@@ -639,7 +639,13 @@ def publish_saved_video(job):
     video_id = job["payload"]["video_id"]
     config = job["payload"]["config"]
     if job["dry_run"]:
-        platforms = ", ".join(channel_platforms(config))
+        from src.publishing.scheduler import video_platforms
+        from src.storage.queries import get_video_by_id
+        video = get_video_by_id(video_id)
+        destinations = channel_platforms(config)
+        if video:
+            destinations = video_platforms(video, config)
+        platforms = ", ".join(destinations)
         return {"video_id": video_id, "message": f"Dry run: would post to {platforms}. Nothing was sent."}
 
     messages, fully_posted = publish_video_now(job["channel"], config, video_id)
@@ -705,6 +711,11 @@ def do_job_work(job, llm, tracker):
         return publish_saved_video(job)
     if kind == "clip_render":
         return recut_clip(job)
+    if kind == "clip_pipeline":
+        from src.clips.automation import run_pipeline
+        update_job(job["id"], "Monitoring sources and preparing highlights", 15)
+        return run_pipeline(job["channel"], job["payload"]["config"], llm,
+                            bool(job["dry_run"]), job["payload"].get("recording"))
 
     from src.analytics.accounts import sync_channel
     return {"message": sync_channel(job["channel"], dry_run=bool(job["dry_run"]))}

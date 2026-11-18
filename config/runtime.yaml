@@ -1,0 +1,8 @@
+# Independent clip supervisor settings; no secrets belong here.
+# Seconds between health, stale-job recovery and queue checks.
+tick_seconds: 15
+# Pause new processing and publishing below this free-disk threshold.
+minimum_free_gb: 5
+# Delete only abandoned .part/.rendering.mp4/.edited.mp4 files when idle.
+# Original recordings, final videos, transcripts and models are retained.
+temporary_retention_hours: 48

@@ -35,15 +35,50 @@ services:
       # Keep the database in the mounted data/ folder so it survives
       # rebuilding the container.
       - DATABASE_PATH=/app/data/shortsengine.db
+      # The independent clips runtime owns clip scheduling, including after dashboard restarts.
+      - DASHBOARD_AUTO_CLIPS=false
+      # Preserve the dashboard's news scheduler; clip delivery reservations prevent duplicate sends.
     volumes:
       # Mount the data folders so they persist between container restarts.
       - ./output:/app/output
       - ./cache:/app/cache
       - ./data:/app/data
+      # Persist free transcription models and mount creator-supplied completed recordings.
+      - ./models:/app/models
+      - ./recordings:/app/recordings
       # Read live channel/settings edits without rebuilding the image.
-      - ./channels:/app/channels:ro
+      - ./channels:/app/channels
       - ./config:/app/config:ro
     restart: unless-stopped
+
+  # Independent clips supervisor; no browser or interactive session is required on a cloud host.
+  clips_runtime:
+    build: .
+    # Secrets are loaded at runtime and never baked into the image.
+    env_file: [.env]
+    environment:
+      # Share the persistent database with the dashboard and workers.
+      - DATABASE_PATH=/app/data/shortsengine.db
+    volumes:
+      # Preserve outputs, caches, queue state, models, supplied media and live channel settings.
+      - ./output:/app/output
+      - ./cache:/app/cache
+      - ./data:/app/data
+      - ./models:/app/models
+      - ./recordings:/app/recordings
+      - ./channels:/app/channels
+      - ./config:/app/config:ro
+    command: ["python", "-m", "src.clips.runtime"]
+    # Restart after host/process failures; stop gracefully before forced termination.
+    restart: unless-stopped
+    stop_grace_period: 35s
+    healthcheck:
+      # Liveness is distinct from source/account readiness recorded in the health JSON.
+      test: ["CMD", "python", "-m", "src.clips.runtime", "--health"]
+      interval: 60s
+      timeout: 10s
+      start_period: 30s
+      retries: 3
 
   # Pipeline — a one-shot job, run manually or on a cron schedule.
   # It does not stay running: "docker compose run --rm pipeline" runs it
@@ -59,8 +94,11 @@ services:
       - ./output:/app/output
       - ./cache:/app/cache
       - ./data:/app/data
+      # Shared model/recording folders for clips commands in this service.
+      - ./models:/app/models
+      - ./recordings:/app/recordings
       # Use the same channel settings and price list as the dashboard.
-      - ./channels:/app/channels:ro
+      - ./channels:/app/channels
       - ./config:/app/config:ro
     # The default entrypoint runs the news channel pipeline.
     # Override on the command line with --channel or --dry-run.
