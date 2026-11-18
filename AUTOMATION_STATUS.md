@@ -162,8 +162,8 @@ Suggested commit after review: `feat: supervise clip automation with launchd and
 <!-- RUNTIME_STATUS_START -->
 ## Live supervisor status
 
-Updated: 2026-11-18 16:54:39 CST · PID 20796
-Free disk: 171.7 GB · Low-disk pause: False
+Updated: 2026-11-18 17:08:33 CST · PID 20796
+Free disk: 171.67 GB · Low-disk pause: False
 
 - twitch_clips: queue enabled=True; recordings=0; finished clips=0.
   - No authorized recording imported; remote media access still needs verification.
