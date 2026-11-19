@@ -7,15 +7,20 @@
 #   1. the hook title, during the first few seconds
 #   2. word-by-word captions from the Whisper transcript
 #      (the word being spoken is highlighted)
-#   3. optional on-video credit; post captions retain attribution independently
+#   3. a small streamer credit tag in the top-left corner for the
+#      first few seconds (post captions always credit the streamer too)
 #
 # How it works (two FFmpeg programs with Python in the middle):
-#   FFmpeg #1 ("decoder") cuts the chosen moment, crops and stacks
-#     the webcam and gameplay panels (see clip_layout.py) and sends
-#     plain RGB pictures to Python through a pipe.
+#   FFmpeg #1 ("decoder") cuts the chosen moment and does ALL picture
+#     work in one filter graph: layout, lanczos resizing, sharpening
+#     of enlarged panels (see clip_layout.py). It sends plain,
+#     uncompressed RGB pictures to Python through a pipe.
 #   Python draws the text on each picture with Pillow.
-#   FFmpeg #2 ("encoder") receives the pictures, adds the clip's own
-#     sound (loudness-levelled for phones) and writes the MP4.
+#   FFmpeg #2 ("encoder") receives the pictures, adds the cleaned and
+#     bleeped sound (clip_audio.py), applies the final loudness pass
+#     and compresses everything ONCE into the MP4 (H.264 + AAC).
+#   Nothing is compressed twice: the pipe and the WAV files in between
+#   are uncompressed, so no quality is lost before the final encode.
 #
 # Why draw text in Python instead of FFmpeg's subtitle/text filters:
 # the FFmpeg installed on this Mac was built without them, and the
@@ -24,6 +29,7 @@
 # =============================================================
 
 import json
+import logging
 import os
 import subprocess
 
@@ -38,14 +44,18 @@ from src.video.animation.drawing import (
     text_width,
     wrap_text,
 )
-from src.video.clip_layout import OUTPUT_HEIGHT, OUTPUT_WIDTH, build_video_filter, plan_layout
-from src.video.sound_design import normalize_loudness
+from src.video.clip_layout import (
+    OUTPUT_HEIGHT,
+    OUTPUT_WIDTH,
+    build_video_filter,
+    plan_layout,
+    text_positions,
+)
 
-FRAMES_PER_SECOND = 30
+logger = logging.getLogger(__name__)
 
-# Loudness targets used by TikTok/Reels/Shorts-style mixes:
-# -14 LUFS overall, peaks no higher than -1.5 dB.
-LOUDNESS_SETTINGS = {"target_lufs": -14, "true_peak": -1.5}
+# Used when FFprobe cannot tell a video's frame rate.
+DEFAULT_FRAMES_PER_SECOND = 30
 
 # A caption group ends at a pause longer than this (seconds), so a
 # new sentence after a pause starts on a fresh caption.
@@ -54,10 +64,10 @@ CAPTION_PAUSE_SECONDS = 0.7
 # don't flash by.
 CAPTION_LINGER_SECONDS = 0.4
 
-# Where the credit sits: centred, just above TikTok's bottom text area.
-CREDIT_CENTER_Y = 1440
-# Where the hook title sits when there is no split (full layout).
-FULL_LAYOUT_HOOK_Y = 520
+# Where the credit tag sits: the top-left corner, below the apps' top
+# tabs ("Following | For You") and inside the side margin.
+CREDIT_LEFT = SAFE_LEFT
+CREDIT_CENTER_Y = 250
 
 # Hook title box colours: black text on a white box reads on any video.
 HOOK_BOX_COLOR = (255, 255, 255, 240)
@@ -73,38 +83,81 @@ _caption_fonts = {}
 
 def probe_video(path):
     """
-    Ask FFprobe for a video's size, length and whether it has sound.
+    Ask FFprobe for a video's size, frame rate, length and whether it has sound.
 
     Args:
         path (str): The video file.
 
     Returns:
-        dict: {"width": 1920, "height": 1080, "duration": 31.5, "has_audio": True}
+        dict: {"width": 1920, "height": 1080, "fps": 60.0, "duration": 31.5, "has_audio": True}
 
     Raises:
         ValueError: If the file has no video picture.
     """
     result = subprocess.run([
         "ffprobe", "-v", "error",
-        "-show_entries", "stream=codec_type,width,height:format=duration",
+        "-show_entries", "stream=codec_type,width,height,r_frame_rate,avg_frame_rate:format=duration",
         "-of", "json", path,
     ], capture_output=True, text=True, check=True)
     data = json.loads(result.stdout)
 
     width = 0
     height = 0
+    fps = 0.0
     has_audio = False
     for stream in data.get("streams", []):
         if stream.get("codec_type") == "video" and not width:
             width = int(stream.get("width", 0))
             height = int(stream.get("height", 0))
+            fps = frame_rate_value(stream.get("r_frame_rate")) or frame_rate_value(stream.get("avg_frame_rate"))
         if stream.get("codec_type") == "audio":
             has_audio = True
     if not width or not height:
         raise ValueError(f"{path} has no video picture.")
 
     duration = float(data.get("format", {}).get("duration", 0) or 0)
-    return {"width": width, "height": height, "duration": duration, "has_audio": has_audio}
+    return {"width": width, "height": height, "fps": fps, "duration": duration, "has_audio": has_audio}
+
+
+def frame_rate_value(text):
+    """
+    Turn FFprobe's frame-rate text into a number.
+
+    Args:
+        text (str or None): For example "60/1" or "30000/1001".
+
+    Returns:
+        float: For example 60.0 or 29.97; 0.0 when unknown.
+    """
+    if not text or "/" not in text:
+        return 0.0
+    top, bottom = text.split("/", 1)
+    try:
+        if float(bottom) == 0:
+            return 0.0
+        return float(top) / float(bottom)
+    except ValueError:
+        return 0.0
+
+
+def output_frame_rate(source_fps, encoding):
+    """
+    Choose the finished video's frame rate.
+
+    Args:
+        source_fps (float): The source's frame rate (0 when unknown).
+        encoding (ClipEncodingSettings): frame_rate ("source" or a number)
+                                         and max_frame_rate.
+
+    Returns:
+        int: For example 60 for a 60 fps stream with frame_rate "source".
+    """
+    if encoding.frame_rate != "source":
+        return encoding.frame_rate
+    if source_fps <= 0:
+        return DEFAULT_FRAMES_PER_SECOND
+    # 59.94 becomes 60 and 29.97 becomes 30; never above the maximum.
+    return max(24, min(round(source_fps), encoding.max_frame_rate))
 
 
 def words_in_moment(words, start, end):
@@ -127,11 +180,11 @@ def words_in_moment(words, start, end):
     for word in words:
         if word["end"] <= start or word["start"] >= end:
             continue
-        kept.append({
-            "word": word["word"],
-            "start": round(max(word["start"], start) - start, 3),
-            "end": round(min(word["end"], end) - start, 3),
-        })
+        # Copy the word (including any bleep flags), then move its times.
+        moved = dict(word)
+        moved["start"] = round(max(word["start"], start) - start, 3)
+        moved["end"] = round(min(word["end"], end) - start, 3)
+        kept.append(moved)
     return kept
 
 
@@ -223,15 +276,19 @@ def spoken_word_number(group, now):
     return current
 
 
-def draw_caption(layer, group, active_word, settings):
+def draw_caption(layer, group, active_word, settings, center_y):
     """
     Draw one caption line, with the spoken word in the highlight colour.
+
+    The line stays between SAFE_LEFT and SAFE_RIGHT, so it never reaches
+    the like/comment/share buttons on the right edge of the apps.
 
     Args:
         layer (PIL.Image): A transparent picture to draw on.
         group (dict): The caption group.
         active_word (int): Which word to highlight.
-        settings (CaptionSettings): Size, colours and height.
+        settings (CaptionSettings): Size and colours.
+        center_y (int): The height of the line's middle (from clip_layout.text_positions).
     """
     texts = []
     for word in group["words"]:
@@ -255,7 +312,7 @@ def draw_caption(layer, group, active_word, settings):
         color = hex_to_rgb(settings.text_color)
         if word_number == active_word:
             color = hex_to_rgb(settings.highlight_color)
-        draw.text((x, settings.center_y), text, font=font, fill=color, anchor="lm",
+        draw.text((x, center_y), text, font=font, fill=color, anchor="lm",
                   stroke_width=settings.outline_width, stroke_fill=hex_to_rgb(settings.outline_color))
         x += font.getlength(text) + space
 
@@ -342,7 +399,7 @@ def credit_icon(size):
 
 def draw_credit(layer, credit_text, settings):
     """
-    Draw the streamer credit on a dark pill, e.g. "🎥 twitch.tv/streamer".
+    Draw the small streamer credit tag in the top-left corner, e.g. "🎥 twitch.tv/streamer".
 
     Args:
         layer (PIL.Image): A transparent picture to draw on.
@@ -360,7 +417,7 @@ def draw_credit(layer, credit_text, settings):
     content_width = icon_space + text_width(credit_text, size, "bold")
     pill_width = content_width + 48
     pill_height = size + 34
-    left = OUTPUT_WIDTH / 2 - pill_width / 2
+    left = CREDIT_LEFT
     top = CREDIT_CENTER_Y - pill_height / 2
 
     draw = ImageDraw.Draw(layer)
@@ -455,189 +512,256 @@ def decoder_command(clip_path, start, duration, video_filter):
     ]
 
 
-def encoder_command(audio_path, duration, output_path, encoding=None):
+def encoder_command(audio_path, duration, output_path, frame_rate, encoding, audio_filter=None):
     """
     Build the FFmpeg command that turns Python's frames + the sound into an MP4.
 
+    This is the ONE place the video and sound are compressed.
+
     Args:
-        audio_path (str or None): The levelled sound, or None for silence.
+        audio_path (str or None): The cleaned sound (WAV), or None for silence.
         duration (float): The video's length in seconds.
         output_path (str): Where to write the MP4.
-        encoding: Optional checked frame rate, quality and speed; None keeps the older export defaults.
+        frame_rate (int): Frames per second (the same as the decoder's).
+        encoding (ClipEncodingSettings): crf, preset and profile.
+        audio_filter (str or None): The final loudness pass (loudnorm pass 2).
 
     Returns:
         list[str]: The command.
     """
-    frame_rate = FRAMES_PER_SECOND
-    crf = 20
-    preset = "fast"
-    if encoding is not None:
-        frame_rate = encoding.frame_rate
-        crf = encoding.crf
-        preset = encoding.preset
     command = [
         "ffmpeg", "-nostdin", "-y",
         "-f", "rawvideo", "-pix_fmt", "rgb24",       # frames arrive as raw RGB...
         "-s", f"{OUTPUT_WIDTH}x{OUTPUT_HEIGHT}",     # ...1080x1920 each...
-        "-framerate", str(frame_rate),              # match the decoder and caption clock
+        "-framerate", str(frame_rate),               # ...at the decoder's frame rate...
         "-i", "-",                                   # ...through the pipe
     ]
     if audio_path:
         command += ["-i", audio_path]
     else:
         # A clip without sound gets silence, because TikTok expects an audio track.
-        command += ["-f", "lavfi", "-i", "anullsrc=r=44100:cl=stereo"]
+        command += ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=stereo"]
     command += [
         "-map", "0:v", "-map", "1:a",
-        "-c:v", "libx264",       # H.264: the video format every phone and app plays
-        "-preset", preset,       # trade encoding time against compression efficiency
-        "-crf", str(crf),        # lower values retain more source detail and use more disk
-        "-pix_fmt", "yuv420p",   # the colour format phones expect
-        "-c:a", "aac",           # AAC: the standard sound format inside MP4 files
-        "-b:a", "192k",          # sound quality (192 kilobits per second)
-        "-t", f"{duration:.3f}",  # stop exactly at the moment's length
-        "-movflags", "+faststart",  # put the index at the front so it plays while loading
+        "-c:v", "libx264",              # H.264: the video format every phone and app plays
+        "-preset", encoding.preset,     # slower = smaller file at the same quality
+        "-crf", str(encoding.crf),      # quality: lower = more detail and a bigger file (18 is near-transparent)
+        "-profile:v", encoding.profile,  # "high": the H.264 feature level platforms expect
+        "-pix_fmt", "yuv420p",          # the colour format phones expect
+    ]
+    if audio_filter:
+        command += ["-af", audio_filter]
+    command += [
+        "-c:a", "aac",                  # AAC: the standard sound format inside MP4 files
+        "-b:a", "192k",                 # sound quality (192 kilobits per second)
+        "-ar", "48000",                 # 48 kHz, the standard for video
+        "-t", f"{duration:.3f}",        # stop exactly at the moment's length
+        "-movflags", "+faststart",      # put the index at the front so it plays while loading
         output_path,
     ]
     return command
 
 
-def prepare_audio(clip_path, start, duration, work_base, audio_settings=None):
+def remove_files(paths):
     """
-    Cut the moment's sound, optionally emphasize speech, and level it for phones.
+    Delete temporary files that exist (and ignore ones that don't).
 
     Args:
-        clip_path (str): The clip.
+        paths (list[str]): File paths.
+    """
+    for path in paths:
+        if path and os.path.exists(path):
+            os.remove(path)
+
+
+def prepare_audio(clip_path, start, duration, work_base, audio_settings, bleep_settings=None, spans=None):
+    """
+    Cut, clean, bleep and measure the moment's sound (see clip_audio.py).
+
+    Args:
+        clip_path (str): The source video.
         start (float): The moment's start, in seconds.
         duration (float): The moment's length.
         work_base (str): Path prefix for temporary files.
-        audio_settings: Checked speech controls; None keeps normalization only.
+        audio_settings (ClipAudioSettings): Cleaning and loudness settings.
+        bleep_settings (BleepSettings or None): Tone and volume for bleeps.
+        spans (list[dict] or None): Time ranges to bleep (from profanity.bleep_spans).
 
     Returns:
-        str: The levelled WAV, or the best available WAV if an optional pass fails.
+        dict: {"path": the WAV for the encoder,
+               "filter": the final loudness filter, or None for silent sound,
+               "loudness": pass-1 measurements or None,
+               "beep_levels_db": the level of each beep,
+               "temporary": files to delete after the encode,
+               "warnings": problems that were worked around}.
     """
-    raw_path = work_base + "_audio_raw.wav"
-    levelled_path = work_base + "_audio.wav"
-    enhanced_path = work_base + "_audio_speech.wav"
-    subprocess.run([
-        "ffmpeg", "-nostdin", "-v", "error", "-y",
-        "-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", clip_path,
-        "-vn", "-ac", "2", "-ar", "44100",   # sound only, stereo, 44.1 kHz
-        raw_path,
-    ], check=True)
-    best_path = raw_path
-    if audio_settings is not None and audio_settings.speech_enhancement:
-        from src.video.clip_audio import enhance_speech
-        try:
-            enhance_speech(raw_path, enhanced_path, audio_settings)
-            best_path = enhanced_path
-        except subprocess.CalledProcessError:
-            # A build without dialoguenhance should still make a playable
-            # draft, with an explicit warning instead of silently dropping sound.
-            import logging
-            logging.getLogger(__name__).warning(
-                "Speech enhancement failed; using the original mix with loudness normalization.")
-            if os.path.exists(enhanced_path):
-                os.remove(enhanced_path)
+    from src.video import clip_audio
+
+    clean_path = work_base + "_audio_clean.wav"
+    bleeped_path = work_base + "_audio_bleeped.wav"
+    limited_path = work_base + "_audio_limited.wav"
+    temporary = [clean_path, bleeped_path] + clip_audio.limited_file_names(limited_path)
+    result = {"filter": None, "loudness": None, "beep_levels_db": [], "warnings": [],
+              "temporary": temporary}
+
     try:
-        if best_path == enhanced_path:
-            from src.video.clip_audio import level_speech
-            level_speech(best_path, levelled_path, LOUDNESS_SETTINGS)
-        else:
-            normalize_loudness(best_path, levelled_path, LOUDNESS_SETTINGS)
+        clip_audio.extract_clean_audio(clip_path, start, duration, clean_path, audio_settings)
+    except subprocess.CalledProcessError:
+        # A build of FFmpeg without one of the cleaning filters still
+        # makes a playable draft, with a clear warning in the report.
+        message = "Audio cleanup failed with this FFmpeg; used the original sound (still bleeped and levelled)."
+        logger.warning(message)
+        result["warnings"].append(message)
+        clip_audio.extract_clean_audio(clip_path, start, duration, clean_path, audio_settings, clean=False)
+    current = clean_path
+
+    if spans:
+        result["beep_levels_db"] = clip_audio.bleep_audio_file(current, bleeped_path, spans, bleep_settings)
+        current = bleeped_path
+
+    try:
+        current, result["filter"], result["loudness"] = clip_audio.prepare_loudness(
+            current, limited_path, audio_settings)
     except (subprocess.CalledProcessError, ValueError, KeyError):
-        # Very short or silent sound can't be measured; use it as it is.
-        if os.path.exists(levelled_path):
-            os.remove(levelled_path)
-        if best_path != raw_path:
-            os.remove(raw_path)
-        return best_path
-    for temporary in (raw_path, enhanced_path):
-        if os.path.exists(temporary):
-            os.remove(temporary)
-    return levelled_path
+        # Silent or very short sound has no loudness to measure; use it as it is.
+        result["warnings"].append("Sound could not be measured (silent?); loudness was not adjusted.")
+    result["path"] = current
+    return result
 
 
 # ---------------------------------------------------------------------------
 # The whole render
 # ---------------------------------------------------------------------------
 
-def layout_for_source(source, facecam, settings):
+def check_source_resolution(source, quality_settings):
     """
-    Choose a facecam-safe picture layout for every template.
+    Flag (or refuse) a source that is too low-resolution for a sharp Short.
 
     Args:
-        source: Probed source width and height in pixels.
-        facecam: A measured camera box, or None when its position is unknown.
-        settings: Checked channel settings, including panel height and gameplay focus.
+        source (dict): From probe_video().
+        quality_settings (SourceQualitySettings): min_height and reject_below_min.
 
     Returns:
-        The panel plan and FFmpeg filter. Known cameras get a top panel; unknown
-        positions keep the entire source visible so an embedded camera is not lost.
+        str or None: A warning for the quality report, or None when the source is fine.
+
+    Raises:
+        ValueError: When the source is too small and the channel refuses those.
     """
-    plan = plan_layout(source["width"], source["height"], facecam,
-                       settings.layout.facecam_panel_height, settings.layout.gameplay_focus_x)
-    if facecam is not None:
-        return plan, build_video_filter(plan, settings.encoding.frame_rate)
-    # This fallback preserves every corner until a creator's camera box is set.
-    video_filter = (
-        "[0:v]split=2[bg][fg];"
-        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:2[back];"
-        "[fg]scale=1080:1920:force_original_aspect_ratio=decrease:flags=lanczos[front];"
-        "[back][front]overlay=(W-w)/2:(H-h)/2,setsar=1,"
-        f"fps={settings.encoding.frame_rate},format=rgb24[out]"
-    )
-    return plan, video_filter
+    if source["height"] >= quality_settings.min_height:
+        return None
+    message = (f"Source is only {source['width']}x{source['height']} (below {quality_settings.min_height}p); "
+               "the video will look soft. Find a higher-resolution copy if one exists.")
+    if quality_settings.reject_below_min:
+        raise ValueError(message)
+    return message
+
+
+def layout_for_source(source, facecam, settings, layout_mode=None):
+    """
+    Plan the picture layout for one source and build its FFmpeg filter.
+
+    Args:
+        source (dict): From probe_video() (width, height, fps).
+        facecam (FacecamBox or None): The streamer's webcam position.
+        settings (ClipChannelSettings): Layout and encoding settings.
+        layout_mode (str or None): A per-streamer layout; None uses layout.mode.
+
+    Returns:
+        tuple: (plan, video filter text, output frame rate).
+    """
+    layout = settings.layout
+    mode = layout_mode or layout.mode
+    plan = plan_layout(source["width"], source["height"], mode, facecam,
+                       layout.split_gameplay_share, layout.gameplay_focus_x, layout.foreground_center)
+    frame_rate = output_frame_rate(source.get("fps", 0), settings.encoding)
+    video_filter = build_video_filter(plan, frame_rate, layout.background_blur, layout.background_darken)
+    return plan, video_filter, frame_rate
+
+
+def is_upscaled(plan):
+    """
+    Check whether any part of the picture is enlarged beyond its real size.
+
+    Args:
+        plan (dict): From plan_layout().
+
+    Returns:
+        bool: True when at least one panel is enlarged (and so sharpened).
+    """
+    if plan["mode"] == "fit-blur":
+        return plan["foreground"]["enlarged"]
+    for panel in plan["panels"]:
+        if panel["enlarged"]:
+            return True
+    return False
 
 
 def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
-                      facecam, settings, output_path):
+                      facecam, settings, output_path, layout_mode=None, bleep_spans=None):
     """
     Make the finished vertical video for one clip.
 
     Args:
-        clip_path (str): The downloaded clip.
+        clip_path (str): The source video.
         start (float): The chosen moment's start in the clip, in seconds.
         end (float): The chosen moment's end.
-        words (list[dict]): The WHOLE clip's timed words (from Whisper).
+        words (list[dict]): The WHOLE clip's timed words (from Whisper),
+                            already masked where profanity is bleeped.
         hook_title (str): Shown during the first seconds.
         credit_text (str): For example "twitch.tv/streamer".
         facecam (FacecamBox or None): The streamer's webcam position.
-        settings (ClipChannelSettings): Layout, caption, title and credit settings.
+        settings (ClipChannelSettings): Layout, caption, title, credit, audio settings.
         output_path (str): Where to save the MP4.
+        layout_mode (str or None): A per-streamer layout; None uses layout.mode.
+        bleep_spans (list[dict] or None): Time ranges (from the moment's start) to bleep.
 
     Returns:
-        str: output_path.
+        dict: What was done, for the quality report: {"path", "frame_rate",
+              "layout", "source", "upscaled", "loudness", "beep_levels_db", "warnings"}.
 
     Raises:
         RuntimeError: If FFmpeg fails (the reason is in <output>_ffmpeg.log).
+        ValueError: If the source is below the channel's minimum resolution
+                    and the channel refuses such sources.
     """
     source = probe_video(clip_path)
+    warnings = []
+    resolution_warning = check_source_resolution(source, settings.source)
+    if resolution_warning:
+        warnings.append(resolution_warning)
     duration = round(end - start, 3)
-    plan, video_filter = layout_for_source(source, facecam, settings)
+    plan, video_filter, frame_rate = layout_for_source(source, facecam, settings, layout_mode)
+    if plan.get("note"):
+        warnings.append(plan["note"])
 
     folder = os.path.dirname(output_path)
     if folder:
         os.makedirs(folder, exist_ok=True)
     work_base = os.path.splitext(output_path)[0]
-    audio_path = None
+    audio = {"path": None, "filter": None, "loudness": None, "beep_levels_db": [], "warnings": [], "temporary": []}
     if source["has_audio"]:
-        audio_path = prepare_audio(clip_path, start, duration, work_base, settings.audio)
+        audio = prepare_audio(clip_path, start, duration, work_base, settings.audio,
+                              settings.bleep, bleep_spans or [])
+    warnings += audio["warnings"]
 
     # Layers that never change are drawn once.
-    hook_y = FULL_LAYOUT_HOOK_Y
-    if plan["mode"] == "split":
-        # Keep the title below the facecam instead of covering its lower edge.
-        hook_y = plan["panels"][0]["height"] + 150
-    hook_layer = make_layer(draw_hook_title, hook_title, hook_y, settings.hook_title)
+    positions = text_positions(plan)
+    caption_y = positions["caption_y"]
+    if settings.captions.center_y is not None:
+        caption_y = settings.captions.center_y
+    hook_layer = make_layer(draw_hook_title, hook_title, positions["hook_y"], settings.hook_title)
     credit_layer = make_layer(draw_credit, credit_text, settings.credit)
+    credit_seconds = settings.credit.seconds
+    if credit_seconds <= 0:
+        credit_seconds = duration   # 0 means "show it for the whole video"
     groups = group_caption_words(words_in_moment(words, start, end), settings.captions.words_per_caption)
 
     log_path = work_base + "_ffmpeg.log"
     log_file = open(log_path, "w", encoding="utf-8")
     decoder = subprocess.Popen(decoder_command(clip_path, start, duration, video_filter),
                                stdout=subprocess.PIPE, stderr=log_file)
-    encoder = subprocess.Popen(encoder_command(audio_path, duration, output_path, settings.encoding),
+    encoder = subprocess.Popen(encoder_command(audio["path"], duration, output_path, frame_rate,
+                                               settings.encoding, audio["filter"]),
                                stdin=subprocess.PIPE, stdout=log_file, stderr=log_file)
 
     frame_bytes = OUTPUT_WIDTH * OUTPUT_HEIGHT * 3
@@ -651,7 +775,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
             raw = decoder.stdout.read(frame_bytes)
             if len(raw) < frame_bytes:
                 break
-            now = frame_number / settings.encoding.frame_rate
+            now = frame_number / frame_rate
             frame = Image.frombytes("RGB", (OUTPUT_WIDTH, OUTPUT_HEIGHT), raw)
 
             group_number, word_number = caption_at(groups, now)
@@ -660,11 +784,12 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
                 caption_layer = None
                 if group_number is not None:
                     caption_layer = make_layer(draw_caption, groups[group_number], word_number,
-                                               settings.captions)
+                                               settings.captions, caption_y)
                 last_caption_key = caption_key
 
             paste_layer(frame, caption_layer)
-            paste_layer(frame, credit_layer)
+            if now < credit_seconds:
+                paste_layer(frame, credit_layer)
             if now < settings.hook_title.seconds:
                 paste_layer(frame, hook_layer)
 
@@ -692,10 +817,12 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
                 process.kill()
                 process.wait()
         log_file.close()
-        if audio_path and os.path.exists(audio_path):
-            os.remove(audio_path)
+        remove_files(audio["temporary"])
 
     if frame_number == 0 or encoder.returncode != 0 or decoder.returncode != 0:
         raise RuntimeError(f"FFmpeg could not render the clip. See {log_path}")
     os.remove(log_path)
-    return output_path
+    return {"path": output_path, "frame_rate": frame_rate, "layout": plan["mode"],
+            "source": f"{source['width']}x{source['height']} @ {source['fps']:.2f} fps",
+            "upscaled": is_upscaled(plan), "loudness": audio["loudness"],
+            "beep_levels_db": audio["beep_levels_db"], "warnings": warnings}

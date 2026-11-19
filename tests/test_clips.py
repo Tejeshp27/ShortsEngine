@@ -471,23 +471,28 @@ def test_whisper_output_becomes_timed_words():
 # Layout and captions
 # ---------------------------------------------------------------------------
 
-def test_split_layout_keeps_the_whole_webcam_in_view():
-    """The webcam crop contains the full webcam box, so faces are never cut off."""
+def test_split_layout_crops_inside_the_webcam_box():
+    """Split puts gameplay on top and a facecam crop below that stays inside the webcam box (no overlay border)."""
     facecam = FacecamBox(x=0.75, y=0.0, width=0.25, height=0.3)
-    plan = plan_layout(1920, 1080, facecam, 720, 0.5)
-    camera = plan["panels"][0]["crop"]
+    plan = plan_layout(1920, 1080, "split", facecam, 0.6, 0.5)
+    gameplay, camera = plan["panels"][0]["crop"], plan["panels"][1]["crop"]
 
     assert plan["mode"] == "split"
-    assert camera["x"] <= 1440 and camera["x"] + camera["width"] >= 1920 - 2
-    assert camera["y"] == 0 and camera["height"] >= 324 - 2
-    # The panels fill the phone screen exactly.
+    assert gameplay["height"] == 1080   # the gameplay panel uses the full picture height
+    assert camera["x"] >= 1440 and camera["x"] + camera["width"] <= 1920
+    assert camera["y"] >= 0 and camera["y"] + camera["height"] <= 324
+    # It still uses most of the camera: at least 85% of the box's height.
+    assert camera["height"] >= 0.85 * 324
+    # The panels fill the phone screen exactly, gameplay ~60%.
+    assert plan["panels"][0]["height"] == 1152
     assert plan["panels"][0]["height"] + plan["panels"][1]["height"] == 1920
 
 
 def test_every_crop_is_even_and_inside_the_picture():
     """H.264 needs even sizes; no crop may reach outside the stream picture."""
-    for facecam in (None, FacecamBox(x=0, y=0.7, width=0.3, height=0.3)):
-        plan = plan_layout(1280, 720, facecam, 720, 0.9)
+    plans = [plan_layout(1280, 720, "center-crop", None, 0.6, 0.9),
+             plan_layout(1280, 720, "split", FacecamBox(x=0, y=0.7, width=0.3, height=0.3), 0.6, 0.9)]
+    for plan in plans:
         for panel in plan["panels"]:
             crop = panel["crop"]
             for value in crop.values():
@@ -496,15 +501,15 @@ def test_every_crop_is_even_and_inside_the_picture():
             assert crop["y"] >= 0 and crop["y"] + crop["height"] <= 720
 
 
-def test_no_webcam_means_a_centred_full_height_crop():
-    """Without a webcam position, the video is one centred 9:16 slice."""
-    plan = plan_layout(1920, 1080, None, 720, 0.5)
+def test_center_crop_is_a_centred_full_height_slice():
+    """center-crop is still available: one centred 9:16 slice, no stacking."""
+    plan = plan_layout(1920, 1080, "center-crop", None, 0.6, 0.5)
     crop = plan["panels"][0]["crop"]
-    assert plan["mode"] == "full" and crop["height"] == 1080
+    assert plan["mode"] == "center-crop" and crop["height"] == 1080
     assert abs((crop["x"] + crop["width"] / 2) - 960) <= 2
     assert "vstack" not in build_video_filter(plan, 30)
-    assert "vstack=inputs=2" in build_video_filter(plan_layout(1920, 1080, FacecamBox(
-        x=0, y=0, width=0.2, height=0.2), 720, 0.5), 30)
+    assert "vstack=inputs=2" in build_video_filter(plan_layout(1920, 1080, "split", FacecamBox(
+        x=0, y=0, width=0.2, height=0.2)), 30)
 
 
 def test_captions_break_at_sentences_and_highlight_the_spoken_word():

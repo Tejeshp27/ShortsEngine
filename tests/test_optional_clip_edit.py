@@ -22,8 +22,8 @@ def test_failed_silence_edit_uses_original_audio_and_caption_times(tmp_path, mon
     moment={"start":0,"end":20,"hook_title":"A test"}
     monkeypatch.setattr(editing,"remove_long_silence",Mock(side_effect=ValueError("optional failure")))
 
-    def render_source(*arguments):
-        """Receive the renderer's positional arguments; create a fake output and return nothing."""
+    def render_source(*arguments, **options):
+        """Receive the renderer's arguments; create a fake output and return nothing."""
         assert arguments[0] == "original.mp4"
         assert arguments[3] == words
         Path(arguments[-1]).write_bytes(b"checked export")

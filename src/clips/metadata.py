@@ -72,6 +72,8 @@ def create_metadata(clip, words, config, settings, llm=None):
             evidence["llm_reason"] = str(answer.get("reason", ""))[:500]
             update_clip(clip["id"], highlight_score=evidence["score"], signals_json=json.dumps(evidence))
     hashtags = config.get("publishing", {}).get("hashtags", [])
+    title = mask_post_text(title)
+    description = mask_post_text(description)
     caption = build_post_caption(title, clip, hashtags)
     result = {"youtube_title": title, "tiktok_caption": caption,
               "description": description, "hashtags": hashtags, "attribution": clip["credit_text"],
@@ -97,4 +99,29 @@ def publishing_caption(clip, title, hashtags):
     content = title
     if description:
         content += "\n\n" + description
-    return build_post_caption(content, clip, hashtags)
+    return build_post_caption(mask_post_text(content), clip, hashtags)
+
+
+def mask_post_text(text):
+    """
+    Hide swear words in post titles and descriptions ("f***").
+
+    Post text is read by the platforms' advertising and recommendation
+    systems, and the description often starts as the raw transcript.
+    The word list is config/profanity.yaml; without it, text is unchanged.
+
+    Args:
+        text (str): Title and/or description text.
+
+    Returns:
+        str: The same text with listed words masked.
+    """
+    from src.clips.profanity import load_word_list, mask_text
+    from src.clips.settings import BleepSettings
+    from src.clips.maker import word_list_path
+
+    try:
+        word_list = load_word_list(word_list_path(BleepSettings()))
+    except ValueError:
+        return text
+    return mask_text(text, word_list)

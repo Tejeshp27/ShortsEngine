@@ -20,12 +20,19 @@
 
 from datetime import date
 
-from pydantic import BaseModel, Field, ValidationError
+from typing import Literal
+
+from pydantic import BaseModel, Field, ValidationError, field_validator
 
 
 # The streaming sites a streamer can be on, and their channel web address.
 # The credit on screen and in captions is "<address>/<username>".
 STREAM_PLATFORM_ADDRESSES = {"twitch": "twitch.tv", "kick": "kick.com"}
+
+
+# The three ways a wide stream picture can be fitted to a tall phone screen
+# (drawn in src/video/clip_layout.py).
+LAYOUT_MODE_PATTERN = r"^(fit-blur|split|center-crop)$"
 
 
 class StreamerNotApproved(Exception):
@@ -56,7 +63,9 @@ class ApprovedStreamer(BaseModel):
         permission_note: How and where they agreed, e.g. "Said yes in a Twitch DM".
         permission_date: The day they agreed.
         permission_proof: Optional path to your screenshot of the agreement.
-        facecam: Optional webcam position; unknown positions keep the full source visible.
+        facecam: Optional webcam position, needed for the "split" layout.
+        layout: Optional layout for just this streamer ("fit-blur", "split"
+                or "center-crop"); empty uses the channel's layout.mode.
     """
     # Logins are letters, numbers, underscores (and hyphens on Kick).
     username: str = Field(min_length=1, max_length=25, pattern=r"^[A-Za-z0-9_-]+$")
@@ -67,6 +76,7 @@ class ApprovedStreamer(BaseModel):
     facecam: FacecamBox | None = None
     enabled: bool = True
     recording_directory: str = ""
+    layout: str = Field(default="", pattern=LAYOUT_MODE_PATTERN + "|^$")
 
 
 class ClipLimits(BaseModel):
@@ -89,32 +99,127 @@ class DiscoverySettings(BaseModel):
 
 
 class TranscriptionSettings(BaseModel):
-    """Which local Whisper model to use and the language spoken on the streams."""
+    """
+    Which local Whisper program and model to use, and the language spoken.
+
+    engine: "auto" uses whisper.cpp when it is installed (it kept shouted
+            speech that faster-whisper skipped in testing) and
+            faster-whisper otherwise.
+    """
     whisper_model: str = Field(default="small.en", pattern=r"^[a-z0-9.\-]+$")
     language: str = Field(default="en", min_length=2, max_length=5)
+    engine: str = Field(default="auto", pattern=r"^(auto|faster-whisper|whisper\.cpp)$")
 
 
 class LayoutSettings(BaseModel):
-    """How the vertical video is split between webcam and gameplay."""
-    facecam_panel_height: int = Field(default=720, ge=300, le=1200)
+    """
+    How the wide stream picture is fitted to the tall phone screen.
+
+    mode: "fit-blur" (the whole picture, on a blurred copy of itself),
+          "split" (gameplay on top, the streamer's facecam below) or
+          "center-crop" (a tall slice from the middle; cuts off the sides).
+    split_gameplay_share: How much of the screen height the gameplay gets in "split".
+    foreground_center: Where the middle of the picture sits in "fit-blur",
+                       as a fraction of the screen height (0.5 = exact middle).
+    gameplay_focus_x: Which part of a cropped picture to keep (0 left, 1 right).
+    background_blur: How strongly the "fit-blur" background is blurred.
+    background_darken: How much darker the background is (0 = not at all).
+    """
+    mode: str = Field(default="fit-blur", pattern=LAYOUT_MODE_PATTERN)
+    split_gameplay_share: float = Field(default=0.6, ge=0.4, le=0.8)
+    foreground_center: float = Field(default=0.45, ge=0.3, le=0.6)
     gameplay_focus_x: float = Field(default=0.5, ge=0, le=1)
-    template: str = Field(default="gaming", pattern=r"^(gaming|reaction|conversation)$")
+    background_blur: int = Field(default=20, ge=2, le=40)
+    background_darken: float = Field(default=0.12, ge=0, le=0.5)
 
 
 class ClipEncodingSettings(BaseModel):
-    """Validate YAML frame rate, H.264 quality and speed; return checked values without changing source detail."""
+    """
+    How the finished MP4 is compressed (H.264 video, AAC sound).
 
-    frame_rate: int = Field(default=30, ge=24, le=60)
-    crf: int = Field(default=20, ge=14, le=28)
-    preset: str = Field(default="fast", pattern=r"^(ultrafast|superfast|veryfast|faster|fast|medium|slow|slower|veryslow)$")
+    frame_rate: "source" keeps the stream's own frame rate (60 stays 60),
+                or a fixed number such as 30.
+    max_frame_rate: The highest frame rate "source" may produce.
+    crf: Picture quality; lower keeps more detail but makes bigger files.
+    preset: Encoding effort; slower presets make smaller files at the same quality.
+    profile: The H.264 feature level; "high" is what phones and platforms expect.
+    """
+    frame_rate: int | Literal["source"] = "source"
+    max_frame_rate: int = Field(default=60, ge=24, le=60)
+    crf: int = Field(default=18, ge=14, le=28)
+    preset: str = Field(default="slow", pattern=r"^(ultrafast|superfast|veryfast|faster|fast|medium|slow|slower|veryslow)$")
+    profile: str = Field(default="high", pattern=r"^(baseline|main|high)$")
+
+    @field_validator("frame_rate")
+    @classmethod
+    def check_frame_rate(cls, value):
+        """
+        Refuse fixed frame rates outside 24-60 (pydantic calls this automatically).
+
+        Args:
+            value: The YAML value, either "source" or a number.
+
+        Returns:
+            The same value when it is allowed.
+        """
+        # @field_validator tells pydantic to run this check when the
+        # settings are loaded; @classmethod is required by pydantic.
+        if value != "source" and not 24 <= value <= 60:
+            raise ValueError("frame_rate must be 'source' or a number from 24 to 60")
+        return value
 
 
 class ClipAudioSettings(BaseModel):
-    """Check YAML speech enhancement controls; omitted settings keep the original normalization-only sound."""
+    """
+    How the clip's sound is cleaned and levelled (see src/video/clip_audio.py).
 
+    speech_enhancement / dialogue_boost: optional FFmpeg dialogue emphasis
+        that lifts centred voices above stereo game sound.
+    highpass_hz: Remove rumble below this pitch (0 = off).
+    noise_reduction_db: Light FFT noise reduction strength (0 = off).
+    compressor: Gently even out sudden loud shouts and effects.
+    target_lufs / true_peak_db: Final loudness; -14 LUFS and -1 dBTP are
+        what TikTok and YouTube aim for.
+    """
     speech_enhancement: bool = False
     dialogue_boost: float = Field(default=2.0, ge=0, le=3)
-    noise_reduction: float = Field(default=0.0, ge=0, le=1)
+    highpass_hz: int = Field(default=80, ge=0, le=300)
+    noise_reduction_db: float = Field(default=10, ge=0, le=40)
+    compressor: bool = True
+    target_lufs: float = Field(default=-14, ge=-30, le=-8)
+    true_peak_db: float = Field(default=-1.0, ge=-9, le=0)
+
+
+class BleepSettings(BaseModel):
+    """
+    Profanity bleeping (see src/clips/profanity.py).
+
+    enabled: Turn bleeping on or off for this channel.
+    word_list: The editable YAML list of words to bleep.
+    padding_seconds: Extra muted time before and after each word.
+    min_seconds: The shortest beep, so a quick word is not just a click.
+    tone_hz: The beep's pitch (1000 Hz is the classic TV bleep).
+    volume: Beep loudness compared with the voice it replaces (1 = the same).
+    mask_captions: Show "f***" instead of the word in the burned-in captions.
+    """
+    enabled: bool = False
+    word_list: str = "config/profanity.yaml"
+    padding_seconds: float = Field(default=0.04, ge=0, le=0.3)
+    min_seconds: float = Field(default=0.15, ge=0.05, le=1)
+    tone_hz: int = Field(default=1000, ge=200, le=4000)
+    volume: float = Field(default=0.8, ge=0.1, le=2)
+    mask_captions: bool = True
+
+
+class SourceQualitySettings(BaseModel):
+    """
+    The lowest source quality a clip may be made from.
+
+    min_height: Sources shorter than this many pixels (e.g. 480p) are flagged.
+    reject_below_min: True refuses to render them; False renders with a warning.
+    """
+    min_height: int = Field(default=720, ge=240, le=2160)
+    reject_below_min: bool = False
 
 
 class AnalysisSettings(BaseModel):
@@ -152,7 +257,9 @@ class CaptionSettings(BaseModel):
     font_size: int = Field(default=84, ge=30, le=160)
     text_color: str = Field(default="#FFFFFF", pattern=r"^#[0-9A-Fa-f]{6}$")
     highlight_color: str = Field(default="#FFE14D", pattern=r"^#[0-9A-Fa-f]{6}$")
-    center_y: int = Field(default=1330, ge=300, le=1600)
+    # Empty (null) lets the layout choose a spot that never covers the
+    # gameplay or sits under the app's buttons; a number forces a height.
+    center_y: int | None = Field(default=None, ge=300, le=1480)
     font_path: str = ""
     outline_color: str = Field(default="#000000", pattern=r"^#[0-9A-Fa-f]{6}$")
     outline_width: int = Field(default=6, ge=0, le=20)
@@ -167,9 +274,16 @@ class HookTitleSettings(BaseModel):
 
 
 class CreditSettings(BaseModel):
-    """Validate optional on-video attribution and its font size; post text keeps credit regardless of these settings."""
-    font_size: int = Field(default=40, ge=20, le=100)
+    """
+    The small streamer credit tag (e.g. "twitch.tv/name") in the top-left corner.
+
+    enabled: Show the tag in the video (post captions always credit the streamer).
+    seconds: How long it stays on screen from the start (0 = the whole video).
+    font_size: Text height in pixels.
+    """
+    font_size: int = Field(default=34, ge=20, le=100)
     enabled: bool = True
+    seconds: float = Field(default=4.0, ge=0, le=60)
 
 
 class ClipChannelSettings(BaseModel):
@@ -185,6 +299,8 @@ class ClipChannelSettings(BaseModel):
     layout: LayoutSettings = LayoutSettings()
     encoding: ClipEncodingSettings = ClipEncodingSettings()
     audio: ClipAudioSettings = ClipAudioSettings()
+    bleep: BleepSettings = BleepSettings()
+    source: SourceQualitySettings = SourceQualitySettings()
     captions: CaptionSettings = CaptionSettings()
     hook_title: HookTitleSettings = HookTitleSettings()
     credit: CreditSettings = CreditSettings()
@@ -303,7 +419,9 @@ def load_clip_settings(config):
     # Only pass the sections this file understands; the rest (name,
     # schedule, publishing...) is used by other parts of the program.
     sections = {}
-    for key in ("streamers", "clips", "discovery", "transcription", "layout", "encoding", "audio", "captions", "hook_title", "credit", "analysis", "automation"):
+    known_sections = ["streamers", "clips", "discovery", "transcription", "layout", "encoding",
+                      "audio", "bleep", "source", "captions", "hook_title", "credit", "analysis", "automation"]
+    for key in known_sections:
         if config.get(key) is not None:
             sections[key] = config[key]
 

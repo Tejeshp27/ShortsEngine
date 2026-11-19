@@ -276,6 +276,34 @@ shortsengine/
   user's own); other people's accounts need App Review. TikTok stays inbox-only
   until its audit passes.
 
+## Content permissions
+
+I have permission from every streamer whose clips this project uses to download,
+edit, and repost their clips to TikTok and YouTube Shorts with credit.
+
+**Rules:**
+- When a new streamer is added to a clips channel config (e.g.
+  `channels/twitch_clips.yaml`), add their name and the date permission was given
+  to the list below in the same change. The config's `permission_date` must match.
+- Every published video must credit the streamer: their channel name in the
+  caption/description (`🎥 Clip: twitch.tv/name`, added by
+  `maker.build_post_caption`), and the clipper where known (`✂️ Clipped by name`).
+
+**Streamers with permission** (name, platform, date permission was given as
+recorded in `permission_date`; the owner confirmed these on that date, and earlier
+original agreement dates were not supplied):
+
+| Streamer | Platform | Permission date |
+|---|---|---|
+| kaicenat | Twitch | 2026-11-17 |
+| adinross | Kick | 2026-11-17 |
+| stableronaldo | Twitch | 2026-11-17 |
+| adapt | Twitch | 2026-11-17 |
+| marlon | Twitch | 2026-11-17 |
+| lacy | Twitch | 2026-11-17 |
+| jasontheween | Twitch | 2026-11-17 |
+| silky | Twitch | 2026-11-17 |
+
 ## How to work
 
 1. Default to small, explainable features. When the user authorizes a broader pass,
@@ -292,7 +320,40 @@ shortsengine/
 
 ## Current phase
 
-**Speech-first clip audio (2026-11-18, Codex):** owner requested voices above
+**Clip quality pipeline + bleeping (2026-11-18, Claude Code):** owner-specified
+upgrade of the existing renderer (no parallel pipeline). Layouts in
+`src/video/clip_layout.py`: `fit-blur` (default; whole picture over blurred/darkened
+copy), `split` (gameplay top 60%, facecam crop inside the configured box below;
+per-streamer `layout:` override — Jason uses split) and `center-crop`. One decoder
+filter graph (fps first, Lanczos everywhere, `unsharp=5:5:0.6` only on enlarged
+panels) → Pillow text → one encode: libx264 slow/CRF18/High/yuv420p, source frame
+rate (cap 60), AAC 192k 48 kHz, +faststart. Audio (`src/video/clip_audio.py`):
+one cleanup pass (highpass 80, optional dialoguenhance, afftdn nr 10, compressor)
+to float WAV; numpy bleeps; loudnorm pass 1 with iterative oversampled peak
+limiting so pass 2 stays linear; pass 2 inside the final encode (-14 LUFS, TP
+target −1.5 = −1 minus 0.5 dB AAC headroom). afftdn adds a 1200-sample delay and
+dialoguenhance 1536; both are compensated (regression tests). RNNoise asset and
+code removed. Bleeping: `src/clips/profanity.py` + editable `config/profanity.yaml`
+(suffixes, inside-matches, allow list, stretched letters, look-alikes, censored
+stars); spans padded 40 ms, too-short words widened to ~0.07 s/letter; 1 kHz beep
+at the replaced speech's level ×0.8 with 8 ms cross-fades; captions and post text
+masked; `<video>.transcript.json` and `.bleeps.json` written next to each output
+(deleted with the video). Also: top-left credit tag for 4 s, clipper credit in post
+captions, <720p source warning/reject, quiet start/end trimming, layout-aware safe
+text positions, dashboard layout selector. faster-whisper engine added (PyAV 19
+installed; audio passed as an array because faster-whisper 1.2.1's PyAV call is
+incompatible), but `auto` prefers whisper.cpp: on a 45-second window of the real
+clip faster-whisper returned 37 words and skipped most of the shouted rant, which
+whisper.cpp kept. Draft 8
+re-rendered via `rerender_clip`: 22.42 s (trimmed 1.63 s dead start, 8.2 s silent
+tail), split, 1080x1920 H.264 High 60/1 fps yuv420p, AAC 48 kHz, faststart, −13.9 LUFS,
+−1.5 dBTP, 7 bleeps covering all 8 swear words, technical gate passed, no warnings.
+Previous draft MP4 preserved in `output/local_recording_probe/ready_to_post_voice_v5/`.
+No paid calls, uploads or deployment. Known limit: whisper.cpp word times are
+segment edges, so some beeps run ~1 s. See `docs/stream-clips.md`.
+
+**Speech-first clip audio (2026-11-18, Codex; RNNoise and `noise_reduction` superseded
+by the entry above):** owner requested voices above
 gameplay. Added per-channel `audio.speech_enhancement`, `dialogue_boost` (0–3)
 and `noise_reduction` (0–1); configured Twitch to true/2/0.8. Older channels
 retain normalization-only sound. FFmpeg dialogue enhancement, speech EQ and

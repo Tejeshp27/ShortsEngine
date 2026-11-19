@@ -668,11 +668,12 @@ def test_clip_pages_forms_and_yaml_preserve_other_settings(portal):
     assert len(saved["streamers"]) == 2 and "Keep this project header" in path.read_text()
     response = client.post("/clips/clips_demo/settings", data={"form_token": token(client),
         "minimum_score": 65, "max_clips": 2, "poll_seconds": 60, "max_uploads": 2,
-        "require_approval": "true", "publish_dry_run": "true", "template": "conversation", "post_times": "09:00, 17:00"},
+        "require_approval": "true", "publish_dry_run": "true", "layout_mode": "split", "post_times": "09:00, 17:00"},
         follow_redirects=False)
     assert response.status_code == 303
     saved = yaml.safe_load(path.read_text())
     assert saved["analysis"]["minimum_score"] == 65 and saved["schedule"]["post_times"] == ["09:00", "17:00"]
+    assert saved["layout"]["mode"] == "split" and "template" not in saved["layout"]
     assert "Keep footer" in path.read_text()
     assert client.post("/clips/clips_demo/automation", data={"form_token": token(client), "enabled": "true"},
                        follow_redirects=False).status_code == 303

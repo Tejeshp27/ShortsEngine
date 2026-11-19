@@ -327,7 +327,8 @@ def remove_cached_previews(path):
 
 def delete_video_file(path):
     """
-    Delete one MP4 inside output/, along with its cached previews.
+    Delete one MP4 inside output/, along with its cached previews and the
+    clip review files saved next to it (transcript and bleep log).
 
     Args:
         path (str or Path or None): The saved video path.
@@ -340,6 +341,10 @@ def delete_video_file(path):
     if video is None:
         return False
     remove_cached_previews(video)
+    for ending in (".transcript.json", ".bleeps.json"):
+        companion = output_file(video.with_name(video.stem + ending), ".json")
+        if companion is not None:
+            companion.unlink()
     video.unlink()
     return True
 

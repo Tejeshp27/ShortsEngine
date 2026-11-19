@@ -10,29 +10,23 @@ The owner selected a $25/month future cloud budget, with local testing first.
 Continuous recording/recovery integration and the Linux container build remain
 unverified; the installed supervisor is still in acquisition-only mode.
 
-**Stream clip presentation:** configured facecams stay in a top panel for every
-template. Sources without measured camera coordinates keep their entire picture
-visible on a blurred background, so an embedded facecam is not cropped away.
-Jason's pilot camera box is configured. The Twitch clips channel hides the
-on-video URL pill while retaining post-text attribution, and shows dramatic,
-contextual opening hooks for eight seconds. Future hooks use the existing
-cached/metered model; local highlight scoring remains free. Draft 8 and the
-latest export now use **“ONE Roblox Question Set Jason OFF.”**
-
-**Source-quality upgrade:** draft 8 was rebuilt from the matching native
-1920x1080/60 fps archive footage, verified by audio alignment and frame comparison.
-The earlier pilot had used a 720p variant. The channel now exports at 60 fps,
-CRF17/medium with Lanczos scaling; this retains more detail but uses more CPU and
-storage. Facecam detail remains limited by its size within the original broadcast.
-Original 720p footage is preserved. See the latest [quality evidence](docs/local-recording-pilot.md).
-
-**Speech-first clip audio:** the Twitch clips channel now automatically enhances
-dialogue, suppresses non-speech background sound with a bundled local RNNoise
-model, and controls loud peaks. Final level control preserves the quieter
-background instead of boosting it again during pauses. Draft 8 has the updated
-sound; its 1080p60 picture is unchanged. This improves a mixed broadcast, but
-cannot independently turn down game characters or other speakers. No paid
-service or model installation is needed. [Audio settings](docs/stream-clips.md#speech-and-game-audio).
+**Stream clip quality pipeline (2026-11-18):** every clip goes through one
+decode → draw → encode pass. Layouts are configurable: **fit-blur** (default: the
+whole uncropped 16:9 picture over a blurred, darkened copy), **split** (gameplay on
+top ~60%, the streamer's facecam below; per-streamer camera box in YAML) and
+**center-crop**. Output is 1080x1920 H.264 High (`-preset slow -crf 18`, yuv420p),
+the source's own frame rate (60 stays 60), AAC 192k, `+faststart`, Lanczos scaling,
+and a light sharpen only on panels that are enlarged. Sound is cleaned in one pass
+(80 Hz high-pass, optional dialogue emphasis, light `afftdn` noise reduction, gentle
+compressor) and levelled with **two-pass loudnorm** to -14 LUFS / -1 dBTP inside
+the final encode. Swear words from the editable `config/profanity.yaml` are muted
+and replaced by a matching-volume 1 kHz beep, masked in captions and post text, and
+logged next to each video (`.transcript.json`, `.bleeps.json`). Clips start just
+before the first word and end shortly after the last one. A small `twitch.tv/name`
+tag shows top-left for the first seconds; post captions credit the streamer and
+the clipper when known. Sources below 720p are flagged. Draft 8 was re-rendered
+with all of this: [watch it](http://localhost:8000/video/8). Settings:
+[stream clips guide](docs/stream-clips.md#editing-captions-and-review).
 
 **Current focus: acquire source footage first.** Open the private
 [source-video library](http://localhost:8000/clips/twitch_clips/sources) to distinguish
@@ -317,8 +311,8 @@ approved or uploaded; only platform confirmations and public URLs count.
 The local pipeline fingerprints footage, caches Whisper word timings, ranks
 multiple moments from speech/audio/frame-change signals, preserves context,
 suppresses overlapping/similar clips, renders 1080×1920 H.264/AAC with highlighted
-captions and attribution, and checks the export before review. Gaming, reaction
-and full-frame conversation templates are available. Optional true-silence removal
+captions and attribution, and checks the export before review. fit-blur, split
+(gameplay + facecam) and center-crop layouts are available, with profanity bleeping. Optional true-silence removal
 remaps caption times. Optional cached Claude calls assess speech and generate
 metadata; the default is free. Scores are estimates, not virality guarantees.
 Corrupt files and unreadable inboxes are reported on the cycle's job page while

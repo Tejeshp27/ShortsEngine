@@ -173,73 +173,113 @@ hooks grounded in the selected speech. Hook-only requests omit paid scoring
 fields. These calls use the existing `models.clip_pick`, token/call limits,
 caching and dashboard job budget reservation. The preview's manually reviewed
 headline required no paid call. `hook_title.seconds: 8` keeps the opening hook
-readable; it appears below the camera panel so it does not obscure the face.
+readable; its position comes from the layout (above the picture in fit-blur, in the upper gameplay in split).
 
 ## Editing, captions and review
 
-- Every template (`gaming`, `reaction`, `conversation`) retains a configured
-  facecam in a top panel above the focused gameplay/content crop. Templates cannot
-  discard the camera configuration.
-- Unknown facecam positions preserve the entire source picture over a blurred
-  fill; a centered crop must not cut away a possible embedded facecam. Configure
-  the creator's measured `facecam` box to enlarge it. There is no automatic
-  facecam detection or tracking. Jason's current pilot layout has a measured box.
-- `credit.enabled: false` hides the on-video URL pill. Creator attribution remains
-  in the post caption, export text and review notes. Other channel configurations
-  retain the optional overlay by default for compatibility.
+### Layouts (`layout.mode`)
 
-Facecam rectangles and focus positions are explicit per-creator settings. Automatic
-face tracking, active-speaker detection, semantic vision models and live remote
-stream recording are not implemented. OBS can record a creator-authorized local
-feed; the completed-file inbox handles acquisition after recording finishes.
+| Mode | What the viewer sees | Needs |
+|---|---|---|
+| `fit-blur` (default) | The whole 16:9 picture, uncropped, 1080 px wide, slightly above centre, over a blurred and darkened copy that fills the screen. Hook above it, captions below it. | nothing |
+| `split` | Gameplay on top (`split_gameplay_share`, default 60%), the facecam below. Captions sit just under the seam (clear of the game's own subtitles, above the face). | the streamer's `facecam` box |
+| `center-crop` | One full-height 9:16 slice from the middle. Cuts off most of a 16:9 game; kept as an option only. | nothing |
 
-Outputs are 1080×1920 H.264/AAC MP4 with normalized audio, highlighted
-word captions, hook text and attribution. Caption settings support local font
-paths, size, colors, outline and vertical position. Choose positions that avoid
-the creator's face/gameplay; the app does not detect those automatically. Text
-too wide for the safe area stops the render rather than silently overflowing.
+A streamer can override the channel's layout with `layout:` in their entry (Jason
+uses `split`, because his clips are about his reactions). `split` for a streamer
+without a facecam box falls back to `fit-blur` and says so in the quality report.
+The facecam crop stays just inside the configured box (2% margin), so the stream's
+overlay border never shows. There is no automatic face detection or tracking.
 
-Export quality is per channel under `encoding`: `frame_rate` (24–60), `crf`
-(14–28, lower retains more detail) and the H.264 `preset`. Defaults remain
-30 fps/CRF20/fast for older channels. The configured Twitch channel now uses
-60 fps/CRF17/medium to retain motion and reduce compression loss from native
-1080p60 sources. Decoder, encoder and caption clock use the same frame rate.
-Panel/foreground resizing uses Lanczos. Higher frame rates and slower presets
-require more CPU and storage; benchmark before cloud deployment.
+All picture work happens in the one decoder filter graph (`src/video/clip_layout.py`):
+Lanczos resizing everywhere, and `unsharp=5:5:0.6` only on a panel that is enlarged
+(e.g. the facecam, or a sub-1080-wide source). Python draws text on the raw frames
+and the encoder compresses once, so nothing is re-encoded twice.
+
+### Text and credit
+
+- Captions: large Montserrat Black with an outline, the spoken word highlighted,
+  always between x=90 and x=930 (clear of the like/comment/share buttons) and between
+  y=300 and y=1440 (clear of the top tabs and the bottom ~20% caption/username area).
+  `captions.center_y: null` lets the layout choose; a number forces a height.
+- Credit tag: `credit.enabled`, `credit.seconds` (default 4; 0 = whole video) and
+  `credit.font_size`. It sits top-left. Post captions always credit the streamer
+  (`🎥 Clip: twitch.tv/name`) and add `✂️ Clipped by <name>` when Twitch reports who
+  made the clip.
+- Dead air: `editing.trim_quiet_start` starts 0.25 s before the first word;
+  `editing.trim_quiet_end` ends 0.8 s after the last word when more than 2.5 s of
+  speech-free tail follows. Both are on by default and keep clips ≥ 5 s.
+
+### Profanity bleeping (`bleep:`)
+
+`enabled` turns it on per channel. Words come from `config/profanity.yaml`: `words`
+(whole words plus the listed `suffixes`), `match_inside` (roots caught inside longer
+words, e.g. "motherfucker") and `allow` (never bleeped). Matching ignores case and
+punctuation, and catches stretched letters ("fuuuck"), look-alike symbols ("sh1t",
+"a$$") and censored transcripts ("f**k"). Each word's time span gets
+`padding_seconds` (0.04) on both sides; a word Whisper reports as implausibly short
+is widened around its middle to about 0.07 s per letter (at least `min_seconds`), so
+it cannot slip out around the beep. Overlapping spans merge. The voice is cross-faded
+out over 8 ms and a `tone_hz` (1 kHz) sine plays at the replaced speech's level ×
+`volume`. Captions show `f******` (`mask_captions`), and post titles/descriptions are
+always masked with the same list. Each render writes `<video>.transcript.json` and
+`<video>.bleeps.json` (what was said, how it was shown, the muted ranges and beep levels).
+
+Whisper's word times are close, not exact; whisper.cpp times in particular are
+segment edges. Long beeps (up to about 1 s for one shouted word) are the price of
+never letting the word through; review the bleep log and watch the clip.
+
+### Transcription engine
+
+`transcription.engine: auto` uses whisper.cpp when installed, else faster-whisper.
+On the real pilot clip, faster-whisper `small.en` returned 37 words for a shouted
+45-second window and skipped most of the rant, while whisper.cpp kept it, so
+whisper.cpp is preferred. faster-whisper can be selected explicitly; it needs
+`pip install faster-whisper av`, and audio is passed to it as an array because
+faster-whisper 1.2.1's file reader is incompatible with PyAV 19.
+
+### Export quality (`encoding:` and `source:`)
+
+`frame_rate: source` keeps the stream's own rate, rounded and capped at
+`max_frame_rate` (60); a fixed number also works. Defaults: `crf: 18`,
+`preset: slow`, `profile: high`, yuv420p, AAC 192k at 48 kHz, `+faststart`. The
+decoder filter, encoder and caption clock use the same frame rate. `source.min_height`
+(720) flags lower-resolution sources in the quality report; `reject_below_min: true`
+refuses them. Always start from the highest-resolution copy available: enlarging a
+low-resolution file does not make it HD, and the report records `"upscaled": true`
+whenever any panel is enlarged.
 
 ### Speech and game audio
 
-The Twitch clips channel enables this local audio pass on every new render and
-re-cut. Existing drafts need a re-cut to adopt changed audio settings; draft 8
-has already been updated. Configure the channel YAML:
-
 ```yaml
 audio:
-  speech_enhancement: true  # emphasize dialogue, reduce rumble and control loud peaks
-  dialogue_boost: 2.0       # centered-dialogue emphasis factor, from 0 to 3
-  noise_reduction: 0.8      # RNNoise blend, from 0 to 1; 0 disables denoising
+  speech_enhancement: true  # optional FFmpeg dialoguenhance: lifts centred voices
+  dialogue_boost: 2.0       # 0-3
+  highpass_hz: 80           # remove rumble (0 = off)
+  noise_reduction_db: 10    # light afftdn noise reduction (0 = off)
+  compressor: true          # gentle 3:1 above -18 dB
+  target_lufs: -14          # TikTok/YouTube loudness target
+  true_peak_db: -1.0        # nothing above -1 dBTP
 ```
 
-FFmpeg enhances centered dialogue, adds gentle speech EQ/compression and levels
-the model input. Its `arnndn` filter then runs the bundled 303 KB RNNoise model,
-retaining 20% of the original sound with the configured blend. It works on mono
-mixes too. Final measured gain aims for -14 LUFS, with oversampled -1.5 dB peak
-limiting. It can finish slightly below the loudness target when limiting peaks.
-It does not dynamically lift quiet gaps, which would undo the noise reduction.
-Both filter delays are padded/trimmed so the cut, lips and captions stay in sync.
+Steps (`src/video/clip_audio.py`): one FFmpeg run cuts and cleans the moment into a
+32-bit float WAV (no clipping between steps); bleeps are applied with numpy; loudnorm
+pass 1 measures it. If the peaks would exceed the target once the clip is made loud
+enough, only those peaks are limited (4× oversampled, re-measured, up to four passes),
+so pass 2 can stay in loudnorm's *linear* mode (one even gain, no pumping of
+background noise). Pass 2 runs inside the final encode, so the sound is compressed
+to AAC once; its peak target keeps 0.5 dB of headroom for AAC overshoot. Both
+`dialoguenhance` (1536 samples) and `afftdn` (1200 samples at 48 kHz) delay the
+sound; both delays are padded and trimmed so lips and captions stay in sync and the
+last words are not cut. If this FFmpeg lacks a cleanup filter, the plain sound is
+used (still bleeped and levelled) with a warning in the report.
 
-A broadcast usually already mixes microphone, game and other voices together.
-This is speech enhancement, not separate mic/game stems: game dialogue or another
-person can also remain prominent. Stronger suppression can damage voices; preview
-before increasing the blend. Original recordings stay untouched. Missing sections
-default to the older normalization-only path. An enhancement failure logs a warning
-and uses normalized original sound rather than dropping the soundtrack.
-
-No new Python dependency, API key or paid service. The model and original license
-are in `assets/audio/rnnoise/`; no runtime download is performed. Implementation
-references: [FFmpeg dialogue enhancement](https://ffmpeg.org/ffmpeg-filters.html#dialoguenhance),
-[FFmpeg RNNoise filter](https://ffmpeg.org/ffmpeg-filters.html#arnndn) and
-[Xiph RNNoise](https://github.com/xiph/rnnoise).
+A broadcast already mixes microphone, game and other voices; this cleans and lifts
+speech but cannot separate them. The earlier bundled RNNoise model was removed in
+favour of the lighter `afftdn` (stronger RNNoise suppression also removed game sound).
+References: [loudnorm](https://ffmpeg.org/ffmpeg-filters.html#loudnorm),
+[afftdn](https://ffmpeg.org/ffmpeg-filters.html#afftdn),
+[dialoguenhance](https://ffmpeg.org/ffmpeg-filters.html#dialoguenhance).
 
 ### Source detail and optional silence edits
 
@@ -277,7 +317,7 @@ jobs retain their history and the next cycle resumes saved clip stages, subject
 to retry limits. Completed draft/link writes are atomic to avoid orphan duplicates.
 
 The clips settings form controls interval, threshold, maximum clips, daily upload
-limit, template, posting times, review and publishing dry runs. Timezone and
+limit, layout, posting times, review and publishing dry runs. Timezone and
 destination accounts remain per channel. The Start/Stop choice is persisted in
 SQLite and overrides the YAML's initial `automation.enabled` value.
 

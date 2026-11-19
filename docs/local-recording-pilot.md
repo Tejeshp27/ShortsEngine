@@ -1,5 +1,16 @@
 <!-- Real bounded local recording evidence, current limits and the next unattended-recorder milestone. -->
+
 # Local recording → website → clipped MP4 pilot
+
+**Quality pipeline re-render (2026-11-18, Claude Code):** draft 8 was re-rendered
+through the normal `rerender_clip` path with the new layouts, encoding, two-pass
+loudnorm and profanity bleeping (details: `docs/stream-clips.md`). Result: 22.42 s
+(1.63 s of dead air trimmed from the start, an 8.2 s silent tail from the end),
+split layout (gameplay above Jason's facecam), 1080x1920 H.264 High, 60/1 fps,
+yuv420p, AAC 48 kHz ~190 kbps, faststart, −13.9 LUFS integrated, −1.5 dBTP, seven
+bleeps covering all eight swear words. Technical gate passed with no warnings.
+Transcript and bleep log sit next to the MP4. The RNNoise description below is
+historical; that model was replaced by FFmpeg `afftdn`.
 
 **Latest audio revision (2026-11-18):** draft 8 now uses the configured local
 speech-first pass: dialogue emphasis, gentle EQ/compression, consistent model

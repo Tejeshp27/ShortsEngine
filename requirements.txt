@@ -76,13 +76,13 @@ matplotlib>=3.8.0
 #           Currently unused at runtime — Pillow animations are used instead.
 lottie>=0.7.2
 
-# faster-whisper — Whisper model via CTranslate2; used for accurate word-level
-#                  timing when tts_provider is "macos" or "kokoro".
-#                  Requires: brew install pkg-config && pip install av
-#                  (av has no pre-built wheel for Python 3.15 yet — install
-#                   manually once pkg-config is available via Homebrew).
-#                  Current fallback: proportional word-timing estimation.
+# faster-whisper — Whisper model via CTranslate2; used for word-level timing
+#                  when tts_provider is "macos" or "kokoro", and selectable for
+#                  stream clips (transcription.engine: faster-whisper; whisper.cpp
+#                  is preferred there because it kept shouted speech in testing).
+#                  PyAV now ships a Python 3.15-compatible wheel (av 19).
 #   pip install: pip install --no-deps faster-whisper tokenizers huggingface_hub
+#   pip install: pip install av==19.0.2   (faster-whisper imports it)
 ctranslate2>=4.0.0
 tokenizers>=0.13.4
 huggingface_hub>=0.22.0

@@ -1,0 +1,68 @@
+# =============================================================
+# config/profanity.yaml — words that get bleeped in stream clips
+#
+# Used by src/clips/profanity.py when a clips channel has
+# `bleep: enabled: true`. Matching ignores upper/lower case and
+# common spelling tricks, so you only list the plain spelling:
+#   - endings from `suffixes` are added automatically
+#     ("shit" also catches "shits", "shitty", "shitting")
+#   - stretched letters are caught ("fuuuck", "shiiit")
+#   - number/symbol swaps are caught ("sh1t", "a$$")
+#   - censored transcripts are caught ("f**k", "s***")
+# Edit freely: add a word on its own line, then re-render the clip.
+# =============================================================
+
+# Whole words (plus the endings below). Safe for short words like
+# "ass": it will NOT match "class" or "pass".
+words:
+  - shit
+  - bullshit
+  - bitch
+  - ass
+  - asshole
+  - bastard
+  - dick
+  - dickhead
+  - pussy
+  - cock
+  - cunt
+  - whore
+  - slut
+  - twat
+  - wanker
+  - prick
+  - nigga
+  - nigger
+  - faggot
+  - fag
+  - retard
+
+# Roots that are bleeped even inside longer words, e.g. "fuck" also
+# catches "motherfucker" and "clusterfuck". Only put very distinctive
+# roots here: "ass" here would wrongly bleep "class" and "pass".
+match_inside:
+  - fuck
+  - shit
+  - cunt
+  - nigg
+
+# Words that must never be bleeped even though they look like a match
+# (add any false alarms you notice in a clip's bleep log here).
+allow:
+  - shitake
+  - shiitake
+  - cocktail
+  - cockpit
+  - peacock
+  - hancock
+  - scunthorpe
+  - assess
+  - assassin
+  - dickens
+  - cocky
+  - snigger
+  - sniggers
+  - sniggering
+
+# Endings added to every entry in `words`.
+suffixes: [s, es, ed, er, ers, ing, ings, in, y, ty, ier, iest, head, heads, hole, holes]

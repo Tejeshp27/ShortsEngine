@@ -203,7 +203,8 @@ def recording_words(recording, settings):
     if not probe_video(recording["file_path"])["has_audio"]:
         return []
     return transcribe_clip(recording["file_path"], "recording_" + recording["fingerprint"],
-                           settings.transcription.whisper_model, settings.transcription.language)
+                           settings.transcription.whisper_model, settings.transcription.language,
+                           settings.transcription.engine)
 
 
 def analyze_recording(recording_id, config):

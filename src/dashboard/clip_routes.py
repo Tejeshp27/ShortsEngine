@@ -460,7 +460,7 @@ def add_recording(request: Request, channel: str, path: str = Form(...), usernam
 def edit_settings(request: Request, channel: str, minimum_score: float = Form(...),
                   max_clips: int = Form(...), poll_seconds: int = Form(...), max_uploads: int = Form(...),
                   require_approval: bool = Form(False), publish_dry_run: bool = Form(False),
-                  template: str = Form("gaming"), post_times: str = Form(""),
+                  layout_mode: str = Form("fit-blur"), post_times: str = Form(""),
                   form_token: str = Form("")):
     """
     Validate and save analysis, schedule and automation settings from a private form; return to clips.
@@ -474,7 +474,7 @@ def edit_settings(request: Request, channel: str, minimum_score: float = Form(..
         max_uploads: The maximum distinct video upload attempts per local day.
         require_approval: Whether a person must approve finished clips before publishing.
         publish_dry_run: Whether scheduled publishing reports a plan without sending files.
-        template: The gaming, reaction or conversation layout name.
+        layout_mode: The picture layout: fit-blur, split or center-crop.
         post_times: Comma-separated posting times in HH:MM format.
         form_token: The secret form token used to reject cross-site submissions.
 
@@ -488,8 +488,11 @@ def edit_settings(request: Request, channel: str, minimum_score: float = Form(..
     automation = dict(config.get("automation", {}))
     automation.update({"poll_seconds": poll_seconds, "max_uploads_per_day": max_uploads,
                        "require_approval": require_approval, "publish_dry_run": publish_dry_run})
+    if layout_mode not in ("fit-blur", "split", "center-crop"):
+        raise ValueError("Choose the fit-blur, split or center-crop layout.")
     layout = dict(config.get("layout", {}))
-    layout["template"] = template
+    layout.pop("template", None)   # older setting, replaced by "mode"
+    layout["mode"] = layout_mode
     schedule = dict(config.get("schedule", {}))
     times = []
     for text in post_times.split(","):

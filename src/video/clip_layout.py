@@ -1,32 +1,56 @@
 # =============================================================
-# src/video/clip_layout.py — where to cut a wide stream video so
-#                            it fits a tall 1080x1920 phone screen
+# src/video/clip_layout.py — how a wide stream picture is fitted
+#                            to a tall 1080x1920 phone screen
 #
 # Stream video is wide (16:9, e.g. 1920x1080). Phone video is tall
-# (9:16). Two layouts:
+# (9:16). Three layouts, chosen with `layout.mode` in the channel YAML:
 #
-#   split  (when the streamer's webcam position is in the YAML)
-#          ┌──────────────┐
-#          │   webcam     │  top panel (facecam_panel_height px)
-#          ├──────────────┤
-#          │   gameplay   │  bottom panel (the rest of the 1920 px)
-#          └──────────────┘
-#   full   (no webcam position): one tall slice from the middle of
-#          the stream, the full height of the picture.
+#   fit-blur (default)        split                center-crop
+#   ┌──────────────┐     ┌──────────────┐     ┌──────────────┐
+#   │ blurred copy │     │              │     │  a tall      │
+#   │┌────────────┐│     │  gameplay    │     │  slice from  │
+#   ││ the WHOLE  ││     │  (~60%)      │     │  the middle  │
+#   ││ picture    ││     ├──────────────┤     │  (the sides  │
+#   │└────────────┘│     │  facecam     │     │  are lost)   │
+#   │ blurred copy │     │  (~40%)      │     │              │
+#   └──────────────┘     └──────────────┘     └──────────────┘
 #
-# Rules that keep faces from being cut off:
-#   - The webcam crop always CONTAINS the whole webcam box from the
-#     YAML; it only grows (never shrinks) to match the panel's shape,
-#     so nothing is squashed or stretched.
-#   - Every crop stays inside the picture.
+# fit-blur never cuts anything off. split needs the streamer's
+# facecam position in the YAML. center-crop is kept as an option.
 #
-# This file only does the maths (plain numbers in, numbers out), so
-# it is easy to test. clip_render.py turns the result into FFmpeg
-# instructions.
+# Quality rules:
+#   - Every resize uses the "lanczos" method (the sharpest standard one).
+#   - A light sharpen (unsharp=5:5:0.6) is added ONLY to a panel that is
+#     being enlarged, because enlarging softens the picture. A picture
+#     that is being shrunk is already sharp and is left alone.
+#
+# This file only does maths and builds FFmpeg filter text (plain
+# values in, values out), so it is easy to test. clip_render.py runs it.
 # =============================================================
 
 OUTPUT_WIDTH = 1080
 OUTPUT_HEIGHT = 1920
+
+# How far the facecam crop stays inside the camera box on each side.
+FACECAM_INSET = 0.02
+
+# Sharpen settings: 5x5 pixel area, strength 0.6 (light).
+SHARPEN_FILTER = "unsharp=5:5:0.6"
+
+# The fit-blur background is blurred at a quarter of the size and then
+# enlarged. Blurring a small picture is about 16x less work than blurring
+# the full 1080x1920 one, and a blurred picture loses nothing when enlarged.
+BLUR_WIDTH = 270
+BLUR_HEIGHT = 480
+
+# Text positions on the 1920-pixel-tall screen. The bottom ~20% (below
+# about y=1536) is covered by TikTok/YouTube's caption and buttons, and
+# the top ~11% by their tabs, so text stays between these lines.
+TEXT_TOP_LIMIT = 300
+TEXT_BOTTOM_LIMIT = 1440
+# center-crop keeps the older fixed positions.
+CENTER_CROP_HOOK_Y = 520
+CENTER_CROP_CAPTION_Y = 1330
 
 
 def round_to_even(number):
@@ -119,96 +143,290 @@ def full_height_slice(source_width, source_height, focus_x, panel_height):
                     shape, source_width, source_height)
 
 
-def plan_layout(source_width, source_height, facecam, facecam_panel_height, focus_x):
+def inner_crop(box_x, box_y, box_width, box_height, shape, inset_fraction):
     """
-    Decide how to cut a stream video into the phone layout.
+    Find the largest crop of a given shape that fits INSIDE a box.
+
+    Used for the facecam: a stream's camera usually has a border or other
+    overlay right around it, so the crop stays a little inside the camera
+    box instead of reaching outside it. Trimming a few pixels of wall at
+    the edges is better than showing a stray border line.
+
+    Args:
+        box_x (float): The box's left edge, in pixels.
+        box_y (float): The box's top edge, in pixels.
+        box_width (float): The box's width, in pixels.
+        box_height (float): The box's height, in pixels.
+        shape (float): Width divided by height of the panel it will fill.
+        inset_fraction (float): How much to stay away from each edge, e.g. 0.02 = 2%.
+
+    Returns:
+        dict: {"x", "y", "width", "height"} in pixels, all even, centred in the box.
+
+    Example:
+        inner_crop(1492, 604, 428, 286, 1.40625, 0.02)
+        # → about 394 x 280 pixels, centred in the camera box
+    """
+    usable_width = box_width * (1 - 2 * inset_fraction)
+    usable_height = box_height * (1 - 2 * inset_fraction)
+    width = usable_width
+    height = width / shape
+    if height > usable_height:
+        height = usable_height
+        width = height * shape
+    left = box_x + (box_width - width) / 2
+    top = box_y + (box_height - height) / 2
+    return {"x": round_to_even(left), "y": round_to_even(top),
+            "width": round_to_even(width), "height": round_to_even(height)}
+
+
+def is_enlarged(crop_width, output_width):
+    """
+    Check whether a picture is made bigger than it really is.
+
+    Args:
+        crop_width (int): How many source pixels wide the picture is.
+        output_width (int): How many pixels wide it becomes on the phone screen.
+
+    Returns:
+        bool: True when the picture is enlarged (and so needs sharpening).
+    """
+    return output_width > crop_width
+
+
+def make_panel(crop, height):
+    """
+    Describe one picture panel of a layout.
+
+    Args:
+        crop (dict): The part of the source picture to use.
+        height (int): The panel's height on the phone screen (its width is 1080).
+
+    Returns:
+        dict: {"crop", "height", "enlarged"}.
+    """
+    return {"crop": crop, "height": height, "enlarged": is_enlarged(crop["width"], OUTPUT_WIDTH)}
+
+
+def plan_fit_blur(source_width, source_height, foreground_center):
+    """
+    Plan the fit-blur layout: the whole picture, uncropped, on a blurred copy.
 
     Args:
         source_width (int): Stream picture width, e.g. 1920.
         source_height (int): Stream picture height, e.g. 1080.
-        facecam (FacecamBox or None): Webcam position as fractions, or None.
-        facecam_panel_height (int): Height of the webcam panel on the phone screen.
+        foreground_center (float): Where the picture's middle sits, as a
+                                   fraction of the screen height (0.5 = centre).
+
+    Returns:
+        dict: {"mode": "fit-blur", "foreground": {"width", "height", "top", "enlarged"}}.
+
+    Example:
+        plan_fit_blur(1920, 1080, 0.45)["foreground"]
+        # → {"width": 1080, "height": 606, "top": 560, "enlarged": False}
+    """
+    height = round_to_even(OUTPUT_WIDTH * source_height / source_width)
+    height = min(height, OUTPUT_HEIGHT)
+    top = round_to_even(OUTPUT_HEIGHT * foreground_center - height / 2)
+    top = int(keep_between(top, 0, OUTPUT_HEIGHT - height))
+    return {"mode": "fit-blur", "foreground": {
+        "width": OUTPUT_WIDTH, "height": height, "top": top,
+        "enlarged": is_enlarged(source_width, OUTPUT_WIDTH),
+    }}
+
+
+def plan_split(source_width, source_height, facecam, gameplay_share, focus_x):
+    """
+    Plan the split layout: gameplay on top, the facecam crop below it.
+
+    Args:
+        source_width (int): Stream picture width.
+        source_height (int): Stream picture height.
+        facecam (FacecamBox): Webcam position as fractions of the picture.
+        gameplay_share (float): Share of the screen height for gameplay, e.g. 0.6.
         focus_x (float): Which part of the gameplay to keep (0 to 1).
 
     Returns:
-        dict: {"mode": "split" or "full",
-               "panels": [{"crop": {...}, "height": pixels}, ...] top to bottom}
-              The panel heights always add up to 1920.
+        dict: {"mode": "split", "panels": [gameplay panel, facecam panel]}.
+              The two panel heights always add up to 1920.
     """
-    if facecam is None:
-        crop = full_height_slice(source_width, source_height, focus_x, OUTPUT_HEIGHT)
-        return {"mode": "full", "panels": [{"crop": crop, "height": OUTPUT_HEIGHT}]}
+    gameplay_height = round_to_even(OUTPUT_HEIGHT * gameplay_share)
+    facecam_height = OUTPUT_HEIGHT - gameplay_height
 
-    top_height = round_to_even(facecam_panel_height)
-    bottom_height = OUTPUT_HEIGHT - top_height
-
-    box_width = facecam.width * source_width
-    box_height = facecam.height * source_height
-    box_center_x = (facecam.x + facecam.width / 2) * source_width
-    box_center_y = (facecam.y + facecam.height / 2) * source_height
-    camera_crop = crop_box(box_center_x, box_center_y, box_width, box_height,
-                           OUTPUT_WIDTH / top_height, source_width, source_height)
-    gameplay_crop = full_height_slice(source_width, source_height, focus_x, bottom_height)
-
-    return {"mode": "split", "panels": [
-        {"crop": camera_crop, "height": top_height},
-        {"crop": gameplay_crop, "height": bottom_height},
-    ]}
+    gameplay_crop = full_height_slice(source_width, source_height, focus_x, gameplay_height)
+    # The webcam crop stays just inside the webcam box (see inner_crop), so
+    # the stream's overlay border never shows; the face itself is centred.
+    camera_crop = inner_crop(facecam.x * source_width, facecam.y * source_height,
+                             facecam.width * source_width, facecam.height * source_height,
+                             OUTPUT_WIDTH / facecam_height, FACECAM_INSET)
+    return {"mode": "split", "panels": [make_panel(gameplay_crop, gameplay_height),
+                                        make_panel(camera_crop, facecam_height)]}
 
 
-def crop_and_scale(crop, panel_height):
+def plan_center_crop(source_width, source_height, focus_x):
     """
-    Write one panel's FFmpeg instructions: cut out the crop, resize it.
+    Plan the center-crop layout: one full-height 9:16 slice of the picture.
 
     Args:
-        crop (dict): {"x", "y", "width", "height"}.
-        panel_height (int): The panel's height on the phone screen.
+        source_width (int): Stream picture width.
+        source_height (int): Stream picture height.
+        focus_x (float): Which part of the picture to keep (0 to 1).
 
     Returns:
-        str: For example "crop=486:324:1434:0,scale=1080:720:flags=lanczos,setsar=1".
+        dict: {"mode": "center-crop", "panels": [one panel]}.
+    """
+    crop = full_height_slice(source_width, source_height, focus_x, OUTPUT_HEIGHT)
+    return {"mode": "center-crop", "panels": [make_panel(crop, OUTPUT_HEIGHT)]}
+
+
+def plan_layout(source_width, source_height, mode, facecam=None, gameplay_share=0.6,
+                focus_x=0.5, foreground_center=0.45):
+    """
+    Decide how to fit a stream picture onto the phone screen.
+
+    Args:
+        source_width (int): Stream picture width, e.g. 1920.
+        source_height (int): Stream picture height, e.g. 1080.
+        mode (str): "fit-blur", "split" or "center-crop".
+        facecam (FacecamBox or None): Webcam position; "split" needs one.
+        gameplay_share (float): Gameplay's share of the height in "split".
+        focus_x (float): Which part of a cropped picture to keep (0 to 1).
+        foreground_center (float): Vertical position of the picture in "fit-blur".
+
+    Returns:
+        dict: A plan with a "mode" key ("split" without a facecam becomes
+              "fit-blur", and the plan then has "note" explaining why).
+    """
+    if mode == "split" and facecam is None:
+        plan = plan_fit_blur(source_width, source_height, foreground_center)
+        plan["note"] = "Split layout needs a facecam box for this streamer; used fit-blur instead."
+        return plan
+    if mode == "split":
+        return plan_split(source_width, source_height, facecam, gameplay_share, focus_x)
+    if mode == "center-crop":
+        return plan_center_crop(source_width, source_height, focus_x)
+    return plan_fit_blur(source_width, source_height, foreground_center)
+
+
+def crop_and_scale(panel):
+    """
+    Write one panel's FFmpeg instructions: cut out the crop, resize, sharpen if enlarged.
+
+    Args:
+        panel (dict): From make_panel(): {"crop", "height", "enlarged"}.
+
+    Returns:
+        str: For example "crop=1012:1080:454:0,scale=1080:1152:flags=lanczos,unsharp=5:5:0.6,setsar=1".
              crop=W:H:X:Y cuts out a W-by-H rectangle whose top-left corner is X,Y.
              scale=W:H resizes it to fill the panel exactly.
              setsar=1 marks the pixels as square so players don't stretch it.
     """
-    # Use a sharper resize for enlarged camera/game panels; this cannot create
-    # missing detail, so a high-resolution original is still necessary.
-    return (f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']},"
-            f"scale={OUTPUT_WIDTH}:{panel_height}:flags=lanczos,setsar=1")
+    crop = panel["crop"]
+    steps = (f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']},"
+             f"scale={OUTPUT_WIDTH}:{panel['height']}:flags=lanczos")
+    if panel["enlarged"]:
+        steps += "," + SHARPEN_FILTER
+    return steps + ",setsar=1"
 
 
-def build_video_filter(plan, fps):
+def fit_blur_filter(plan, blur, darken):
+    """
+    Build the fit-blur picture steps (before the frame-rate and colour steps).
+
+    Args:
+        plan (dict): From plan_fit_blur().
+        blur (int): Blur strength (boxblur radius on the small background).
+        darken (float): How much to darken the background (0 to 0.5).
+
+    Returns:
+        str: FFmpeg filter text ending in the combined picture.
+    """
+    foreground = plan["foreground"]
+    front = f"scale={foreground['width']}:{foreground['height']}:flags=lanczos"
+    if foreground["enlarged"]:
+        front += "," + SHARPEN_FILTER
+    # Background: fill the screen (cutting the sides), shrink, blur,
+    # darken a little (eq=brightness), then enlarge back to full size.
+    back = (f"scale={BLUR_WIDTH}:{BLUR_HEIGHT}:force_original_aspect_ratio=increase:flags=lanczos,"
+            f"crop={BLUR_WIDTH}:{BLUR_HEIGHT},boxblur={blur}:2,eq=brightness=-{darken:g},"
+            f"scale={OUTPUT_WIDTH}:{OUTPUT_HEIGHT}:flags=lanczos")
+    return (f"split=2[bg][fg];[bg]{back}[back];[fg]{front}[front];"
+            f"[back][front]overlay=0:{foreground['top']},setsar=1")
+
+
+def build_video_filter(plan, fps, blur=20, darken=0.12):
     """
     Turn a layout plan into an FFmpeg "filter graph" (a recipe of video steps).
+
+    All picture work happens in this one FFmpeg run; the result goes to
+    Python as uncompressed frames and is compressed only once, at the end.
 
     Args:
         plan (dict): From plan_layout().
         fps (int): Frames per second of the output.
+        blur (int): fit-blur background blur strength.
+        darken (float): fit-blur background darkening.
 
     Returns:
         str: The filter text for FFmpeg's -filter_complex option. Its
              result is called [out]: raw RGB frames, 1080x1920.
 
     Example (split):
-        [0:v]split=2[cam][game];
-        [cam]crop=...,scale=1080:720,setsar=1[top];
-        [game]crop=...,scale=1080:1200,setsar=1[bottom];
-        [top][bottom]vstack=inputs=2,fps=30,format=rgb24[out]
+        [0:v]fps=60,split=2[game][cam];
+        [game]crop=...,scale=1080:1152:flags=lanczos,unsharp=5:5:0.6,setsar=1[top];
+        [cam]crop=...,scale=1080:768:flags=lanczos,unsharp=5:5:0.6,setsar=1[bottom];
+        [top][bottom]vstack=inputs=2,format=rgb24[out]
     """
-    # fps=N makes every clip the same frame rate (streams can be 60 fps).
+    # fps=N first, so no work is spent on frames that would be dropped.
     # format=rgb24 gives Python plain red/green/blue pixels to draw on.
-    finish = f"fps={fps},format=rgb24[out]"
+    start = f"[0:v]fps={fps},"
+    finish = "format=rgb24[out]"
 
-    if plan["mode"] == "full":
-        panel = plan["panels"][0]
-        return f"[0:v]{crop_and_scale(panel['crop'], panel['height'])},{finish}"
+    if plan["mode"] == "fit-blur":
+        return start + fit_blur_filter(plan, blur, darken) + "," + finish
 
-    top = plan["panels"][0]
-    bottom = plan["panels"][1]
+    if plan["mode"] == "center-crop":
+        return start + crop_and_scale(plan["panels"][0]) + "," + finish
+
+    gameplay = plan["panels"][0]
+    camera = plan["panels"][1]
     # split=2 makes two copies of the input video, one per panel.
     # vstack=inputs=2 stacks the two panels on top of each other.
     return (
-        "[0:v]split=2[cam][game];"
-        f"[cam]{crop_and_scale(top['crop'], top['height'])}[top];"
-        f"[game]{crop_and_scale(bottom['crop'], bottom['height'])}[bottom];"
+        start + "split=2[game][cam];"
+        f"[game]{crop_and_scale(gameplay)}[top];"
+        f"[cam]{crop_and_scale(camera)}[bottom];"
         f"[top][bottom]vstack=inputs=2,{finish}"
     )
+
+
+def text_positions(plan):
+    """
+    Decide where the hook title and captions go for a layout.
+
+    fit-blur: the hook sits just above the picture and the captions just
+    below it, on the blurred background, so no gameplay is covered.
+    split: the hook sits in the upper gameplay and the captions just
+    below the line between gameplay and facecam: clear of the game's own
+    subtitles (usually at the bottom of the game picture) and above the face.
+
+    Args:
+        plan (dict): From plan_layout().
+
+    Returns:
+        dict: {"hook_y": pixels, "caption_y": pixels} (centre heights),
+              always inside the area the app's buttons and tabs don't cover.
+    """
+    if plan["mode"] == "fit-blur":
+        foreground = plan["foreground"]
+        hook_y = foreground["top"] - 150
+        caption_y = foreground["top"] + foreground["height"] + 110
+    elif plan["mode"] == "split":
+        seam = plan["panels"][0]["height"]
+        hook_y = 440
+        caption_y = seam + 70
+    else:
+        hook_y = CENTER_CROP_HOOK_Y
+        caption_y = CENTER_CROP_CAPTION_Y
+    return {"hook_y": int(keep_between(hook_y, TEXT_TOP_LIMIT + 100, TEXT_BOTTOM_LIMIT)),
+            "caption_y": int(keep_between(caption_y, TEXT_TOP_LIMIT, TEXT_BOTTOM_LIMIT))}

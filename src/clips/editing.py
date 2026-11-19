@@ -115,3 +115,76 @@ def remove_long_silence(source, start, end, words, destination, settings):
     for begin, finish in ranges:
         total += finish - begin
     return destination, 0.0, total, remap_words(words, start, ranges), destination
+
+
+def trim_quiet_start(start, end, words, lead_seconds=0.25, minimum_length=5.0):
+    """
+    Move a clip's start to just before the first spoken word, so it doesn't open on dead air.
+
+    A viewer scrolling a feed decides in the first second or two; a
+    silent opening loses them before anything happens.
+
+    Args:
+        start (float): The chosen start in the source, in seconds.
+        end (float): The chosen end in the source, in seconds.
+        words (list[dict]): The source's timed words.
+        lead_seconds (float): How much sound to keep before the first word.
+        minimum_length (float): Never trim a clip shorter than this many seconds.
+
+    Returns:
+        float: The new start (unchanged when nobody speaks, the first word is
+               already near the start, or trimming would make the clip too short).
+
+    Example:
+        trim_quiet_start(10.0, 40.0, [{"word": "wait", "start": 12.0, "end": 12.3}])
+        # → 11.75
+    """
+    first_spoken = None
+    for word in words:
+        if word["end"] <= start or word["start"] >= end:
+            continue
+        if first_spoken is None or word["start"] < first_spoken:
+            first_spoken = word["start"]
+    if first_spoken is None:
+        return start
+    new_start = first_spoken - lead_seconds
+    if new_start <= start or end - new_start < minimum_length:
+        return start
+    return round(new_start, 2)
+
+
+def trim_quiet_end(start, end, words, tail_seconds=0.8, max_quiet_seconds=2.5, minimum_length=5.0):
+    """
+    End a clip shortly after the last spoken word when a long quiet stretch follows it.
+
+    A Short that trails off for many seconds after the payoff gets swiped
+    away; ending soon after the last line also makes it loop cleanly.
+    A short quiet ending (up to max_quiet_seconds) is kept as it is.
+
+    Args:
+        start (float): The chosen start in the source, in seconds.
+        end (float): The chosen end in the source, in seconds.
+        words (list[dict]): The source's timed words.
+        tail_seconds (float): How much sound to keep after the last word.
+        max_quiet_seconds (float): Only trim when the quiet ending is longer than this.
+        minimum_length (float): Never make the clip shorter than this many seconds.
+
+    Returns:
+        float: The new end (unchanged when there is no long quiet ending).
+
+    Example:
+        trim_quiet_end(0.0, 30.0, [{"word": "done.", "start": 20.0, "end": 21.0}])
+        # → 21.8
+    """
+    last_spoken = None
+    for word in words:
+        if word["end"] <= start or word["start"] >= end:
+            continue
+        if last_spoken is None or word["end"] > last_spoken:
+            last_spoken = word["end"]
+    if last_spoken is None or end - last_spoken <= max_quiet_seconds:
+        return end
+    new_end = last_spoken + tail_seconds
+    if new_end - start < minimum_length:
+        return end
+    return round(new_end, 2)

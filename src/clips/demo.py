@@ -28,7 +28,7 @@ def demo_config():
             "clips": {"moment_min_seconds": 10, "moment_max_seconds": 22},
             "analysis": {"minimum_score": 0, "candidate_seconds": 16, "max_clips_per_recording": 2},
             "automation": {"require_approval": True, "publish_dry_run": True},
-            "layout": {"template": "conversation"}, "platforms": ["youtube", "tiktok"],
+            "layout": {"mode": "fit-blur"}, "platforms": ["youtube", "tiktok"],
             "publishing": {"hashtags": ["#demo"]}, "models": {}, "llm": {"max_calls_per_run": 0}}
 
 

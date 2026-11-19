@@ -37,7 +37,8 @@ MIN_RETRIM_SECONDS = 3
 
 def build_post_caption(hook_title, clip, hashtags):
     """
-    Write the post caption: hook title, streamer credit with link, hashtags.
+    Write the post caption: hook title, streamer credit with link, the
+    clipper (when known), hashtags. Every published clip must credit the streamer.
 
     TikTok drafts can't receive a caption through the API, so this text
     is shown on the video page for you to paste in the TikTok app
@@ -58,6 +59,10 @@ def build_post_caption(hook_title, clip, hashtags):
     """
     credit = clip["credit_text"]
     credit_line = f"🎥 Clip: {credit} — follow them at https://{credit}"
+    # Credit the person who made the original Twitch clip, when known.
+    clipper = clip.get("clipper") or ""
+    if clipper:
+        credit_line += f"\n✂️ Clipped by {clipper}"
     caption = f"{hook_title}\n\n{credit_line}"
     if hashtags:
         caption += "\n\n" + " ".join(hashtags)
@@ -200,12 +205,81 @@ def words_for(clip, settings):
         return recording_words(recording_row(clip["recording_id"]), settings)
     cache_name = f"{clip['source']}_{clip['id']}"
     return transcribe_clip(clip["file_path"], cache_name, settings.transcription.whisper_model,
-                           settings.transcription.language)
+                           settings.transcription.language, settings.transcription.engine)
+
+
+def word_list_path(bleep_settings):
+    """
+    Find the profanity list file named in the channel YAML.
+
+    Args:
+        bleep_settings (BleepSettings): Its word_list may be relative to the project folder.
+
+    Returns:
+        str: The full path of the word list.
+    """
+    path = bleep_settings.word_list
+    if os.path.isabs(path):
+        return path
+    project_folder = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    return os.path.join(project_folder, path)
+
+
+def prepare_bleeps(captions, start, end, bleep_settings):
+    """
+    Flag swear words in a clip's captions and work out when to bleep them.
+
+    Args:
+        captions (list[dict]): Timed words in source time.
+        start (float): The moment's start in the source, in seconds.
+        end (float): The moment's end.
+        bleep_settings (BleepSettings): The channel's bleep settings.
+
+    Returns:
+        tuple: (captions with swear words flagged and masked,
+                bleep ranges counted from the moment's start).
+               With bleeping off: (the captions unchanged, []).
+    """
+    from src.clips.profanity import bleep_spans, load_word_list, mark_profanity
+    from src.video.clip_render import words_in_moment
+
+    if not bleep_settings.enabled:
+        return captions, []
+    word_list = load_word_list(word_list_path(bleep_settings))
+    marked = mark_profanity(captions, word_list, bleep_settings.mask_captions)
+    spans = bleep_spans(words_in_moment(marked, start, end), bleep_settings.padding_seconds,
+                        end - start, bleep_settings.min_seconds)
+    return marked, spans
+
+
+def save_review_files(video_path, captions, start, end, spans, settings, render_info):
+    """
+    Save the clip's transcript and bleep log next to the finished video.
+
+    Args:
+        video_path (str): The finished MP4.
+        captions (list[dict]): Timed words in source time (flagged by prepare_bleeps).
+        start (float): The moment's start in the source.
+        end (float): The moment's end.
+        spans (list[dict]): The bleeped time ranges.
+        settings (ClipChannelSettings): The clip settings (bleep section).
+        render_info (dict or None): From render_clip_video(), for the beep levels.
+    """
+    from src.clips.profanity import write_review_files
+    from src.video.clip_render import words_in_moment
+
+    beep_levels = []
+    if isinstance(render_info, dict):
+        beep_levels = render_info.get("beep_levels_db", [])
+    summary = {"enabled": settings.bleep.enabled, "word_list": settings.bleep.word_list,
+               "padding_seconds": settings.bleep.padding_seconds, "tone_hz": settings.bleep.tone_hz,
+               "beep_levels_db": beep_levels}
+    write_review_files(video_path, words_in_moment(captions, start, end), spans, summary)
 
 
 def render_and_save(config, settings, clip, moment, words, video_path, notes_path):
     """
-    Render a clip's video and write its notes file.
+    Render a clip's video and write its notes, transcript and bleep log.
 
     Args:
         config (dict): The channel's YAML settings.
@@ -217,35 +291,62 @@ def render_and_save(config, settings, clip, moment, words, video_path, notes_pat
         notes_path (str): Where to save the notes file.
     """
     # Imported here so finding clips never loads the video code.
+    from src.clips.editing import remove_long_silence, trim_quiet_end, trim_quiet_start
+    from src.clips.quality import check_export
     from src.video.clip_render import render_clip_video
 
-    facecam = facecam_for(clip, settings)
+    streamer = find_approved_streamer(settings, clip["streamer"], platform=clip["platform"])
     temporary_path = os.path.splitext(video_path)[0] + ".rendering.mp4"
-    from src.clips.editing import remove_long_silence
     edited_source = os.path.splitext(video_path)[0] + ".edited.mp4"
     os.makedirs(os.path.dirname(video_path), exist_ok=True)
+    editing = config.get("editing", {})
+
+    # Don't open on dead air (start just before the first spoken word),
+    # and don't trail off for long after the last one.
+    moment_start = moment["start"]
+    moment_end = moment["end"]
+    if editing.get("trim_quiet_start", True):
+        moment_start = trim_quiet_start(moment_start, moment_end, words,
+                                        editing.get("speech_lead_seconds", 0.25))
+    if editing.get("trim_quiet_end", True):
+        moment_end = trim_quiet_end(moment_start, moment_end, words,
+                                    editing.get("speech_tail_seconds", 0.8),
+                                    editing.get("max_quiet_end_seconds", 2.5))
     editing_note = ""
     try:
         source, start, end, captions, cleanup = remove_long_silence(
-            clip["file_path"], moment["start"], moment["end"], words, edited_source, config.get("editing", {}))
+            clip["file_path"], moment_start, moment_end, words, edited_source, editing)
     except (ValueError, OSError, subprocess.CalledProcessError):
         # Silence removal is optional; keep the original audio and timings if it fails.
-        source, start, end, captions, cleanup = clip["file_path"], moment["start"], moment["end"], words, None
+        source, start, end, captions, cleanup = clip["file_path"], moment_start, moment_end, words, None
         editing_note = "Optional silence trimming failed; original audio and timing preserved."
+
+    captions, spans = prepare_bleeps(captions, start, end, settings.bleep)
     try:
-        render_clip_video(source, start, end, captions,
-                          moment["hook_title"], clip["credit_text"], facecam, settings, temporary_path)
+        render_info = render_clip_video(source, start, end, captions, moment["hook_title"], clip["credit_text"],
+                                        streamer.facecam, settings, temporary_path,
+                                        layout_mode=streamer.layout or None, bleep_spans=spans)
     finally:
         if cleanup and os.path.exists(cleanup):
             os.remove(cleanup)
-    from src.clips.quality import check_export
+
     report = check_export(temporary_path, end - start)
     if editing_note:
         report["editing_note"] = editing_note
+    if moment_start != moment["start"]:
+        report["trimmed_quiet_start_seconds"] = round(moment_start - moment["start"], 2)
+    if moment_end != moment["end"]:
+        report["trimmed_quiet_end_seconds"] = round(moment["end"] - moment_end, 2)
+    if isinstance(render_info, dict):
+        render_info["path"] = video_path   # where the file ends up (it renders to a temporary name)
+        report["render"] = render_info
+        report["warnings"] = report.get("warnings", []) + render_info.get("warnings", [])
+    report["bleeps"] = len(spans)
     update_clip(clip["id"], quality_json=json.dumps(report))
     if not report["passed"]:
         raise ValueError("Clip failed quality checks: " + " ".join(report["errors"]))
     os.replace(temporary_path, video_path)
+    save_review_files(video_path, captions, start, end, spans, settings, render_info)
     hashtags = config.get("publishing", {}).get("hashtags", [])
     from src.clips.metadata import publishing_caption
     caption = publishing_caption(clip, moment["hook_title"], hashtags)

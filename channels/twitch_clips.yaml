@@ -63,7 +63,7 @@ llm:
 #       y: 0.0        # top edge, as a fraction of the height (0 = top, 1 = bottom)
 #       width: 0.25   # webcam width, as a fraction of the stream width
 #       height: 0.30  # webcam height, as a fraction of the stream height
-#     # No facecam set → preserve the whole source on blur so an unknown camera is not cropped out.
+#     layout: "split"   # optional: this streamer's own layout (fit-blur, split or center-crop); split needs facecam
 # ---------------------------------------------------------------
 # The owner confirmed consent for these eight creators in this conversation.
 # The date records that confirmation; the original agreement dates/methods
@@ -111,6 +111,7 @@ streamers:
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/jasontheween" # completed recordings from this creator only
+    layout: "split"                       # his clips are about his reactions: large facecam under the gameplay
     facecam:                              # measured from the 1280x720 local pilot; update if his stream layout changes
       x: 0.77734375                       # left edge: 995 source pixels / 1280
       y: 0.55972222                       # top edge: 403 source pixels / 720
@@ -136,24 +137,49 @@ clips:
 transcription:
   whisper_model: "small.en"   # small.en (~466 MB, better with game noise) or base.en (~142 MB, faster)
   language: "en"              # language spoken on the streams
+  engine: auto                # auto = whisper.cpp if installed (kept shouted speech faster-whisper skipped), else faster-whisper
 
 # How the 1080x1920 vertical video is laid out.
 layout:
-  template: gaming           # configured facecams always split; unknown camera positions preserve the whole source on blur
-  facecam_panel_height: 720   # pixels at the top used for the webcam (the gameplay gets the other 1200)
-  gameplay_focus_x: 0.5       # which part of the gameplay to keep: 0 = left side, 0.5 = middle, 1 = right side
+  mode: fit-blur              # fit-blur = whole uncropped picture on a blurred copy; split = gameplay top + facecam bottom; center-crop = middle slice only
+  split_gameplay_share: 0.6   # split only: share of the screen height for gameplay (the facecam gets the rest)
+  foreground_center: 0.45     # fit-blur only: where the picture's middle sits (0.5 = centre; lower leaves more room for captions below)
+  gameplay_focus_x: 0.5       # split/center-crop: which part of the gameplay to keep (0 = left, 0.5 = middle, 1 = right)
+  background_blur: 20         # fit-blur: blur strength of the background copy
+  background_darken: 0.12     # fit-blur: how much darker the background is (0 = not darker), so the real picture stands out
 
 # Export quality; source-native 1080p should be captured before enlarging camera/game crops.
 encoding:
-  frame_rate: 60             # preserve smooth motion from the 60 fps stream; lower to 30 for a smaller CPU budget
-  crf: 17                   # high-quality H.264; lower loses less detail but produces larger MP4s
-  preset: medium            # better compression efficiency than fast; requires more encoding CPU time
+  frame_rate: source          # keep the stream's own frame rate (60 fps stays 60); or a fixed number like 30
+  max_frame_rate: 60          # never output more than this
+  crf: 18                     # H.264 quality: lower = more detail, bigger file (18 is visually near-lossless)
+  preset: slow                # slower presets compress better at the same quality (more CPU time)
+  profile: high               # H.264 "high" profile, what TikTok/YouTube expect
+
+# Lowest acceptable source quality. Always start from the highest-resolution copy available.
+source:
+  min_height: 720             # sources below 720p are flagged in the quality report
+  reject_below_min: false     # true = refuse to render them instead of warning
 
 # Speech emphasis for every newly rendered clip; original source recordings stay untouched.
 audio:
-  speech_enhancement: true   # emphasize centered voices, reduce rumble and control loud mixed peaks before normalization
-  dialogue_boost: 2.0        # FFmpeg dialogue emphasis factor (0–3); mixed-in game dialogue may also be emphasized
-  noise_reduction: 0.8       # local RNNoise suppression blend (0–1); retain some original sound to protect natural voices
+  speech_enhancement: true    # lift centred voices above stereo game sound (FFmpeg dialoguenhance)
+  dialogue_boost: 2.0         # dialogue emphasis strength (0–3); mixed-in game dialogue may also be lifted
+  highpass_hz: 80             # remove rumble below this pitch (0 = off)
+  noise_reduction_db: 10      # light FFT noise reduction (afftdn) in dB (0 = off; above ~20 starts to sound watery)
+  compressor: true            # gently even out sudden shouts and loud effects
+  target_lufs: -14            # final loudness (TikTok/YouTube target), two-pass loudnorm
+  true_peak_db: -1.0          # loudest allowed peak; nothing clips
+
+# Profanity bleeping. Edit the word list in config/profanity.yaml.
+bleep:
+  enabled: true               # mute each listed word and play a beep instead
+  word_list: "config/profanity.yaml"  # editable list of words to bleep
+  padding_seconds: 0.04       # extra muted time before and after each word (Whisper timings are close, not exact)
+  min_seconds: 0.15           # shortest beep, so a quick word is not just a click
+  tone_hz: 1000               # beep pitch (1 kHz is the classic TV bleep)
+  volume: 0.8                 # beep loudness compared with the voice it replaces (1 = the same)
+  mask_captions: true         # show "f******" in the burned-in captions too
 
 # Burned-in word-by-word captions from the transcript.
 captions:
@@ -161,13 +187,18 @@ captions:
   font_size: 84               # text height in pixels
   text_color: "#FFFFFF"       # colour of the words
   highlight_color: "#FFE14D"  # colour of the word being spoken right now
-  center_y: 1330              # height of the caption line (kept above TikTok's bottom text)
+  center_y: null              # null = the layout picks a spot clear of gameplay and the app's buttons; or a pixel height (300–1480)
   font_path: ""              # optional local TTF/OTF path; empty uses bundled Montserrat
   outline_color: "#000000"   # outline color for contrast on bright gameplay
   outline_width: 6           # outline thickness in output pixels
 
 # Optional editing of genuine audio silence. Reactions/game sounds stay intact.
 editing:
+  trim_quiet_start: true       # start just before the first spoken word, so the clip never opens on dead air
+  speech_lead_seconds: 0.25    # sound kept before that first word
+  trim_quiet_end: true         # end soon after the last spoken word when a long quiet stretch follows
+  speech_tail_seconds: 0.8     # sound kept after that last word
+  max_quiet_end_seconds: 2.5   # a quiet ending shorter than this is kept as it is
   remove_long_silence: false   # opt in after reviewing this channel; preserves caption timing through cuts
   silence_db: -45             # audio below this dB level counts as silent
   minimum_silence_seconds: 2.5 # keep shorter pauses; remove only the middle of longer silent gaps
@@ -183,10 +214,11 @@ hook_title:
 metadata:
   style: "Dramatic, high-energy streamer hooks. Describe the specific setup or trigger and tease the reaction. Use one or two uppercase emphasis words when helpful. Make viewers curious without inventing events, thoughts, stakes, or outcomes; avoid generic clickbait." # grounded drama, not fabricated claims
 
-# On-video credit is optional; attribution remains in post captions and notes.
+# Small streamer credit tag in the top-left corner. Post captions always credit the streamer too.
 credit:
-  font_size: 40               # text height in pixels
-  enabled: false              # owner requested no twitch.tv/creator pill inside the video
+  enabled: true               # show the tag in the video
+  seconds: 4                  # how long it stays on screen from the start (0 = the whole video)
+  font_size: 34               # text height in pixels
 
 # Where approved clips go. TikTok receives them as drafts (you post in the app);
 # YouTube receives them with the privacy setting below; start with private.
