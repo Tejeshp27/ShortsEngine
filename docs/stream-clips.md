@@ -182,7 +182,7 @@ readable; its position comes from the layout (above the picture in fit-blur, in 
 | Mode | What the viewer sees | Needs |
 |---|---|---|
 | `fit-blur` (default) | The whole 16:9 picture, uncropped, 1080 px wide, slightly above centre, over a blurred and darkened copy that fills the screen. Hook above it, captions below it. | nothing |
-| `split` | Gameplay on top (`split_gameplay_share`, default 60%), the facecam below. Captions sit just under the seam (clear of the game's own subtitles, above the face). | the streamer's `facecam` box |
+| `split` | Gameplay (`split_gameplay_share`, default 60%) and the facecam stacked. `split_facecam_position: top` (this channel) puts the face first, clear of the app's buttons, with the hook under the chin and captions in the lower gameplay; `bottom` puts the face below with captions just under the seam. Webcam panels enlarged 2x or more get a light clean-up and stronger sharpen. | the streamer's `facecam` box |
 | `center-crop` | One full-height 9:16 slice from the middle. Cuts off most of a 16:9 game; kept as an option only. | nothing |
 
 A streamer can override the channel's layout with `layout:` in their entry (Jason

@@ -332,6 +332,19 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**Facecam-on-top split + sharper webcam (2026-11-19, Claude Code):** owner asked to
+re-render the Jason Roblox clip (draft 8) with the face on top and better quality.
+New `layout.split_facecam_position: top|bottom` (YAML: top); split plans now list
+panels top-to-bottom with a `role`; with the face on top the hook sits just under
+the chin (seam + 40) and captions in the lower gameplay. All resizes use
+`lanczos+accurate_rnd+full_chroma_int` (the blurred background keeps plain lanczos);
+panels enlarged ≥2x get `hqdn3d=1.5:1.5:3:3` before and `unsharp=5:5:0.9` after.
+CRF 18 → 16. Draft 8 re-rendered via `rerender_clip`: 22.42 s, 1080x1920 High 60 fps,
+~15.8 Mbps, −13.9 LUFS, −1.5 dB peak; frames inspected. Previous MP4 kept in
+`output/local_recording_probe/before_facecam_top_v7/`. Webcam detail is still limited
+by the 386-pixel source camera; only AI upscaling (not added) could do more.
+**672 tests pass.**
+
 **Rolling live recorder (2026-11-19, Claude Code):** owner asked to record every
 approved streamer, process each hour, keep the most engaging moments, delete the
 raw footage and delete videos after publishing. Built: `src/clips/live_recorder.py`

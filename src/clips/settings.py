@@ -119,6 +119,8 @@ class LayoutSettings(BaseModel):
           "split" (gameplay on top, the streamer's facecam below) or
           "center-crop" (a tall slice from the middle; cuts off the sides).
     split_gameplay_share: How much of the screen height the gameplay gets in "split".
+    split_facecam_position: "top" puts the facecam above the gameplay in "split";
+                            "bottom" puts it below.
     foreground_center: Where the middle of the picture sits in "fit-blur",
                        as a fraction of the screen height (0.5 = exact middle).
     gameplay_focus_x: Which part of a cropped picture to keep (0 left, 1 right).
@@ -127,6 +129,7 @@ class LayoutSettings(BaseModel):
     """
     mode: str = Field(default="fit-blur", pattern=LAYOUT_MODE_PATTERN)
     split_gameplay_share: float = Field(default=0.6, ge=0.4, le=0.8)
+    split_facecam_position: str = Field(default="bottom", pattern=r"^(top|bottom)$")
     foreground_center: float = Field(default=0.45, ge=0.3, le=0.6)
     gameplay_focus_x: float = Field(default=0.5, ge=0, le=1)
     background_blur: int = Field(default=20, ge=2, le=40)

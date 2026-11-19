@@ -672,7 +672,8 @@ def layout_for_source(source, facecam, settings, layout_mode=None):
     layout = settings.layout
     mode = layout_mode or layout.mode
     plan = plan_layout(source["width"], source["height"], mode, facecam,
-                       layout.split_gameplay_share, layout.gameplay_focus_x, layout.foreground_center)
+                       layout.split_gameplay_share, layout.gameplay_focus_x, layout.foreground_center,
+                       layout.split_facecam_position == "top")
     frame_rate = output_frame_rate(source.get("fps", 0), settings.encoding)
     video_filter = build_video_filter(plan, frame_rate, layout.background_blur, layout.background_darken)
     return plan, video_filter, frame_rate

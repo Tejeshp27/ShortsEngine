@@ -143,6 +143,7 @@ transcription:
 layout:
   mode: fit-blur              # fit-blur = whole uncropped picture on a blurred copy; split = gameplay top + facecam bottom; center-crop = middle slice only
   split_gameplay_share: 0.6   # split only: share of the screen height for gameplay (the facecam gets the rest)
+  split_facecam_position: top # split only: facecam above the gameplay (top) or below it (bottom); top keeps the face clear of the app's buttons
   foreground_center: 0.45     # fit-blur only: where the picture's middle sits (0.5 = centre; lower leaves more room for captions below)
   gameplay_focus_x: 0.5       # split/center-crop: which part of the gameplay to keep (0 = left, 0.5 = middle, 1 = right)
   background_blur: 20         # fit-blur: blur strength of the background copy
@@ -152,7 +153,7 @@ layout:
 encoding:
   frame_rate: source          # keep the stream's own frame rate (60 fps stays 60); or a fixed number like 30
   max_frame_rate: 60          # never output more than this
-  crf: 18                     # H.264 quality: lower = more detail, bigger file (18 is visually near-lossless)
+  crf: 16                     # H.264 quality: lower = more detail, bigger file (16 keeps extra detail for the platforms' re-compression)
   preset: slow                # slower presets compress better at the same quality (more CPU time)
   profile: high               # H.264 "high" profile, what TikTok/YouTube expect
 
