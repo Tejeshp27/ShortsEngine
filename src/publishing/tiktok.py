@@ -38,6 +38,33 @@ from src.publishing.errors import NothingPublishedError
 TIKTOK_API_BASE = "https://open.tiktokapis.com/v2"
 
 
+# Files up to this size are uploaded as a single chunk.
+SINGLE_CHUNK_LIMIT = 64 * 1024 ** 2
+
+
+def tiktok_error_details(error):
+    """
+    Read TikTok's own explanation from a failed request.
+
+    Args:
+        error (urllib.error.HTTPError): The failed request.
+
+    Returns:
+        str: For example " invalid_params: The chunk size is invalid", or "" if unreadable.
+            Only TikTok's error code and message are kept (never tokens).
+    """
+    try:
+        body = json.loads(error.read() or b"{}")
+    except (ValueError, OSError):
+        return ""
+    details = body.get("error", {})
+    code = str(details.get("code", ""))[:60]
+    message = str(details.get("message", ""))[:200]
+    if not code and not message:
+        return ""
+    return f" {code}: {message}"
+
+
 def chunk_plan(video_size):
     """
     Given a file's size in bytes, return TikTok chunk size/count with trailing bytes merged into the final chunk.
@@ -50,10 +77,14 @@ def chunk_plan(video_size):
     """
     if not 0 < video_size <= 4 * 1024 ** 3:
         raise NothingPublishedError("TikTok files must be nonempty and no larger than 4 GB.")
-    # 32 MiB guarantees multiple chunks above 64 MiB. The final chunk
-    # can be larger than the others, as required by TikTok's transfer guide.
-    chunk_size = min(video_size, 32 * 1024 ** 2)
-    return chunk_size, max(1, video_size // chunk_size)
+    # Up to 64 MiB, send the whole file as one chunk (chunk_size = file size),
+    # the simplest case in TikTok's transfer guide.
+    if video_size <= SINGLE_CHUNK_LIMIT:
+        return video_size, 1
+    # Larger files: 32 MiB chunks. The final chunk can be larger than the
+    # others (up to 128 MiB), as TikTok's transfer guide requires.
+    chunk_size = 32 * 1024 ** 2
+    return chunk_size, video_size // chunk_size
 
 
 def _tiktok_post(endpoint, payload, access_token):
@@ -141,7 +172,8 @@ def upload_to_drafts(video_path, access_token=None):
         init_response = _tiktok_post("/post/publish/inbox/video/init/", init_payload, token)
     except urllib.error.HTTPError as error:
         if 400 <= error.code < 500:
-            raise NothingPublishedError(f"TikTok rejected upload initialization (HTTP {error.code}).") from error
+            raise NothingPublishedError(f"TikTok rejected upload initialization (HTTP {error.code})."
+                                        + tiktok_error_details(error)) from error
         raise
     publish_id = init_response["data"]["publish_id"]
     upload_url = init_response["data"]["upload_url"]

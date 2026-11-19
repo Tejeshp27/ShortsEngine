@@ -455,7 +455,7 @@ def test_schedule_defaults_to_dry_run_for_clips(workspace, monkeypatch):
     sender.assert_not_called()
 
 
-@pytest.mark.parametrize("size", [1, 4_000_000, 33_000_000, 65_000_000, 140_000_001, 4 * 1024 ** 3])
+@pytest.mark.parametrize("size", [1, 4_000_000, 33_000_000, 44_801_922, 65_000_000, 140_000_001, 4 * 1024 ** 3])
 def test_tiktok_chunk_limits(size):
     """
     Small and large videos use valid sequential chunk counts without dropping trailing bytes.
@@ -474,6 +474,19 @@ def test_tiktok_chunk_limits(size):
     assert size - (count - 1) * chunk_size <= 128 * 1024 ** 2
     if size > 64 * 1024 ** 2:
         assert count > 1
+    else:
+        # Up to 64 MiB the whole file is one chunk whose size is the file size.
+        assert (chunk_size, count) == (size, 1)
+
+
+def test_tiktok_rejection_includes_tiktoks_reason():
+    """A rejected upload shows TikTok's own error code and message."""
+    import io
+    import urllib.error
+    from src.publishing.tiktok import tiktok_error_details
+    body = io.BytesIO(b'{"error": {"code": "invalid_params", "message": "chunk size is invalid"}}')
+    error = urllib.error.HTTPError("https://open.tiktokapis.com", 400, "Bad Request", {}, body)
+    assert tiktok_error_details(error) == " invalid_params: chunk size is invalid"
 
 
 def test_engagement_sidecar_is_real_and_validated(tmp_path):

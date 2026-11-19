@@ -332,6 +332,14 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**First real clip uploads (2026-11-19, Claude Code):** draft 8 posted with "Post now".
+YouTube upload succeeded (private, as then configured; the connection only has
+`youtube.upload` + `youtube.readonly`, so existing videos cannot be made public by the
+app). Owner chose public uploads: `youtube.privacy: public`. TikTok inbox init failed with
+HTTP 400 for the 44.8 MB file (one declared 32 MiB chunk); `chunk_plan` now sends files up
+to 64 MiB as a single chunk (chunk_size = file size) and the error now includes TikTok's
+code/message. Retry succeeded: draft in the TikTok inbox. **677 tests pass.**
+
 **Owner tweaks to clips (2026-11-19, Claude Code):** on-screen credit tag off
 (`credit.enabled: false`; post captions still credit the streamer). Bleeps quieter
 (`bleep.volume` 0.8 → 0.4, ≈6 dB) and placed precisely: new `src/clips/bleep_timing.py`

@@ -224,7 +224,7 @@ credit:
   font_size: 34               # text height in pixels
 
 # Where approved clips go. TikTok receives them as drafts (you post in the app);
-# YouTube receives them with the privacy setting below; start with private.
+# YouTube receives them with the privacy setting below (public on this channel).
 platforms: [tiktok, youtube]
 
 # Caption text. TikTok: you paste it in the app (drafts cannot carry a caption).
@@ -235,7 +235,7 @@ publishing:
 
 # YouTube upload settings.
 youtube:
-  privacy: private  # private for validation; choose public or unlisted explicitly when ready
+  privacy: public   # owner choice 2026-11-19: post publicly straight away (private or unlisted also allowed)
   category_id: 20   # YouTube's "Gaming" category
 
 # Automatic sending to TikTok drafts. While the dashboard runs, the newest
