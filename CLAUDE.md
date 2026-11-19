@@ -8,7 +8,11 @@ Update this file whenever significant behavior or architecture changes.
 ### Latest: rolling live recorder built (2026-11-19)
 
 The recorder from the next-steps below is implemented and tested (see the first
-Current phase entry and `docs/live-recording.md`). It was switched on 2026-11-19. Next:
+Current phase entry and `docs/live-recording.md`). It was switched on 2026-11-19. The same day the owner moved all three News Made
+Simple connections (YouTube NewsMadeSimple, Instagram newsmadesimple60s, TikTok
+newssimplified60) to `twitch_clips` (accounts.channel updated; tokens are not
+channel-bound; DB backup in `cache/backups/`). The news channel now has no
+connected accounts. Next:
 watch the first real hour-long chunks for processing time vs. recording time,
 disk peak, clip quality; then Linux/Docker and the $25/month server choice.
 
