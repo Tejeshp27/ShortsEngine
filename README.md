@@ -1,5 +1,31 @@
 # ShortsEngine
 
+**Local live-footage pilot passed (2026-11-18):** Streamlink captured a real
+46-second JasonTheWeen stream segment; the existing importer stored it in the
+private site without duplication, and the local clipping pipeline produced a
+checked 32.24-second vertical draft plus an MP4/caption export. No paid AI calls
+or uploads. [Watch draft 8](http://localhost:8000/video/8), or read
+[pilot evidence and remaining automation work](docs/local-recording-pilot.md).
+The owner selected a $25/month future cloud budget, with local testing first.
+Continuous recording/recovery integration and the Linux container build remain
+unverified; the installed supervisor is still in acquisition-only mode.
+
+**Stream clip presentation:** configured facecams stay in a top panel for every
+template. Sources without measured camera coordinates keep their entire picture
+visible on a blurred background, so an embedded facecam is not cropped away.
+Jason's pilot camera box is configured. The Twitch clips channel hides the
+on-video URL pill while retaining post-text attribution, and shows dramatic,
+contextual opening hooks for eight seconds. Future hooks use the existing
+cached/metered model; local highlight scoring remains free. Draft 8 and the
+latest export now use **“ONE Roblox Question Set Jason OFF.”**
+
+**Source-quality upgrade:** draft 8 was rebuilt from the matching native
+1920x1080/60 fps archive footage, verified by audio alignment and frame comparison.
+The earlier pilot had used a 720p variant. The channel now exports at 60 fps,
+CRF17/medium with Lanczos scaling; this retains more detail but uses more CPU and
+storage. Facecam detail remains limited by its size within the original broadcast.
+Original 720p footage is preserved. See the latest [quality evidence](docs/local-recording-pilot.md).
+
 **Current focus: acquire source footage first.** Open the private
 [source-video library](http://localhost:8000/clips/twitch_clips/sources) to distinguish
 discovered Twitch links from stored original files, upload an authorized recording
@@ -26,9 +52,10 @@ Landscape Version** control, then select the matching **Existing discovery** in
 the library's upload form. The same entry becomes acquired after a confirmed,
 validated upload. See [discovery setup and manual imports](docs/source-discovery.md)
 for creator configuration, limits and what is needed for unattended media delivery.
-For the next development session, follow **Resume here** in [CLAUDE.md](CLAUDE.md):
-add bounded official VOD discovery, then establish and verify actual permitted
-media delivery. Discovery alone does not acquire editable video.
+For the next development session, follow **Resume here** in [CLAUDE.md](CLAUDE.md)
+and the latest pilot entry: reuse the successful bounded Streamlink route in a
+supervised recorder, then prove interruption/restart recovery before unattended
+editing. Discovery alone does not acquire editable video.
 
 The independent Mac clips supervisor is now installed with launchd. See
 [automation status](AUTOMATION_STATUS.md) for measured capabilities, current

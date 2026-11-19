@@ -165,13 +165,15 @@ def crop_and_scale(crop, panel_height):
         panel_height (int): The panel's height on the phone screen.
 
     Returns:
-        str: For example "crop=486:324:1434:0,scale=1080:720,setsar=1".
+        str: For example "crop=486:324:1434:0,scale=1080:720:flags=lanczos,setsar=1".
              crop=W:H:X:Y cuts out a W-by-H rectangle whose top-left corner is X,Y.
              scale=W:H resizes it to fill the panel exactly.
              setsar=1 marks the pixels as square so players don't stretch it.
     """
+    # Use a sharper resize for enlarged camera/game panels; this cannot create
+    # missing detail, so a high-resolution original is still necessary.
     return (f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']},"
-            f"scale={OUTPUT_WIDTH}:{panel_height},setsar=1")
+            f"scale={OUTPUT_WIDTH}:{panel_height}:flags=lanczos,setsar=1")
 
 
 def build_video_filter(plan, fps):

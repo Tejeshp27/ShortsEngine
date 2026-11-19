@@ -5,6 +5,32 @@
 Read this file at the start of every session before reviewing or changing code.
 Update this file whenever significant behavior or architecture changes.
 
+### Latest owner direction and local pilot (2026-11-18)
+
+The owner selected a **$25/month future always-on budget**, with local testing
+before paying for hosting. They explicitly set aside the earlier official-API-only
+restriction for the proposed Streamlink recording approach. Use that narrow
+exception for configured, owner-approved public streams; retain all credential,
+cost and publishing safeguards. Do not repeat requests for Jason's account.
+
+A real bounded Streamlink 8.6.3 capture succeeded locally without cookies,
+browser automation or manual downloading/uploading: 46 seconds, 1280x720 with
+audio, 19,035,529-byte MP4. Existing import returned recording 1 twice for identical
+bytes. Existing local Whisper/scoring/rendering created draft 8: 32.24 seconds,
+1080x1920 H.264/AAC, score 79, full decode/technical gate passed with no warnings.
+Original playback was byte-identical through the running private site; seeking
+returned HTTP 206; draft page returned 200. Export bundle includes one clip and
+upload text. Zero paid AI calls or uploads. Details: `docs/local-recording-pilot.md`;
+ignored report: `output/local_recording_probe/report.json`.
+
+This was a one-off bounded diagnostic using existing pipeline functions, not a
+continuous recorder installation. Next: build a bounded recorder adapter around
+this measured route, reusing supervisor/queue/importer, then test recovery and
+Linux/Docker before deployment. Docker is absent locally. Keep production
+`acquisition.only: true` and publishing dry-run enabled until that validation.
+No cloud resources were provisioned. These newer directions/evidence supersede
+historical zero-footage snapshots and source-access instructions below.
+
 ### Resume here — owner stepping away (2026-11-18)
 
 The owner requested saving the handoff and committing all current work. The next
@@ -265,6 +291,52 @@ shortsengine/
    permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
+
+**Source/export quality upgrade (2026-11-18, Codex):** owner reported softness.
+Diagnosed the first pilot's 1280x720/60 fps, ~3.1 Mbps source and its 285x191 camera
+crop being enlarged into a 1080x720 panel. Recovered the same moment from public
+archive 2932190650 in native 1920x1080/60 fps (~7.0 Mbps). Bounded capture was
+remuxed without video transcoding; matched to the old source with audio correlation
+0.965 and checked matching frames. Imported as recording 2; recording 1 is retained.
+Draft 8 remains the same edit/title/layout, now seeking 147.43–179.67 seconds into
+the HQ window. Original caption words/timings were translated by the measured
+133.994625-second offset, avoiding a context-dependent re-transcription change.
+Added per-channel `encoding.frame_rate/crf/preset` (older defaults 30/20/fast),
+configured Twitch to 60/17/medium; decoder, encoder and caption clock match.
+Explicit Lanczos resizing for panels/foreground. First HQ render measured
+1080x1920/60 fps, ~12.1 Mbps video; technical gate passed without warnings.
+**563 tests pass**, including seven added encoding/scaling regressions.
+No paid AI calls, publication or host provisioned. Native camera detail remains
+limited; this is not AI upscaling. Updated README, operating/pilot docs and status.
+
+**Facecam and hook presentation (2026-11-18, Codex):** owner requested visible
+facecams on every source, no in-video Twitch URL, and more dramatic descriptive
+hooks. Saved Jason's camera box measured from the 1280x720 original (995,403,
+285x191 pixels). Every template now honors a configured camera in the top panel;
+unknown camera coordinates retain the full source on blur rather than cropping
+away possible embedded cameras. This is not automatic face detection/tracking.
+`credit.enabled: false` hides the URL pill for the clips channel; captions/notes
+retain creator attribution. `hook_title.seconds: 8`, `hook_title.use_llm: true`
+and `metadata.style` configure grounded dramatic headlines. Hook-only model calls
+reuse `clip_pick`, caching, token/call limits and the existing job spending
+reservation; `analysis.use_llm` stays false and local scores are unchanged.
+Re-rendered draft 8 with **ONE Roblox Question Set Jason OFF**, large facecam above
+gameplay, hook below the camera and no URL overlay; inspected opening/later frames,
+technical gate passed without warnings. No paid call for this re-render and no
+publishing. New export: `output/local_recording_probe/ready_to_post_facecam_v2`.
+**556 tests pass** (11 new regressions). README, pilot/operating docs and status
+updated. Original recordings and prior local evidence preserved.
+
+**Local real-footage pilot (2026-11-18, Codex):** the owner requested local testing
+before a $25/month cloud pilot and allowed Streamlink public-stream recording.
+Real Jason footage was captured, imported, selected, transcribed, captioned,
+rendered and exported locally: recording 1, draft 8. Source playback/seeking and
+duplicate import passed. Output 32.24 seconds, 1080x1920 H.264/AAC, technical checks
+passed without warnings; sample frame inspected. No paid calls or publishing.
+**545 tests pass** (24.33 seconds). Only documentation/status changed in this
+pass; diagnostic media/reports are ignored local artifacts. The installed runtime
+is still acquisition-only; no continuous capture or cloud deployment is claimed.
+Next work/evidence: `docs/local-recording-pilot.md`.
 
 **Metadata-only Twitch discovery (2026-11-18, Codex):** extended the existing
 Twitch client with app-token refresh, bounded rate-limit retries, login resolution

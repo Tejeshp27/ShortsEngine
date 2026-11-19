@@ -56,7 +56,7 @@ class ApprovedStreamer(BaseModel):
         permission_note: How and where they agreed, e.g. "Said yes in a Twitch DM".
         permission_date: The day they agreed.
         permission_proof: Optional path to your screenshot of the agreement.
-        facecam: Optional webcam position; without it the video is a centred crop.
+        facecam: Optional webcam position; unknown positions keep the full source visible.
     """
     # Logins are letters, numbers, underscores (and hyphens on Kick).
     username: str = Field(min_length=1, max_length=25, pattern=r"^[A-Za-z0-9_-]+$")
@@ -101,6 +101,14 @@ class LayoutSettings(BaseModel):
     template: str = Field(default="gaming", pattern=r"^(gaming|reaction|conversation)$")
 
 
+class ClipEncodingSettings(BaseModel):
+    """Validate YAML frame rate, H.264 quality and speed; return checked values without changing source detail."""
+
+    frame_rate: int = Field(default=30, ge=24, le=60)
+    crf: int = Field(default=20, ge=14, le=28)
+    preset: str = Field(default="fast", pattern=r"^(ultrafast|superfast|veryfast|faster|fast|medium|slow|slower|veryslow)$")
+
+
 class AnalysisSettings(BaseModel):
     """Control local highlight estimates; inputs are YAML values, returned as checked settings."""
 
@@ -143,15 +151,17 @@ class CaptionSettings(BaseModel):
 
 
 class HookTitleSettings(BaseModel):
-    """How the hook title at the start of the video looks."""
+    """Validate opening title duration, size, word limit and optional model generation; missing YAML uses defaults."""
     seconds: float = Field(default=3.0, ge=0.5, le=10)
     font_size: int = Field(default=80, ge=30, le=160)
     max_words: int = Field(default=8, ge=2, le=15)
+    use_llm: bool = False
 
 
 class CreditSettings(BaseModel):
-    """How the on-screen streamer credit looks."""
+    """Validate optional on-video attribution and its font size; post text keeps credit regardless of these settings."""
     font_size: int = Field(default=40, ge=20, le=100)
+    enabled: bool = True
 
 
 class ClipChannelSettings(BaseModel):
@@ -165,6 +175,7 @@ class ClipChannelSettings(BaseModel):
     discovery: DiscoverySettings = DiscoverySettings()
     transcription: TranscriptionSettings = TranscriptionSettings()
     layout: LayoutSettings = LayoutSettings()
+    encoding: ClipEncodingSettings = ClipEncodingSettings()
     captions: CaptionSettings = CaptionSettings()
     hook_title: HookTitleSettings = HookTitleSettings()
     credit: CreditSettings = CreditSettings()
@@ -283,7 +294,7 @@ def load_clip_settings(config):
     # Only pass the sections this file understands; the rest (name,
     # schedule, publishing...) is used by other parts of the program.
     sections = {}
-    for key in ("streamers", "clips", "discovery", "transcription", "layout", "captions", "hook_title", "credit", "analysis", "automation"):
+    for key in ("streamers", "clips", "discovery", "transcription", "layout", "encoding", "captions", "hook_title", "credit", "analysis", "automation"):
         if config.get(key) is not None:
             sections[key] = config[key]
 

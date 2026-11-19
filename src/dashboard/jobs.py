@@ -169,7 +169,9 @@ def paid_ai_steps(config, kind, payload):
         list[tuple]: (purpose, input token ceiling) pairs, e.g. [("writing", 36000)].
     """
     steps = []
-    if kind == "clip_pipeline" and config.get("analysis", {}).get("use_llm", False):
+    clip_metadata_enabled = (config.get("analysis", {}).get("use_llm", False)
+                             or config.get("hook_title", {}).get("use_llm", False))
+    if kind == "clip_pipeline" and clip_metadata_enabled:
         from src.clips.settings import load_clip_settings
         settings = load_clip_settings(config)
         count = settings.analysis.max_clips_per_recording * settings.automation.max_recordings_per_run

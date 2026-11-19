@@ -176,7 +176,7 @@ def facecam_for(clip, settings):
         settings (ClipChannelSettings): The channel's clip settings.
 
     Returns:
-        FacecamBox or None: The webcam position (None = centred crop).
+        FacecamBox or None: The webcam position (None keeps the entire source visible).
 
     Raises:
         StreamerNotApproved: If the clip's streamer is no longer approved.
@@ -220,8 +220,6 @@ def render_and_save(config, settings, clip, moment, words, video_path, notes_pat
     from src.video.clip_render import render_clip_video
 
     facecam = facecam_for(clip, settings)
-    if settings.layout.template == "reaction":
-        facecam = None
     temporary_path = os.path.splitext(video_path)[0] + ".rendering.mp4"
     from src.clips.editing import remove_long_silence
     edited_source = os.path.splitext(video_path)[0] + ".edited.mp4"

@@ -1,6 +1,37 @@
 <!-- Engineering audit and evidence; the supervisor maintains only its marked live-status section. -->
 # Automation status — November 18, 2026 launch
 
+**Quality revision (2026-11-18):** replaced draft 8's 720p input with matched native
+1080p60 archive footage (recording 2), preserving recording 1. Audio correlation
+0.965 and picture comparison verified the same exchange. Higher-quality export
+settings are now per channel: 60 fps, CRF17/medium for Twitch, with Lanczos scaling
+and a matching caption clock. First HQ export measured ~12.1 Mbps video and passed
+technical checks without warnings. Original caption timing was retained through
+the measured source offset. **563 offline tests pass**. Zero paid AI calls/uploads.
+Native webcam crop size still bounds perceived detail; no generated face detail.
+
+**Presentation revision (2026-11-18):** draft 8 now keeps Jason's measured facecam
+above gameplay, removes the on-video Twitch URL pill, and opens with
+**ONE Roblox Question Set Jason OFF** for eight seconds. Configured cameras take
+priority in every template; unknown positions keep the entire source visible.
+Future dramatic hooks use the existing cached/metered model independently of local
+scoring, with job budget reservations. Re-render/export technical checks passed
+without warnings; opening/later frames inspected. No paid call for this revision
+or publication. **556 tests pass**. Latest bundle:
+`output/local_recording_probe/ready_to_post_facecam_v2`.
+
+**Real local recording/clipping pilot (2026-11-18):** a bounded Streamlink capture
+of Jason's public live stream succeeded (46 seconds, 720p with audio). Existing
+importer saved recording 1 and reused that ID on repeat import. The existing free
+pipeline produced draft 8: 32.24 seconds, 1080x1920 H.264/AAC, technical gate passed
+without warnings, one ready-to-post export bundle. Private original playback was
+byte-identical, seeking returned 206, and the draft page returned 200. Zero paid
+AI calls, uploads or public posts. **545 offline tests pass**. This supersedes
+earlier zero-creator-footage snapshots below; those remain historical audit.
+This was a one-off diagnostic, not unattended recording. The supervisor remains
+acquisition-only. Owner budget for future cloud is $25/month, local testing first.
+See [pilot evidence and next steps](docs/local-recording-pilot.md).
+
 **Metadata discovery update (2026-11-18):** public Twitch clip/VOD discovery now
 reuses the existing source rows, queue/worker and supervisor schedule (six hours
 by default). Discovery never downloads footage; background inbox cycles no longer
@@ -176,11 +207,10 @@ Suggested commit after review: `feat: supervise clip automation with launchd and
 <!-- RUNTIME_STATUS_START -->
 ## Live supervisor status
 
-Updated: 2026-11-18 20:52:40 CST · PID 32196
-Free disk: 170.93 GB · Low-disk pause: False
+Updated: 2026-11-18 21:41:05 CST · PID 36274
+Free disk: 169.67 GB · Low-disk pause: False
 
-- twitch_clips: queue enabled=True; recordings=0; finished clips=0.
-  - No authorized recording imported; remote media access still needs verification.
+- twitch_clips: queue enabled=True; recordings=2; finished clips=1.
   - Connect this channel's tiktok account.
   - Connect this channel's youtube account.
   - TikTok inbox delivery requires manual posting; Direct Post is not enabled.

@@ -63,7 +63,7 @@ llm:
 #       y: 0.0        # top edge, as a fraction of the height (0 = top, 1 = bottom)
 #       width: 0.25   # webcam width, as a fraction of the stream width
 #       height: 0.30  # webcam height, as a fraction of the stream height
-#     # No facecam set → the whole video is a centred vertical crop instead of a split screen.
+#     # No facecam set → preserve the whole source on blur so an unknown camera is not cropped out.
 # ---------------------------------------------------------------
 # The owner confirmed consent for these eight creators in this conversation.
 # The date records that confirmation; the original agreement dates/methods
@@ -111,6 +111,11 @@ streamers:
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/jasontheween" # completed recordings from this creator only
+    facecam:                              # measured from the 1280x720 local pilot; update if his stream layout changes
+      x: 0.77734375                       # left edge: 995 source pixels / 1280
+      y: 0.55972222                       # top edge: 403 source pixels / 720
+      width: 0.22265625                   # full camera width: 285 source pixels / 1280
+      height: 0.26527778                  # full camera height: 191 source pixels / 720
   - username: "silky"                       # Silky's Twitch login
     platform: "twitch"                     # source platform
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
@@ -134,9 +139,15 @@ transcription:
 
 # How the 1080x1920 vertical video is laid out.
 layout:
-  template: gaming           # gaming: facecam split when configured; reaction: crop; conversation: whole frame on blur
+  template: gaming           # configured facecams always split; unknown camera positions preserve the whole source on blur
   facecam_panel_height: 720   # pixels at the top used for the webcam (the gameplay gets the other 1200)
   gameplay_focus_x: 0.5       # which part of the gameplay to keep: 0 = left side, 0.5 = middle, 1 = right side
+
+# Export quality; source-native 1080p should be captured before enlarging camera/game crops.
+encoding:
+  frame_rate: 60             # preserve smooth motion from the 60 fps stream; lower to 30 for a smaller CPU budget
+  crf: 17                   # high-quality H.264; lower loses less detail but produces larger MP4s
+  preset: medium            # better compression efficiency than fast; requires more encoding CPU time
 
 # Burned-in word-by-word captions from the transcript.
 captions:
@@ -157,13 +168,19 @@ editing:
 
 # The hook title shown at the start of the video.
 hook_title:
-  seconds: 3.0                # how long it stays on screen
+  seconds: 8.0                # readable opening hook; stays below the facecam for the first eight seconds
   font_size: 80               # text height in pixels
   max_words: 8                # hook titles are cut to this many words
+  use_llm: true               # use the existing cached/metered clip_pick model for contextual titles; scoring stays local
 
-# The on-screen credit, shown for the whole video.
+# Tone for model-written hooks and post descriptions; claims must come from the selected moment.
+metadata:
+  style: "Dramatic, high-energy streamer hooks. Describe the specific setup or trigger and tease the reaction. Use one or two uppercase emphasis words when helpful. Make viewers curious without inventing events, thoughts, stakes, or outcomes; avoid generic clickbait." # grounded drama, not fabricated claims
+
+# On-video credit is optional; attribution remains in post captions and notes.
 credit:
   font_size: 40               # text height in pixels
+  enabled: false              # owner requested no twitch.tv/creator pill inside the video
 
 # Where approved clips go. TikTok receives them as drafts (you post in the app);
 # YouTube receives them with the privacy setting below; start with private.

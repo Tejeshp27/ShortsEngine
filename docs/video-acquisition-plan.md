@@ -4,6 +4,14 @@
 Current priority: get authorized Twitch/Kick source files into the private site
 reliably. Editing and posting resume only after source acquisition is demonstrated.
 
+**Latest owner direction (2026-11-18):** test locally before a $25/month always-on
+cloud deployment. The owner allowed Streamlink public-stream recording despite
+the earlier official-API-only restriction. A one-off local Twitch pilot now proves
+real capture, original playback/seeking/deduplication and the existing editing
+pipeline on real Jason footage. See [measured evidence](local-recording-pilot.md).
+Continuous capture/recovery, Kick capture and the Linux container remain untested;
+the full unattended acquisition gate below is still incomplete.
+
 ## Phase 1: source acquisition
 
 ### Step 1 — source library and an acquisition-only pipeline (implemented)

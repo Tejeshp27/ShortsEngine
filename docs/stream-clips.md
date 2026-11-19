@@ -166,23 +166,52 @@ titles/descriptions from actual speech. Invalid model output falls back to local
 metadata. Unknown paid-call outcomes retain a spending estimate; inspect before
 retrying. No new paid provider was added.
 
+For contextual headlines without changing local scores, use
+`hook_title.use_llm: true` and leave `analysis.use_llm: false`. The configured
+clips channel uses this mode with `metadata.style` requesting dramatic, specific
+hooks grounded in the selected speech. Hook-only requests omit paid scoring
+fields. These calls use the existing `models.clip_pick`, token/call limits,
+caching and dashboard job budget reservation. The preview's manually reviewed
+headline required no paid call. `hook_title.seconds: 8` keeps the opening hook
+readable; it appears below the camera panel so it does not obscure the face.
+
 ## Editing, captions and review
 
-- `layout.template: gaming`: configured facecam above a focused gameplay crop.
-  Without a facecam box it uses a fixed crop.
-- `reaction`: fixed vertical crop using `gameplay_focus_x` for the speaker position.
-- `conversation`: entire picture over a blurred fill, retaining participants/HUD.
+- Every template (`gaming`, `reaction`, `conversation`) retains a configured
+  facecam in a top panel above the focused gameplay/content crop. Templates cannot
+  discard the camera configuration.
+- Unknown facecam positions preserve the entire source picture over a blurred
+  fill; a centered crop must not cut away a possible embedded facecam. Configure
+  the creator's measured `facecam` box to enlarge it. There is no automatic
+  facecam detection or tracking. Jason's current pilot layout has a measured box.
+- `credit.enabled: false` hides the on-video URL pill. Creator attribution remains
+  in the post caption, export text and review notes. Other channel configurations
+  retain the optional overlay by default for compatibility.
 
 Facecam rectangles and focus positions are explicit per-creator settings. Automatic
 face tracking, active-speaker detection, semantic vision models and live remote
 stream recording are not implemented. OBS can record a creator-authorized local
 feed; the completed-file inbox handles acquisition after recording finishes.
 
-Outputs are 1080×1920, 30 fps H.264/AAC MP4 with normalized audio, highlighted
+Outputs are 1080×1920 H.264/AAC MP4 with normalized audio, highlighted
 word captions, hook text and attribution. Caption settings support local font
 paths, size, colors, outline and vertical position. Choose positions that avoid
 the creator's face/gameplay; the app does not detect those automatically. Text
 too wide for the safe area stops the render rather than silently overflowing.
+
+Export quality is per channel under `encoding`: `frame_rate` (24–60), `crf`
+(14–28, lower retains more detail) and the H.264 `preset`. Defaults remain
+30 fps/CRF20/fast for older channels. The configured Twitch channel now uses
+60 fps/CRF17/medium to retain motion and reduce compression loss from native
+1080p60 sources. Decoder, encoder and caption clock use the same frame rate.
+Panel/foreground resizing uses Lanczos. Higher frame rates and slower presets
+require more CPU and storage; benchmark before cloud deployment.
+
+Capture the highest available original before enlarging facecam crops. The first
+720p pilot's camera was only 285×191 pixels; encoding a large portrait cannot
+recreate detail missing from that crop. Prefer native 1080p60 when available and
+report unavailable quality explicitly in the future recorder. This does not
+imply the continuous recorder is already installed.
 
 Optional `editing.remove_long_silence` removes the middle of true audio-silent gaps
 longer than `minimum_silence_seconds`, retaining padding and remapping captions.

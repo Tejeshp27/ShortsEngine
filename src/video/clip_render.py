@@ -7,7 +7,7 @@
 #   1. the hook title, during the first few seconds
 #   2. word-by-word captions from the Whisper transcript
 #      (the word being spoken is highlighted)
-#   3. the credit, e.g. "twitch.tv/streamer", for the whole video
+#   3. optional on-video credit; post captions retain attribution independently
 #
 # How it works (two FFmpeg programs with Python in the middle):
 #   FFmpeg #1 ("decoder") cuts the chosen moment, crops and stacks
@@ -347,8 +347,10 @@ def draw_credit(layer, credit_text, settings):
     Args:
         layer (PIL.Image): A transparent picture to draw on.
         credit_text (str): For example "twitch.tv/streamer".
-        settings (CreditSettings): The font size.
+        settings (CreditSettings): Whether the overlay is enabled and its font size.
     """
+    if not settings.enabled:
+        return
     size = settings.font_size
     icon = credit_icon(int(size * 1.1))
     icon_space = 0
@@ -453,7 +455,7 @@ def decoder_command(clip_path, start, duration, video_filter):
     ]
 
 
-def encoder_command(audio_path, duration, output_path):
+def encoder_command(audio_path, duration, output_path, encoding=None):
     """
     Build the FFmpeg command that turns Python's frames + the sound into an MP4.
 
@@ -461,15 +463,23 @@ def encoder_command(audio_path, duration, output_path):
         audio_path (str or None): The levelled sound, or None for silence.
         duration (float): The video's length in seconds.
         output_path (str): Where to write the MP4.
+        encoding: Optional checked frame rate, quality and speed; None keeps the older export defaults.
 
     Returns:
         list[str]: The command.
     """
+    frame_rate = FRAMES_PER_SECOND
+    crf = 20
+    preset = "fast"
+    if encoding is not None:
+        frame_rate = encoding.frame_rate
+        crf = encoding.crf
+        preset = encoding.preset
     command = [
         "ffmpeg", "-nostdin", "-y",
         "-f", "rawvideo", "-pix_fmt", "rgb24",       # frames arrive as raw RGB...
         "-s", f"{OUTPUT_WIDTH}x{OUTPUT_HEIGHT}",     # ...1080x1920 each...
-        "-framerate", str(FRAMES_PER_SECOND),        # ...30 per second...
+        "-framerate", str(frame_rate),              # match the decoder and caption clock
         "-i", "-",                                   # ...through the pipe
     ]
     if audio_path:
@@ -480,8 +490,8 @@ def encoder_command(audio_path, duration, output_path):
     command += [
         "-map", "0:v", "-map", "1:a",
         "-c:v", "libx264",       # H.264: the video format every phone and app plays
-        "-preset", "fast",       # encoding speed vs. file size; "fast" is a good balance
-        "-crf", "20",            # quality: lower = better and bigger (18-23 is typical)
+        "-preset", preset,       # trade encoding time against compression efficiency
+        "-crf", str(crf),        # lower values retain more source detail and use more disk
         "-pix_fmt", "yuv420p",   # the colour format phones expect
         "-c:a", "aac",           # AAC: the standard sound format inside MP4 files
         "-b:a", "192k",          # sound quality (192 kilobits per second)
@@ -526,6 +536,34 @@ def prepare_audio(clip_path, start, duration, work_base):
 # The whole render
 # ---------------------------------------------------------------------------
 
+def layout_for_source(source, facecam, settings):
+    """
+    Choose a facecam-safe picture layout for every template.
+
+    Args:
+        source: Probed source width and height in pixels.
+        facecam: A measured camera box, or None when its position is unknown.
+        settings: Checked channel settings, including panel height and gameplay focus.
+
+    Returns:
+        The panel plan and FFmpeg filter. Known cameras get a top panel; unknown
+        positions keep the entire source visible so an embedded camera is not lost.
+    """
+    plan = plan_layout(source["width"], source["height"], facecam,
+                       settings.layout.facecam_panel_height, settings.layout.gameplay_focus_x)
+    if facecam is not None:
+        return plan, build_video_filter(plan, settings.encoding.frame_rate)
+    # This fallback preserves every corner until a creator's camera box is set.
+    video_filter = (
+        "[0:v]split=2[bg][fg];"
+        "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:2[back];"
+        "[fg]scale=1080:1920:force_original_aspect_ratio=decrease:flags=lanczos[front];"
+        "[back][front]overlay=(W-w)/2:(H-h)/2,setsar=1,"
+        f"fps={settings.encoding.frame_rate},format=rgb24[out]"
+    )
+    return plan, video_filter
+
+
 def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
                       facecam, settings, output_path):
     """
@@ -550,19 +588,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
     """
     source = probe_video(clip_path)
     duration = round(end - start, 3)
-    plan = plan_layout(source["width"], source["height"], facecam,
-                       settings.layout.facecam_panel_height, settings.layout.gameplay_focus_x)
-    video_filter = build_video_filter(plan, FRAMES_PER_SECOND)
-    if settings.layout.template == "conversation":
-        # Preserve the entire wide picture for conversations and gameplay
-        # where a fixed crop would remove a participant or the score HUD.
-        video_filter = (
-            "[0:v]split=2[bg][fg];"
-            "[bg]scale=1080:1920:force_original_aspect_ratio=increase,crop=1080:1920,boxblur=20:2[back];"
-            "[fg]scale=1080:1920:force_original_aspect_ratio=decrease[front];"
-            "[back][front]overlay=(W-w)/2:(H-h)/2,setsar=1,"
-            f"fps={FRAMES_PER_SECOND},format=rgb24[out]"
-        )
+    plan, video_filter = layout_for_source(source, facecam, settings)
 
     folder = os.path.dirname(output_path)
     if folder:
@@ -575,7 +601,8 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
     # Layers that never change are drawn once.
     hook_y = FULL_LAYOUT_HOOK_Y
     if plan["mode"] == "split":
-        hook_y = plan["panels"][0]["height"]   # on the line between webcam and gameplay
+        # Keep the title below the facecam instead of covering its lower edge.
+        hook_y = plan["panels"][0]["height"] + 150
     hook_layer = make_layer(draw_hook_title, hook_title, hook_y, settings.hook_title)
     credit_layer = make_layer(draw_credit, credit_text, settings.credit)
     groups = group_caption_words(words_in_moment(words, start, end), settings.captions.words_per_caption)
@@ -584,7 +611,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
     log_file = open(log_path, "w", encoding="utf-8")
     decoder = subprocess.Popen(decoder_command(clip_path, start, duration, video_filter),
                                stdout=subprocess.PIPE, stderr=log_file)
-    encoder = subprocess.Popen(encoder_command(audio_path, duration, output_path),
+    encoder = subprocess.Popen(encoder_command(audio_path, duration, output_path, settings.encoding),
                                stdin=subprocess.PIPE, stdout=log_file, stderr=log_file)
 
     frame_bytes = OUTPUT_WIDTH * OUTPUT_HEIGHT * 3
@@ -598,7 +625,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
             raw = decoder.stdout.read(frame_bytes)
             if len(raw) < frame_bytes:
                 break
-            now = frame_number / FRAMES_PER_SECOND
+            now = frame_number / settings.encoding.frame_rate
             frame = Image.frombytes("RGB", (OUTPUT_WIDTH, OUTPUT_HEIGHT), raw)
 
             group_number, word_number = caption_at(groups, now)
