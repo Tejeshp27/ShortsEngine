@@ -203,6 +203,8 @@ captions:
   font_path: ""              # optional local TTF/OTF path; empty uses bundled Montserrat
   outline_color: "#000000"   # outline color for contrast on bright gameplay
   outline_width: 6           # outline thickness in output pixels
+  streamer_voice_only: true  # captions show only the streamer's voice (game characters, other players and music are left out)
+  voice_match_min: 0.6       # how similar (0-1) a voice must be to the streamer's to be captioned; higher = stricter
 
 # Optional editing of genuine audio silence. Reactions/game sounds stay intact.
 editing:

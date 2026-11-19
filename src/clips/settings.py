@@ -326,6 +326,10 @@ class CaptionSettings(BaseModel):
     font_path: str = ""
     outline_color: str = Field(default="#000000", pattern=r"^#[0-9A-Fa-f]{6}$")
     outline_width: int = Field(default=6, ge=0, le=20)
+    # Captions show only the streamer's own voice (src/clips/speaker_filter.py);
+    # pieces less similar than voice_match_min (0-1) are left out.
+    streamer_voice_only: bool = False
+    voice_match_min: float = Field(default=0.6, ge=0.2, le=0.95)
 
 
 class HookTitleSettings(BaseModel):

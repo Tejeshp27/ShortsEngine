@@ -140,6 +140,42 @@ def clean_word(text):
     return word
 
 
+def remove_sound_labels(words):
+    """
+    Remove Whisper's sound descriptions, even when split over several words.
+
+    Whisper writes game music and noises as labels such as "[MUSIC PLAYING]"
+    or "(cheering)". A label can arrive as several words ("[MUSIC", "PLAYING]"),
+    so every word from an opening "[" or "(" up to its closing "]" or ")"
+    is removed, plus any stray closing piece like "PLAYING]".
+
+    Args:
+        words (list[dict]): Timed words.
+
+    Returns:
+        list[dict]: The words without sound labels.
+
+    Example:
+        [{"word": "PLAYING]"}, {"word": "What?"}]  → [{"word": "What?"}]
+    """
+    kept = []
+    inside_label = False
+    for word in words:
+        text = word["word"]
+        if inside_label:
+            if "]" in text or ")" in text:
+                inside_label = False
+            continue
+        if text.startswith("[") or text.startswith("("):
+            # A label that does not close in this word continues into the next ones.
+            inside_label = "]" not in text and ")" not in text
+            continue
+        if text.endswith("]") or text.endswith(")"):
+            continue   # the end of a label whose start was already dropped
+        kept.append(word)
+    return kept
+
+
 def is_only_punctuation(text):
     """
     Check whether a piece of text has no letters or digits at all.
@@ -402,7 +438,8 @@ def transcribe_clip(video_path, cache_name, model_name="small.en", language="en"
     cache_path = transcript_cache_path(cache_name, model_name, language, engine)
     if os.path.exists(cache_path):
         with open(cache_path, "r", encoding="utf-8") as file:
-            return json.load(file)
+            # Older saved transcripts may still hold pieces of sound labels.
+            return remove_sound_labels(json.load(file))
 
     wav_path = os.path.join(TRANSCRIPT_CACHE_FOLDER, f"{cache_name}.wav")
     output_base = os.path.join(TRANSCRIPT_CACHE_FOLDER, f"{cache_name}_whisper")
@@ -415,6 +452,7 @@ def transcribe_clip(video_path, cache_name, model_name="small.en", language="en"
     finally:
         os.remove(wav_path)
 
+    words = remove_sound_labels(words)
     with open(cache_path + ".part", "w", encoding="utf-8") as file:
         json.dump(words, file)
     os.replace(cache_path + ".part", cache_path)

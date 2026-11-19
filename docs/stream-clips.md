@@ -446,3 +446,15 @@ disk; video processing is much heavier than an idle web dashboard.
   the video to review.
 - Captions never carry more than 5 hashtags (TikTok hides posts with more): hashtags typed
   in the caption come first, repeats are dropped, and the channel's hashtags fill what is left.
+
+## Streamer-only captions (2026-11-19)
+
+`captions.streamer_voice_only: true` keeps game characters, other players and music out of
+the burned-in captions. Speech is cut into ~2 s pieces; a free local voice model
+(sherpa-onnx, WeSpeaker CAM++) compares each piece with the streamer's voice (the clip's
+main voice, checked against a profile saved per streamer in `cache/clips/voices/`).
+Pieces less similar than `captions.voice_match_min` are left out. The audio is unchanged
+and every voice's swearing is still bleeped. If the filter would hide more than half the
+words, it keeps them all and says so in the quality report (`voice_check`). Whisper sound
+labels such as "[MUSIC PLAYING]" are always removed.
+

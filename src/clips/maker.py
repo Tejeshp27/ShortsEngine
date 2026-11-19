@@ -351,6 +351,40 @@ def save_review_files(video_path, captions, start, end, spans, settings, render_
     write_review_files(video_path, words_in_moment(captions, start, end), spans, summary)
 
 
+def streamer_caption_words(captions, source, start, end, clip, settings):
+    """
+    Keep only the streamer's own words for the burned-in captions.
+
+    Game characters, other players and music are left out (src/clips/speaker_filter.py).
+    The sound is unchanged, and bleeps were already worked out from every voice.
+
+    Args:
+        captions (list[dict]): Timed words in source time (already flagged for bleeps).
+        source (str): The video the moment is cut from.
+        start (float): The moment's start in the source.
+        end (float): The moment's end.
+        clip (dict): The clip row (streamer and platform).
+        settings (ClipChannelSettings): The caption settings.
+
+    Returns:
+        tuple: (words to caption, a short note for the quality report or "").
+    """
+    if not settings.captions.streamer_voice_only:
+        return captions, ""
+    from src.clips.speaker_filter import mark_speakers
+    try:
+        marked, note = mark_speakers(captions, source, start, end, clip["platform"], clip["streamer"],
+                                     settings.captions.voice_match_min)
+    except (OSError, ValueError, subprocess.CalledProcessError):
+        # The voice check only tidies captions; never stop a render for it.
+        return captions, "Voice check failed; all words captioned."
+    kept = []
+    for word in marked:
+        if word.get("speaker") != "other":
+            kept.append(word)
+    return kept, note
+
+
 def render_and_save(config, settings, clip, moment, words, video_path, notes_path):
     """
     Render a clip's video and write its notes, transcript and bleep log.
@@ -396,8 +430,9 @@ def render_and_save(config, settings, clip, moment, words, video_path, notes_pat
         editing_note = "Optional silence trimming failed; original audio and timing preserved."
 
     captions, spans = prepare_bleeps(captions, start, end, settings.bleep, source, settings.transcription)
+    caption_words, voice_note = streamer_caption_words(captions, source, start, end, clip, settings)
     try:
-        render_info = render_clip_video(source, start, end, captions, moment["hook_title"], clip["credit_text"],
+        render_info = render_clip_video(source, start, end, caption_words, moment["hook_title"], clip["credit_text"],
                                         streamer.facecam, settings, temporary_path,
                                         layout_mode=streamer.layout or None, bleep_spans=spans)
     finally:
@@ -416,6 +451,8 @@ def render_and_save(config, settings, clip, moment, words, video_path, notes_pat
         report["render"] = render_info
         report["warnings"] = report.get("warnings", []) + render_info.get("warnings", [])
     report["bleeps"] = len(spans)
+    if voice_note:
+        report["voice_check"] = voice_note
     update_clip(clip["id"], quality_json=json.dumps(report))
     if not report["passed"]:
         raise ValueError("Clip failed quality checks: " + " ".join(report["errors"]))

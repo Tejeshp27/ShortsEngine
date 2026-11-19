@@ -332,6 +332,19 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**Streamer-only captions (2026-11-19, Claude Code):** Whisper split "[MUSIC PLAYING]"
+into two words and only the first was dropped, so "PLAYING]" reached captions (and
+"Cheering)" a title); `transcribe.remove_sound_labels` now drops whole labels, including
+in already-cached transcripts. New `src/clips/speaker_filter.py` (sherpa-onnx 2.0.2 +
+WeSpeaker CAM++ English ONNX, 29 MB, sha256-pinned, auto-downloaded to `models/speaker/`):
+~2 s speech pieces → voice fingerprints → main voice (robust re-averaging) checked against
+a saved per-streamer profile (`cache/clips/voices/`); pieces below
+`captions.voice_match_min` (0.6) are left out of captions only (audio and bleeps
+unchanged); never hides more than half a clip's words. On the 6 live clips the voice
+scores were mostly 0.75–0.99 (the streamers themselves); borderline pieces 0.56–0.65 are
+uncertain without owner listening. Videos 9–14 re-rendered (gate passed, no warnings).
+**685 tests pass.** Kai Cenat/StableRonaldo have no facecam box yet, so they use fit-blur.
+
 **Owner review + names + news cleanup (2026-11-19, Claude Code):** `require_approval: true`
 (owner approves every clip); the 6 auto-approved live clips (videos 9–14, never sent)
 returned to drafted. Streamers have `display_name` (Kai Cenat, Adin Ross, StableRonaldo,
