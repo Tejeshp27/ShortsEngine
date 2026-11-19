@@ -71,7 +71,9 @@ def test_hook_generation_does_not_enable_paid_scoring(workspace):
         "scores": {"hook": 0}})))
     words = [{"word": "What?", "start": 1, "end": 2}]
     result = metadata.create_metadata(store.get_clip(clip_id), words, config, load_clip_settings(config), llm)
-    assert result["hook_text"] == "The Chat Question That Started This Reaction"
+    # Every hook names the streamer (here the demo streamer's username, as it has no display name).
+    assert result["hook_text"] == "shortsengine_demo: The Chat Question That Started This Reaction"
+    assert "The streamer is shortsengine_demo" in llm.ask.call_args.kwargs["system_prompt"]
     assert store.get_clip(clip_id)["highlight_score"] == 79
     assert "kick.com/shortsengine_demo" in result["tiktok_caption"]
     assert "Do not just copy" in llm.ask.call_args.kwargs["system_prompt"]
@@ -184,3 +186,15 @@ def test_credit_tag_sits_in_the_top_left_corner(monkeypatch):
     clip_render.draw_credit(layer, "twitch.tv/example", CreditSettings())
     left, top, right, bottom = layer.getbbox()
     assert left >= 80 and right < 700 and top >= 180 and bottom < 330
+
+
+
+def test_titles_always_name_the_streamer():
+    """'Streamer' becomes the name; a title without the name gets it in front; a named title is kept."""
+    from src.clips.moments import title_with_name
+    assert title_with_name("Streamer LOSES IT at Unexpected Interrupt", "Kai Cenat") == \
+        "Kai Cenat LOSES IT at Unexpected Interrupt"
+    assert title_with_name("Why the streamer quit", "Lacy") == "Why Lacy quit"
+    assert title_with_name("PERFECT DRIVE TURNS INTO CHAOS", "StableRonaldo") == \
+        "StableRonaldo: PERFECT DRIVE TURNS INTO CHAOS"
+    assert title_with_name("ONE Roblox Question Set Jason OFF", "Jason") == "ONE Roblox Question Set Jason OFF"

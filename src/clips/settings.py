@@ -66,6 +66,8 @@ class ApprovedStreamer(BaseModel):
         facecam: Optional webcam position, needed for the "split" layout.
         layout: Optional layout for just this streamer ("fit-blur", "split"
                 or "center-crop"); empty uses the channel's layout.mode.
+        display_name: The name viewers know them by, used in every hook title
+                      (e.g. "Kai Cenat"); empty uses the username.
     """
     # Logins are letters, numbers, underscores (and hyphens on Kick).
     username: str = Field(min_length=1, max_length=25, pattern=r"^[A-Za-z0-9_-]+$")
@@ -77,6 +79,7 @@ class ApprovedStreamer(BaseModel):
     enabled: bool = True
     recording_directory: str = ""
     layout: str = Field(default="", pattern=LAYOUT_MODE_PATTERN + "|^$")
+    display_name: str = Field(default="", max_length=40)
 
 
 class ClipLimits(BaseModel):
@@ -527,6 +530,19 @@ def credit_for(streamer):
         str: For example "twitch.tv/coolstreamer" or "kick.com/coolstreamer".
     """
     return f"{STREAM_PLATFORM_ADDRESSES[streamer.platform]}/{streamer.username.lower()}"
+
+
+def display_name_for(streamer):
+    """
+    Get the name a streamer is shown as in hook titles.
+
+    Args:
+        streamer (ApprovedStreamer): An approved streamer.
+
+    Returns:
+        str: Their display_name, or their username when none is set.
+    """
+    return streamer.display_name or streamer.username
 
 
 def find_approved_streamer(settings, username, channel_key="twitch_clips", platform=None):

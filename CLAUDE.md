@@ -332,6 +332,17 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**Owner review + names + news cleanup (2026-11-19, Claude Code):** `require_approval: true`
+(owner approves every clip); the 6 auto-approved live clips (videos 9–14, never sent)
+returned to drafted. Streamers have `display_name` (Kai Cenat, Adin Ross, StableRonaldo,
+Adapt, Marlon, Lacy, Jason, Silky); the hook prompt names them and
+`moments.title_with_name` guarantees it ("Streamer" → name, otherwise "Name: title").
+Videos 9–14 retitled. All 7 news video records deleted via `delete_video_record` (25 cost
+events kept, unlinked); news output/caches, synthetic demo outputs and 4 unused demo
+recordings moved to `~/.Trash/shortsengine-cleanup-20261119-160638` (562 MB; recoverable).
+DB backups in `cache/backups/`. Historical evidence paths below that point at those demo
+folders now live in that Trash folder. The news channel YAML and accounts are kept.
+
 **First real clip uploads (2026-11-19, Claude Code):** draft 8 posted with "Post now".
 YouTube upload succeeded (private, as then configured; the connection only has
 `youtube.upload` + `youtube.readonly`, so existing videos cannot be made public by the

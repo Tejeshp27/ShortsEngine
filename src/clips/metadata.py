@@ -26,6 +26,10 @@ def create_metadata(clip, words, config, settings, llm=None):
     Returns:
         Saved title, description, caption, hashtags and attribution fields.
     """
+    from src.clips.moments import title_with_name
+    from src.clips.settings import display_name_for, find_approved_streamer
+
+    name = display_name_for(find_approved_streamer(settings, clip["streamer"], clip["channel"], clip["platform"]))
     excerpt = []
     for word in words:
         if word["end"] > clip["start_seconds"] and word["start"] < clip["end_seconds"]:
@@ -49,8 +53,10 @@ def create_metadata(clip, words, config, settings, llm=None):
                            "and open a truthful curiosity gap about the reaction or outcome. Do not just copy "
                            "the first words of the transcript. Avoid generic hooks like 'Watch this' or 'You won't believe'. "
                            "Use clear language without profanity, invented stakes or promises the clip cannot support. "
+                           f"The streamer is {name}: always name them in the hook (usually first), never call "
+                           "them 'Streamer', 'he' or 'she' instead of their name. "
                            + str(config.get("metadata", {}).get("style", "Clear, curious, specific, no clickbait.")),
-                           user_message=f"Streamer: {clip['credit_text']}\nSpeech:\n{transcript}",
+                           user_message=f"Streamer: {name} ({clip['credit_text']})\nSpeech:\n{transcript}",
                            max_tokens=config.get("llm", {}).get("clip_metadata_max_tokens", 400), purpose="clip_pick")
         answer = read_json_answer(response) or {}
         title = clean_hook_title(answer.get("hook_title"), settings.hook_title.max_words) or title
@@ -72,6 +78,8 @@ def create_metadata(clip, words, config, settings, llm=None):
             evidence["llm_reason"] = str(answer.get("reason", ""))[:500]
             update_clip(clip["id"], highlight_score=evidence["score"], signals_json=json.dumps(evidence))
     hashtags = config.get("publishing", {}).get("hashtags", [])
+    # Every hook names the streamer, whatever the AI or the transcript gave.
+    title = title_with_name(title, name)
     title = mask_post_text(title)
     description = mask_post_text(description)
     caption = build_post_caption(title, clip, hashtags)

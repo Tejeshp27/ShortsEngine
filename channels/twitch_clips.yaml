@@ -64,6 +64,7 @@ llm:
 #       width: 0.25   # webcam width, as a fraction of the stream width
 #       height: 0.30  # webcam height, as a fraction of the stream height
 #     layout: "split"   # optional: this streamer's own layout (fit-blur, split or center-crop); split needs facecam
+#     display_name: "Example Streamer"  # optional: the name used in every hook title (default: the username)
 # ---------------------------------------------------------------
 # The owner confirmed consent for these eight creators in this conversation.
 # The date records that confirmation; the original agreement dates/methods
@@ -75,42 +76,49 @@ streamers:
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/kaicenat" # completed recordings from this creator only
+    display_name: "Kai Cenat"                      # name used in every hook title
   - username: "adinross"                    # Adin Ross's Kick login
     platform: "kick"                       # source platform; local recordings supply the footage
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/kick/adinross" # completed recordings from this creator only
+    display_name: "Adin Ross"                      # name used in every hook title
   - username: "stableronaldo"               # Stable Ronaldo's Twitch login (corrected spelling)
     platform: "twitch"                     # source platform
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/stableronaldo" # completed recordings from this creator only
+    display_name: "StableRonaldo"                  # name used in every hook title
   - username: "adapt"                       # Adapt's Twitch login
     platform: "twitch"                     # source platform
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/adapt" # completed recordings from this creator only
+    display_name: "Adapt"                          # name used in every hook title
   - username: "marlon"                      # Marlon's Twitch login
     platform: "twitch"                     # source platform
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/marlon" # completed recordings from this creator only
+    display_name: "Marlon"                         # name used in every hook title
   - username: "lacy"                        # Lacy's Twitch login
     platform: "twitch"                     # source platform
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/lacy" # completed recordings from this creator only
+    display_name: "Lacy"                           # name used in every hook title
   - username: "jasontheween"                # JasonTheWeen's Twitch login
     platform: "twitch"                     # source platform
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/jasontheween" # completed recordings from this creator only
+    display_name: "Jason"                          # name used in every hook title
     layout: "split"                       # his clips are about his reactions: large facecam under the gameplay
     facecam:                              # measured from the 1280x720 local pilot; update if his stream layout changes
       x: 0.77734375                       # left edge: 995 source pixels / 1280
@@ -123,6 +131,7 @@ streamers:
     permission_date: "2026-11-17"           # date the owner confirmed consent here
     enabled: true                          # allow authorized ingestion; automation remains paused below
     recording_directory: "recordings/twitch/silky" # completed recordings from this creator only
+    display_name: "Silky"                          # name used in every hook title
 
 # Which clips to look at and how long the finished videos may be.
 clips:
@@ -280,7 +289,7 @@ automation:
   max_recordings_per_run: 1   # bound expensive local work in each cycle
   max_attempts: 3             # stop automatic retries after this many analysis/render failures
   retry_seconds: 300          # initial retry delay; doubles after subsequent failures
-  require_approval: false     # owner requested autonomous clips; auto-approve only passing exports without quality warnings
+  require_approval: true      # owner approves every clip before it can be posted (owner choice 2026-11-19)
   publish_dry_run: true       # scheduled publishing logs a plan and sends nothing until false
   max_uploads_per_day: 3      # distinct videos attempted per local day; both destinations share the reservation
 

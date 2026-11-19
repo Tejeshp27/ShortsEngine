@@ -19,6 +19,7 @@
 # =============================================================
 
 import json
+import re
 
 # The standing instructions for the model. Channel-specific details
 # (what the channel is about, who watches) come from the YAML.
@@ -274,6 +275,37 @@ def clean_hook_title(text, max_words):
             break
     title = " ".join(kept_words).strip(" ,;:-")
     return title
+
+
+# Words an AI uses instead of a name; they are replaced with the streamer's name.
+GENERIC_SUBJECTS = ("the streamer", "this streamer", "streamer")
+
+
+def title_with_name(title, name):
+    """
+    Make sure a hook title names the streamer instead of saying "Streamer".
+
+    Args:
+        title (str): The hook title, e.g. "Streamer LOSES IT at Unexpected Interrupt".
+        name (str): The streamer's display name, e.g. "Kai Cenat".
+
+    Returns:
+        str: The title with the name in it. "Streamer" (or "the streamer") is
+             replaced by the name; a title without it gets the name in front.
+
+    Example:
+        title_with_name("Streamer LOSES IT at Unexpected Interrupt", "Kai Cenat")
+        # → "Kai Cenat LOSES IT at Unexpected Interrupt"
+        title_with_name("PERFECT DRIVE TURNS INTO CHAOS", "StableRonaldo")
+        # → "StableRonaldo: PERFECT DRIVE TURNS INTO CHAOS"
+    """
+    if not name or not title or name.lower() in title.lower():
+        return title
+    for generic in GENERIC_SUBJECTS:
+        pattern = re.compile(r"\b" + re.escape(generic) + r"\b", re.IGNORECASE)
+        if pattern.search(title):
+            return pattern.sub(name, title, count=1)
+    return f"{name}: {title}"
 
 
 def fallback_title(clip, max_words):
