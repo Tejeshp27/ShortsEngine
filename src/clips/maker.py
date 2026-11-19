@@ -18,6 +18,7 @@
 # =============================================================
 
 import os
+import re
 import json
 import subprocess
 from datetime import datetime, timezone
@@ -35,10 +36,18 @@ from src.storage.queries import get_video_by_id, set_video_path
 MIN_RETRIM_SECONDS = 3
 
 
+# TikTok allows at most 5 hashtags in a caption; posts with more do not appear.
+MAX_HASHTAGS = 5
+
+# A hashtag: "#" followed by letters, numbers or underscores.
+HASHTAG_PATTERN = re.compile(r"#\w+")
+
+
 def build_post_caption(hook_title, clip, hashtags):
     """
     Write the post caption: hook title, streamer credit with link, the
-    clipper (when known), hashtags. Every published clip must credit the streamer.
+    clipper (when known), hashtags (5 at most in total; see limit_hashtags).
+    Every published clip must credit the streamer.
 
     TikTok drafts can't receive a caption through the API, so this text
     is shown on the video page for you to paste in the TikTok app
@@ -63,10 +72,57 @@ def build_post_caption(hook_title, clip, hashtags):
     clipper = clip.get("clipper") or ""
     if clipper:
         credit_line += f"\n✂️ Clipped by {clipper}"
-    caption = f"{hook_title}\n\n{credit_line}"
-    if hashtags:
-        caption += "\n\n" + " ".join(hashtags)
+    text, extra_hashtags = limit_hashtags(hook_title, hashtags, MAX_HASHTAGS)
+    caption = f"{text}\n\n{credit_line}"
+    if extra_hashtags:
+        caption += "\n\n" + " ".join(extra_hashtags)
     return caption[:2200]
+
+
+def limit_hashtags(text, channel_hashtags, maximum):
+    """
+    Keep a caption to at most `maximum` hashtags (TikTok allows 5).
+
+    Hashtags typed in the caption come first. Repeats and any beyond the
+    limit are removed from the text; the channel's hashtags then fill the
+    places that are left.
+
+    Args:
+        text (str): The caption text, which may contain the owner's hashtags.
+        channel_hashtags (list[str]): The channel YAML's hashtags.
+        maximum (int): The most hashtags allowed in the whole caption.
+
+    Returns:
+        tuple: (text with extra hashtags removed, channel hashtags to add after the credit).
+
+    Example:
+        limit_hashtags("Wow #fyp #funny", ["#twitch", "#fyp", "#gaming", "#clips"], 4)
+        # → ("Wow #fyp #funny", ["#twitch", "#gaming"])
+    """
+    seen = set()
+    pieces = []
+    position = 0
+    for match in HASHTAG_PATTERN.finditer(text):
+        tag = match.group(0).lower()
+        pieces.append(text[position:match.start()])
+        if tag not in seen and len(seen) < maximum:
+            seen.add(tag)
+            pieces.append(match.group(0))
+        position = match.end()
+    pieces.append(text[position:])
+    # Removing a hashtag can leave doubled spaces or a space before a line end.
+    cleaned_lines = []
+    for line in "".join(pieces).split("\n"):
+        cleaned_lines.append(" ".join(line.split()))
+    cleaned = "\n".join(cleaned_lines).strip()
+    extra = []
+    for tag in channel_hashtags:
+        if len(seen) >= maximum:
+            break
+        if tag.lower() not in seen:
+            seen.add(tag.lower())
+            extra.append(tag)
+    return cleaned, extra
 
 
 def output_paths(channel_key, clip):

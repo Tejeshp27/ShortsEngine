@@ -339,6 +339,10 @@ app). Owner chose public uploads: `youtube.privacy: public`. TikTok inbox init f
 HTTP 400 for the 44.8 MB file (one declared 32 MiB chunk); `chunk_plan` now sends files up
 to 64 MiB as a single chunk (chunk_size = file size) and the error now includes TikTok's
 code/message. Retry succeeded: draft in the TikTok inbox. **677 tests pass.**
+TikTok inbox drafts never appeared in the owner's app (status SEND_TO_USER_INBOX twice;
+sandbox app likely). The owner posted by hand in TikTok Studio; the post only appeared
+once it had at most 5 hashtags. `maker.limit_hashtags` now caps every clip caption at 5
+(typed hashtags first, then channel ones, no repeats). **678 tests pass.**
 
 **Owner tweaks to clips (2026-11-19, Claude Code):** on-screen credit tag off
 (`credit.enabled: false`; post captions still credit the streamer). Bleeps quieter

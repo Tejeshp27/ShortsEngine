@@ -273,3 +273,16 @@ def test_prepare_bleeps_uses_precise_times(monkeypatch):
     _, spans = maker.prepare_bleeps(captions, 10.0, 20.0, BleepSettings(enabled=True), "source.mp4",
                                     TranscriptionSettings())
     assert spans == [{"start": 0.96, "end": 1.34, "words": ["fuck"]}]
+
+
+
+def test_caption_never_has_more_than_five_hashtags():
+    """TikTok allows 5 hashtags: typed ones come first, repeats go, channel tags fill what is left."""
+    clip = {"credit_text": "twitch.tv/jasontheween"}
+    typed = "ONE Roblox Question\n\n#clips #GTA6 #ClipCentral #fyp #funny #Jasontheween"
+    caption = maker.build_post_caption(typed, clip, ["#twitch", "#kick", "#streamer", "#gaming", "#clips"])
+    assert caption.count("#") == 5
+    assert "#Jasontheween" not in caption and "#twitch" not in caption
+    caption = maker.build_post_caption("Wow #fyp #FYP", clip, ["#twitch", "#fyp", "#gaming", "#clips", "#kick"])
+    assert caption.startswith("Wow #fyp\n\n🎥 Clip:")
+    assert caption.endswith("#twitch #gaming #clips #kick")

@@ -444,4 +444,5 @@ disk; video processing is much heavier than an idle web dashboard.
   then the streamer credit and hashtags; it is the YouTube description and the text to
   paste in TikTok. The YouTube title field names the YouTube video only. Saving returns
   the video to review.
-
+- Captions never carry more than 5 hashtags (TikTok hides posts with more): hashtags typed
+  in the caption come first, repeats are dropped, and the channel's hashtags fill what is left.
