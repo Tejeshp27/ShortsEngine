@@ -20,7 +20,7 @@
 </form>
 </div>
 <div class="split">
-{% for platform in account_platforms %}
+{% for platform in account_platforms_for(config.get('platforms', []), accounts) %}
 <section class="panel">
 <h2>{{ platform_names[platform] }}</h2>{% set matches = accounts|selectattr('platform','equalto',platform)|list %}
 {% if matches %}{% set account = matches[0] %}<h3>{{ account.display_name }}</h3>

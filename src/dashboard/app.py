@@ -43,7 +43,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.analytics.collector import get_metrics_summary
-from src.dashboard.accounts import ACCOUNT_PLATFORMS
+from src.dashboard.accounts import ACCOUNT_PLATFORMS, account_platforms_for
 from src.dashboard.auth import (
     check_form_token,
     get_logged_in_user,
@@ -91,6 +91,7 @@ VIDEO_STATUSES = ["drafted", "approved", "posted", "failed"]
 templates = Jinja2Templates(directory=TEMPLATES_FOLDER)
 # Platform lists every page may use, so templates never hard-code them.
 templates.env.globals["account_platforms"] = ACCOUNT_PLATFORMS
+templates.env.globals["account_platforms_for"] = account_platforms_for
 templates.env.globals["platform_names"] = PLATFORM_NAMES
 
 # A router collects the page functions below. create_app() attaches

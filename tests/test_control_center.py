@@ -829,3 +829,10 @@ def test_channel_page_offers_youtube_google_login(portal):
     response = client.post("/channels/news/accounts/youtube/token",
                            data={"form_token": token(client), "access_token": "abc"})
     assert response.status_code == 400
+
+
+def test_channel_shows_only_account_boxes_for_its_platforms():
+    """A TikTok/YouTube channel has no Instagram box; Facebook posting keeps it; a connected one stays."""
+    assert accounts.account_platforms_for(["tiktok", "youtube"], []) == ["tiktok", "youtube"]
+    assert accounts.account_platforms_for(["facebook"], []) == ["instagram"]
+    assert accounts.account_platforms_for(["youtube"], [{"platform": "instagram"}]) == ["instagram", "youtube"]

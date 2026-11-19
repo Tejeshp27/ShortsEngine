@@ -53,6 +53,38 @@ INSTAGRAM_SCOPES = ("instagram_basic,instagram_manage_insights,instagram_content
 # borrows the Instagram connection, so it is not listed here.
 ACCOUNT_PLATFORMS = ("tiktok", "instagram", "youtube")
 
+
+def account_platforms_for(channel_platforms, accounts):
+    """
+    Choose which account boxes a channel's pages show.
+
+    A channel shows a box only for the platforms it posts to, so a clips
+    channel that posts to TikTok and YouTube has no Instagram box. A
+    platform that is still connected is always shown, so it can be disconnected.
+
+    Args:
+        channel_platforms (list[str]): The channel YAML's platforms, e.g. ["tiktok", "youtube"].
+        accounts (list[dict]): The channel's connected accounts (each has a "platform").
+
+    Returns:
+        list[str]: Platforms to show, in the usual order.
+
+    Example:
+        account_platforms_for(["tiktok", "youtube"], [])  # → ["tiktok", "youtube"]
+    """
+    connected = set()
+    for account in accounts:
+        connected.add(account["platform"])
+    shown = []
+    for platform in ACCOUNT_PLATFORMS:
+        posts_there = platform in channel_platforms
+        # Facebook Page posting borrows the Instagram connection.
+        if platform == "instagram" and "facebook" in channel_platforms:
+            posts_there = True
+        if posts_there or platform in connected:
+            shown.append(platform)
+    return shown
+
 # YouTube uses Google's standard OAuth login. youtube.upload lets us upload
 # videos; youtube.readonly lets us read subscriber and view counts.
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"

@@ -11,8 +11,9 @@ The recorder from the next-steps below is implemented and tested (see the first
 Current phase entry and `docs/live-recording.md`). It was switched on 2026-11-19. The same day the owner moved all three News Made
 Simple connections (YouTube NewsMadeSimple, Instagram newsmadesimple60s, TikTok
 newssimplified60) to `twitch_clips` (accounts.channel updated; tokens are not
-channel-bound; DB backup in `cache/backups/`). The news channel now has no
-connected accounts. Next:
+channel-bound; DB backup in `cache/backups/`). Instagram was then moved back to
+news (clips do not post there), so news keeps Instagram only. Account boxes now show
+only a channel's own platforms (`accounts.account_platforms_for`). Next:
 watch the first real hour-long chunks for processing time vs. recording time,
 disk peak, clip quality; then Linux/Docker and the $25/month server choice.
 
