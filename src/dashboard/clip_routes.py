@@ -12,7 +12,7 @@ import subprocess
 from pathlib import Path
 
 import yaml
-from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, Request, UploadFile
 from fastapi.responses import FileResponse
 from starlette.concurrency import run_in_threadpool
 
@@ -27,13 +27,24 @@ router = APIRouter()
 
 
 @router.get("/clips/{channel}/sources")
-def raw_sources_page(request: Request, channel: str):
-    """Read a private channel's acquisition library for this request; return raw-source status and upload controls."""
+def raw_sources_page(request: Request, channel: str, page: int = Query(1, ge=1, le=1000000), streamer: str = ""):
+    """
+    Read a private source-library page with upload controls and optional creator filtering.
+
+    Args:
+        request: The authenticated browser request.
+        channel: The clips channel to inspect.
+        page: One-based source page, bounded to prevent invalid database offsets.
+        streamer: Optional creator login selected in the page filter.
+
+    Returns:
+        A rendered library showing acquisition states and matching discovery-upload choices.
+    """
     from src.clips.acquisition import source_library
     config = clip_config(channel)
     return render_page(request, "clip_sources.html", {
         "channel":channel, "config":config, "settings":load_clip_settings(config),
-        **source_library(channel, config), "submission_id":secrets.token_urlsafe(24),
+        **source_library(channel, config, page, streamer), "submission_id":secrets.token_urlsafe(24),
     })
 
 
@@ -98,7 +109,8 @@ async def store_source_upload(file, config):
 @router.post("/clips/{channel}/sources/upload")
 async def upload_raw_source(request: Request, channel: str, file: UploadFile = File(...),
                             username: str = Form(...), platform: str = Form(...),
-                            confirmed: bool = Form(False), form_token: str = Form("")):
+                            confirmed: bool = Form(False), form_token: str = Form(""),
+                            source_id: str = Form("")):
     """
     Import a permission-confirmed browser video for a creator into the existing raw cache; return to its source library.
 
@@ -110,6 +122,7 @@ async def upload_raw_source(request: Request, channel: str, file: UploadFile = F
         platform: twitch or kick, matching that creator.
         confirmed: The user's confirmation that the file is complete and authorized.
         form_token: The existing session's CSRF token.
+        source_id: Optional existing discovery ID selected for this upload; empty imports an unlisted recording.
 
     Returns:
         A redirect after fingerprinting/import. No analysis, rendering or publishing job is launched here.
@@ -124,10 +137,21 @@ async def upload_raw_source(request: Request, channel: str, file: UploadFile = F
         raise ValueError(str(error)) from error
     if not confirmed:
         raise ValueError("Confirm this completed source is authorized before importing it.")
+    selected_id = None
+    if source_id:
+        from src.clips.acquisition import discovery_for_upload
+        try:
+            selected_id = int(source_id)
+        except ValueError:
+            raise ValueError("Choose a valid source discovery.") from None
+        discovery_for_upload(channel, selected_id, username, platform)
     path = None
     try:
         path = await store_source_upload(file, config)
-        await run_in_threadpool(import_recording, channel, config, str(path), username, platform, True)
+        recording_id = await run_in_threadpool(import_recording, channel, config, str(path), username, platform, True)
+        if selected_id is not None:
+            from src.clips.acquisition import attach_source_recording
+            await run_in_threadpool(attach_source_recording, channel, selected_id, recording_id, username, platform)
     except (subprocess.CalledProcessError, OSError) as error:
         raise ValueError("The source could not be read as a completed video. Check the file and available disk space.") from error
     finally:
@@ -135,6 +159,26 @@ async def upload_raw_source(request: Request, channel: str, file: UploadFile = F
         if path is not None:
             path.unlink(missing_ok=True)
     return redirect(f"/clips/{channel}/sources")
+
+
+@router.post("/clips/{channel}/sources/discover")
+def discover_raw_sources(request: Request, channel: str, submission_id: str = Form(...),
+                         form_token: str = Form("")):
+    """
+    Queue metadata-only source discovery using the existing private job controls.
+
+    Args:
+        request: The authenticated browser request.
+        channel: The clips channel whose configured creators should be checked.
+        submission_id: The form identity used to prevent repeated job submissions.
+        form_token: The session's CSRF token.
+
+    Returns:
+        A redirect to the existing job page; no media or publishing job is requested.
+    """
+    require_form_token(request, form_token)
+    clip_config(channel)
+    return queue(channel, "clip_discovery", {}, False, submission_id)
 
 
 def clip_config(channel):

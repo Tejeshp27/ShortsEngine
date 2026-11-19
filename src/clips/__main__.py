@@ -10,6 +10,7 @@
 #   run                find + make in one go (the normal daily command)
 #   upload FILE        add a clip file an approved streamer sent you (Kick has no clip API)
 #   list               show the channel's clips and where each one is
+#   discover           save public clip/VOD metadata only, never download media
 #   cut FILE           make a free exact-timestamp draft from an authorized recording
 #   export IDS         package checked clips and text for official manual uploads
 #
@@ -64,6 +65,9 @@ def parse_arguments():
 
     list_command = commands.add_parser("list", help="Show this channel's clips")
     add_dry_run_option(list_command)
+    discover = commands.add_parser("discover", help="Discover Twitch clip/VOD metadata; never download video")
+    discover.add_argument("--streamer", help="Only this configured creator")
+    add_dry_run_option(discover)
     cycle = commands.add_parser("cycle", help="Monitor, ingest, score and render using the persistent worker")
     add_dry_run_option(cycle)
     record = commands.add_parser("record", help="Import a full authorized recording and prepare multiple highlights")
@@ -240,6 +244,8 @@ def main():
             run_make(args, config)
         elif args.command == "upload":
             run_upload(args, config)
+        elif args.command == "discover":
+            run_cycle(args)
         elif args.command in ("cycle", "record"):
             run_cycle(args)
         elif args.command == "watch":
@@ -304,12 +310,15 @@ def run_cycle(args):
     from src.dashboard.jobs import enqueue_job, job_record, launch_job
 
     payload = {}
+    if args.command == "discover" and args.streamer:
+        payload["streamer"] = args.streamer
     if args.command == "record":
         payload["recording"] = {"path": args.file, "streamer": args.streamer,
                                  "platform": args.platform, "confirmed": args.i_own_this}
         if not args.i_own_this:
             raise ValueError("record requires --i-own-this and an approved streamer.")
-    job_id, created = enqueue_job(args.channel, "clip_pipeline", payload, args.dry_run, uuid.uuid4().hex)
+    kind = "clip_discovery" if args.command == "discover" else "clip_pipeline"
+    job_id, created = enqueue_job(args.channel, kind, payload, args.dry_run, uuid.uuid4().hex)
     if created:
         launch_job(job_id)
     print(f"Job {job_id}; dashboard: /jobs/{job_id}")

@@ -11,6 +11,19 @@ import httpx
 _app_token = {}
 
 
+def discover_sources(username):
+    """
+    Describe the unsupported Kick clip/VOD discovery interface without making requests.
+
+    Args:
+        username: The configured Kick creator login.
+
+    Returns:
+        An empty item list and an explanation directing users to authorized manual imports.
+    """
+    return {"items": [], "message": f"{username}: Kick clip/VOD discovery is unavailable; upload authorized recordings."}
+
+
 def get_app_token():
     """
     Read Kick app credentials from the environment; return a cached, unexpired app access token.

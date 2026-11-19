@@ -1,6 +1,20 @@
 <!-- Engineering audit and evidence; the supervisor maintains only its marked live-status section. -->
 # Automation status — November 18, 2026 launch
 
+**Metadata discovery update (2026-11-18):** public Twitch clip/VOD discovery now
+reuses the existing source rows, queue/worker and supervisor schedule (six hours
+by default). Discovery never downloads footage; background inbox cycles no longer
+call the legacy downloader. Manual uploads can attach to the original discovery.
+Kick discovery remains an unsupported stub. After reloading the existing services,
+real job `8e67dcd8a30644c59d968047639aee8a` succeeded with 5,286 new and 535 updated
+metadata items, zero errors, five creator page-limit warnings and the Kick notice.
+The database then held **5,358 sources including 369 VODs; zero attached files and
+zero imported creator recordings**. This verifies discovery, not media acquisition
+or publication. See [discovery setup and evidence](docs/source-discovery.md).
+The prior acquisition audit below and the runtime-maintained section remain
+historical/measured evidence.
+Full offline suite: **545 tests pass**, including 31 new discovery regressions.
+
 **Latest direction: acquisition first, editing second, posting third.** The first
 step of [the acquisition plan](docs/video-acquisition-plan.md) is implemented:
 private source-video library, browser import and original playback, with automatic
@@ -162,8 +176,8 @@ Suggested commit after review: `feat: supervise clip automation with launchd and
 <!-- RUNTIME_STATUS_START -->
 ## Live supervisor status
 
-Updated: 2026-11-18 17:08:33 CST · PID 20796
-Free disk: 171.67 GB · Low-disk pause: False
+Updated: 2026-11-18 20:52:40 CST · PID 32196
+Free disk: 170.93 GB · Low-disk pause: False
 
 - twitch_clips: queue enabled=True; recordings=0; finished clips=0.
   - No authorized recording imported; remote media access still needs verification.

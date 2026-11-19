@@ -79,6 +79,15 @@ class ClipLimits(BaseModel):
     moment_max_seconds: float = Field(default=60, ge=5, le=180)
 
 
+class DiscoverySettings(BaseModel):
+    """Validate YAML discovery intervals and request limits; missing inputs use free metadata-only defaults."""
+
+    enabled: bool = True
+    interval_seconds: int = Field(default=21600, ge=60, le=604800)
+    hours_back: int = Field(default=168, ge=1, le=720)
+    max_pages: int = Field(default=10, ge=1, le=10)
+
+
 class TranscriptionSettings(BaseModel):
     """Which local Whisper model to use and the language spoken on the streams."""
     whisper_model: str = Field(default="small.en", pattern=r"^[a-z0-9.\-]+$")
@@ -153,6 +162,7 @@ class ClipChannelSettings(BaseModel):
     """
     streamers: list[ApprovedStreamer] = []
     clips: ClipLimits = ClipLimits()
+    discovery: DiscoverySettings = DiscoverySettings()
     transcription: TranscriptionSettings = TranscriptionSettings()
     layout: LayoutSettings = LayoutSettings()
     captions: CaptionSettings = CaptionSettings()
@@ -273,7 +283,7 @@ def load_clip_settings(config):
     # Only pass the sections this file understands; the rest (name,
     # schedule, publishing...) is used by other parts of the program.
     sections = {}
-    for key in ("streamers", "clips", "transcription", "layout", "captions", "hook_title", "credit", "analysis", "automation"):
+    for key in ("streamers", "clips", "discovery", "transcription", "layout", "captions", "hook_title", "credit", "analysis", "automation"):
         if config.get(key) is not None:
             sections[key] = config[key]
 

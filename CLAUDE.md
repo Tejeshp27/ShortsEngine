@@ -23,12 +23,12 @@ handoff takes priority over historical "next human steps" farther down this file
    playback, seeking and duplicate prevention. Browser upload is a fallback, not
    the requested unattended acquisition solution. Do not restart browser connection
    troubleshooting unless it is needed for a concrete supported media route.
-3. Next engineering step: add bounded official Twitch **Get Videos** discovery
-   alongside existing Get Clips, reusing per-channel creator settings, database
-   identities and the source library. Recheck current official documentation and
-   existing source adapters before coding. Store source type/ID, creator, title,
-   duration and official URL; skip duplicates and label metadata as discovered,
-   never downloaded. Add offline tests; do not build another job queue or dashboard.
+3. Public clip/VOD discovery is now implemented; see `docs/source-discovery.md`
+   and the latest Current phase entry. Use `python -m src.clips --channel
+   twitch_clips discover` or the source page's Check button. Metadata is never
+   downloaded footage. The next acquisition step remains an actual permitted
+   media-delivery source; do not build another queue/dashboard or reinstate the
+   downloader in background cycles.
 4. Establish a real permitted automatic media-delivery route before claiming
    acquisition works. Existing Twitch clip downloads need broadcaster/editor
    authorization; the owner does not know Jason and cannot sign in as him. Do not
@@ -265,6 +265,31 @@ shortsengine/
    permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
+
+**Metadata-only Twitch discovery (2026-11-18, Codex):** extended the existing
+Twitch client with app-token refresh, bounded rate-limit retries, login resolution
+and paginated Get Clips/Get Videos (archive) queries. `src/clips/discovery.py`
+normalizes metadata into existing `clips` rows with source type/external ID,
+creator/clipper credit, URL, dates, duration, views, thumbnail/game/VOD references,
+and permission defaulting false. Additive migrations preserve old finder IDs and
+enforce `(platform, external_id)` uniqueness. Repeat discovery updates metadata
+without clearing attached media or permission. New lightweight `clip_discovery`
+jobs reuse the existing queue/worker and supervisor scheduler every six hours
+(configurable, following Start/Stop), with browser and CLI triggers. Background
+inbox cycles no longer invoke the legacy clip downloader. Kick is an explicit
+unsupported metadata stub. Browser uploads can select a discovery, reuse the
+fingerprinted recording importer and mark that same entry acquired; linked
+internal recordings are not shown as duplicate library cards. Acquisition-only
+mode stays enabled. No video downloads, new dependency, paid call or publication.
+Offline tests cover HTTP/auth/pagination/rate limits, identity, provenance,
+attachment, scheduling and pagination/creator filtering in the source library.
+The installed services were reloaded without reinstalling. Actual discovery job
+`8e67dcd8a30644c59d968047639aee8a` succeeded: 5,286 new/535 updated metadata items,
+no source errors, page-limit warnings for five creators plus the Kick stub notice.
+Database afterward: 5,358 discoveries including 369 VODs, zero acquired files and
+zero creator recordings. Metadata is not footage. Setup, manual landscape-download
+flow and changed-file list: `docs/source-discovery.md`.
+Full offline suite: **545 tests pass** (31 added; baseline 514).
 
 **Full-repo review (2026-11-18, Claude Code):** audited security (login gate,
 CSRF on every POST, path guards, allow-listed dynamic SQL, `.env` 0600,

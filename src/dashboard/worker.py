@@ -711,6 +711,11 @@ def do_job_work(job, llm, tracker):
         return publish_saved_video(job)
     if kind == "clip_render":
         return recut_clip(job)
+    if kind == "clip_discovery":
+        from src.clips.discovery import discover_sources
+        update_job(job["id"], "Discovering public Twitch clip and VOD metadata", 15)
+        return discover_sources(job["channel"], job["payload"]["config"],
+                                job["payload"].get("streamer"), bool(job["dry_run"]))
     if kind == "clip_pipeline":
         from src.clips.automation import run_pipeline
         update_job(job["id"], "Monitoring sources and preparing highlights", 15)

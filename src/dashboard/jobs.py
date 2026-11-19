@@ -15,6 +15,7 @@
 #              (free; only started by the "Post now" button)
 #   clip_render — cut a clip video again with a new moment or hook
 #              title from the review page (heavy, free: no AI call)
+#   clip_discovery — public Twitch clip/VOD metadata only (light, free)
 #
 # Safety rules, all checked together inside one database lock so two
 # clicks at the same moment cannot both slip through:
@@ -40,15 +41,14 @@ from src.storage.database import get_connection
 from src.storage.finance import ROUNDING_TOLERANCE, spent_today, utc_now
 
 ACTIVE_STATUSES = ("queued", "running")
-JOB_KINDS = ("discover", "generate", "render", "sync", "publish", "clip_render", "clip_pipeline")
+JOB_KINDS = ("discover", "generate", "render", "sync", "publish", "clip_render", "clip_pipeline", "clip_discovery")
 
 # Heavy jobs use a lot of memory and CPU (rendering peaked at 1.1 GB),
 # so only `max_in_progress` of them may be active at once.
 HEAVY_KINDS = ("generate", "render", "clip_render", "clip_pipeline")
 
-# Clips channels (src/clips/) find and make their videos from the command
-# line; from the browser they can only re-cut, post and collect statistics.
-CLIP_CHANNEL_KINDS = ("clip_render", "publish", "sync", "clip_pipeline")
+# Clips channels reuse their source-discovery, recording and review jobs.
+CLIP_CHANNEL_KINDS = ("clip_render", "publish", "sync", "clip_pipeline", "clip_discovery")
 
 # Worst-case input sizes, in tokens, used for spending allowances.
 RANKING_INPUT_CEILING = 35000
@@ -316,7 +316,7 @@ def check_job_request(config, kind, submission_id, settings):
     from src.clips.settings import is_clips_channel
     if is_clips_channel(config) and kind not in CLIP_CHANNEL_KINDS:
         raise ValueError("Clips channels make new videos with: python -m src.clips --channel <name> run")
-    if kind in ("clip_render", "clip_pipeline") and not is_clips_channel(config):
+    if kind in ("clip_render", "clip_pipeline", "clip_discovery") and not is_clips_channel(config):
         raise ValueError("Only videos made from stream clips can be re-cut.")
     if not submission_id or len(submission_id) > 100:
         raise ValueError("Reload the page before submitting this form.")
@@ -383,6 +383,8 @@ def check_not_duplicate(active_jobs, channel, kind, payload):
             raise ValueError("This clip is already being re-cut.")
         if kind == "clip_pipeline":
             raise ValueError("This channel already has a clips pipeline running.")
+        if kind == "clip_discovery":
+            raise ValueError("This channel already has source discovery running.")
 
 
 def check_capacity(active_jobs, kind, settings):

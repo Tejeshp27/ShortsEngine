@@ -8,6 +8,24 @@ is needed for browser uploads. This upload fallback is not unattended remote
 acquisition. The configured channel now uses `acquisition.only: true`, which pauses
 automatic transcription, editing and scheduled posting while source collection runs.
 See [the staged acquisition plan](docs/video-acquisition-plan.md).
+
+**Twitch discovery is metadata-only:** public clips and archived VODs are saved in
+the existing source library with credit, provenance and unconfirmed permission.
+Automatic checks default to every six hours when clip automation is started.
+Use **Check for new sources** on the source page, or:
+
+```bash
+python -m src.clips --channel twitch_clips discover
+python -m src.clips --channel twitch_clips discover --streamer jasontheween
+python -m src.clips --channel twitch_clips discover --dry-run
+```
+
+Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` in `.env`; no creator login is
+needed for discovery. For real footage, use Twitch's available official **Download
+Landscape Version** control, then select the matching **Existing discovery** in
+the library's upload form. The same entry becomes acquired after a confirmed,
+validated upload. See [discovery setup and manual imports](docs/source-discovery.md)
+for creator configuration, limits and what is needed for unattended media delivery.
 For the next development session, follow **Resume here** in [CLAUDE.md](CLAUDE.md):
 add bounded official VOD discovery, then establish and verify actual permitted
 media delivery. Discovery alone does not acquire editable video.
@@ -203,8 +221,10 @@ python -m src.clips.demo                        # original sample + real Whisper
 python -m src.dashboard.app                     # open http://localhost:8000/clips/twitch_clips
 ```
 
-Add approved streamers in the dashboard or `channels/twitch_clips.yaml`. Twitch
-clip downloads additionally require the creator's one-time OAuth login. Kick uses
+Add approved streamers in the dashboard or `channels/twitch_clips.yaml`. Public
+Twitch clip/VOD discovery uses app credentials and never calls Get Clips Download.
+The older explicit `find`/`run` commands retain their broadcaster/editor-only
+download workflow; the supervisor no longer calls that finder. Kick uses
 creator-supplied recordings or a completed-recording inbox; its published API has
 no clip/VOD-download endpoint. Neither platform grants arbitrary footage access.
 

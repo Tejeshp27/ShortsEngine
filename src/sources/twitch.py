@@ -6,7 +6,11 @@
 #
 #   GET  /helix/users            look up a streamer's numeric ID
 #   GET  /helix/clips            list a streamer's most-viewed clips
+#   GET  /helix/videos           discover archived VOD metadata
 #   GET  /helix/clips/downloads  get a temporary download link for a clip
+#
+# Public discovery uses app_get/resolve_user/discover_clips/discover_videos.
+# It never calls the legacy download helpers below.
 #
 # Two kinds of Twitch tokens are involved:
 #   - An APP token (client credentials) reads public data such as
@@ -64,11 +68,14 @@ def twitch_credentials():
     return client_id, client_secret
 
 
-def get_app_token():
+def get_app_token(force_refresh=False):
     """
     Get a Twitch app access token (the "client credentials" flow).
 
     This token reads public data, such as the list of a streamer's clips.
+
+    Args:
+        force_refresh: True to replace a token rejected by Twitch once.
 
     Returns:
         str: The access token.
@@ -78,21 +85,163 @@ def get_app_token():
     """
     client_id, client_secret = twitch_credentials()
     saved = _app_token_cache.get(client_id)
-    if saved and saved["expires_at"] > time.time() + 60:
+    if not force_refresh and saved and saved["expires_at"] > time.time() + 60:
         return saved["token"]
 
-    response = httpx.post(TWITCH_TOKEN_URL, timeout=REQUEST_TIMEOUT_SECONDS, data={
-        "client_id": client_id,
-        "client_secret": client_secret,
-        "grant_type": "client_credentials",
-    })
-    data = response.json()
+    try:
+        response = httpx.post(TWITCH_TOKEN_URL, timeout=REQUEST_TIMEOUT_SECONDS, data={
+            "client_id": client_id,
+            "client_secret": client_secret,
+            "grant_type": "client_credentials",
+        })
+        data = response.json()
+    except (httpx.HTTPError, ValueError):
+        raise TwitchError("Twitch app login failed; check the connection and app credentials.") from None
     if response.status_code != 200 or "access_token" not in data:
-        raise TwitchError(f"Twitch refused the app credentials: {data.get('message', response.status_code)}")
+        raise TwitchError(f"Twitch refused the app credentials (HTTP {response.status_code}).")
 
     _app_token_cache[client_id] = {"token": data["access_token"],
                                    "expires_at": time.time() + data.get("expires_in", 3600)}
     return data["access_token"]
+
+
+def wait_for_rate_limit(response):
+    """
+    Wait until a Twitch rate-limit reset, returning nothing or raising for an excessive delay.
+
+    Args:
+        response: The HTTP 429 answer with a Ratelimit-Reset timestamp.
+
+    Returns:
+        Nothing after waiting; delays over two minutes defer work to a later job.
+    """
+    try:
+        delay = max(1, float(response.headers.get("Ratelimit-Reset", "")) - time.time() + 1)
+    except ValueError:
+        delay = 60
+    if not 0 < delay <= 120:
+        raise TwitchError("Twitch rate limit resets later; retry discovery in a later job.")
+    while delay > 0:
+        interval = min(60, delay)
+        time.sleep(interval)
+        delay -= interval
+
+
+def app_get(endpoint, params):
+    """
+    Read public metadata with one token refresh and at most two rate-limit retries.
+
+    Args:
+        endpoint: /users, /clips or /videos; media download endpoints are refused.
+        params: The endpoint's public lookup or pagination parameters.
+
+    Returns:
+        Twitch's JSON dictionary, or a safe TwitchError without credentials.
+    """
+    if endpoint not in ("/users", "/clips", "/videos"):
+        raise TwitchError("Discovery only supports public user, clip and VOD metadata.")
+    client_id, _ = twitch_credentials()
+    token = get_app_token()
+    refreshed = False
+    rate_retries = 0
+    while True:
+        try:
+            response = httpx.get(TWITCH_API_BASE + endpoint, params=params,
+                                 headers={"Authorization": "Bearer " + token, "Client-Id": client_id},
+                                 timeout=REQUEST_TIMEOUT_SECONDS)
+        except httpx.HTTPError:
+            raise TwitchError(f"Twitch metadata request {endpoint} could not connect.") from None
+        if response.status_code == 401 and not refreshed:
+            token = get_app_token(force_refresh=True)
+            refreshed = True
+            continue
+        if response.status_code == 429 and rate_retries < 2:
+            wait_for_rate_limit(response)
+            rate_retries += 1
+            continue
+        if response.status_code != 200:
+            raise TwitchError(f"Twitch metadata request {endpoint} failed (HTTP {response.status_code}).")
+        try:
+            return response.json()
+        except ValueError:
+            raise TwitchError(f"Twitch metadata request {endpoint} returned invalid JSON.") from None
+
+
+def resolve_user(login):
+    """
+    Resolve a configured Twitch login to its public identity.
+
+    Args:
+        login: A creator login such as jasontheween.
+
+    Returns:
+        The user dictionary with numeric ID, login and display name.
+    """
+    users = app_get("/users", {"login": login.lower()}).get("data", [])
+    if not users:
+        raise TwitchError(f"Twitch user '{login}' was not found. Check the channel YAML.")
+    return users[0]
+
+
+def metadata_pages(endpoint, params, max_pages):
+    """
+    Read a bounded list of public metadata pages without following media URLs.
+
+    Args:
+        endpoint: /clips or /videos.
+        params: Fixed filters, including the requested page size.
+        max_pages: Maximum requests for this creator and source type.
+
+    Returns:
+        A dictionary containing items and whether the page limit truncated results.
+    """
+    items = []
+    seen_cursors = set()
+    params = dict(params)
+    cursor = ""
+    for page in range(max_pages):
+        data = app_get(endpoint, dict(params))
+        items.extend(data.get("data", []))
+        cursor = data.get("pagination", {}).get("cursor", "")
+        if not cursor:
+            return {"items": items, "truncated": False}
+        if cursor in seen_cursors:
+            raise TwitchError("Twitch repeated a pagination cursor; discovery stopped safely.")
+        seen_cursors.add(cursor)
+        params["after"] = cursor
+    return {"items": items, "truncated": bool(cursor)}
+
+
+def discover_clips(broadcaster_id, started_at, ended_at, max_pages=10):
+    """
+    List clip metadata within a fixed date window; never request video bytes.
+
+    Args:
+        broadcaster_id: The creator's numeric Twitch ID.
+        started_at: Inclusive UTC window start in Twitch's date format.
+        ended_at: UTC window end, kept unchanged across pages.
+        max_pages: Maximum pages of 100 clips; Twitch caps a query near 1,000 results.
+
+    Returns:
+        Items and a truncation flag from bounded cursor pagination.
+    """
+    return metadata_pages("/clips", {"broadcaster_id": broadcaster_id, "started_at": started_at,
+                                    "ended_at": ended_at, "first": 100}, max_pages)
+
+
+def discover_videos(broadcaster_id, max_pages=10):
+    """
+    List archived VOD metadata, newest first, without obtaining playable files.
+
+    Args:
+        broadcaster_id: The creator's numeric Twitch ID.
+        max_pages: Maximum pages of 100 archived videos.
+
+    Returns:
+        Items and a truncation flag from bounded cursor pagination.
+    """
+    return metadata_pages("/videos", {"user_id": broadcaster_id, "type": "archive",
+                                     "sort": "time", "first": 100}, max_pages)
 
 
 def twitch_get(endpoint, params, access_token):

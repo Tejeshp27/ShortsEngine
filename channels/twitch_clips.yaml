@@ -187,6 +187,13 @@ schedule:
   post_times: ["12:00", "19:00"]   # 24-hour clock
 
 # Raw-source collection settings for the current acquisition-first phase.
+discovery:
+  enabled: true               # metadata discovery follows the existing automation Start/Stop choice
+  interval_seconds: 21600     # default: check public clips and archived VODs every six hours
+  hours_back: 168             # discover clips from the last seven days using fixed start/end times
+  max_pages: 10               # at most ten pages of 100 entries per creator and source type; report partial results
+
+# Raw uploads are separate from metadata-only discovery.
 acquisition:
   only: true                  # current phase: acquire/store sources; skip automatic editing and posting
   max_upload_mb: 2048          # bounded browser upload size; large existing recordings can use local-path import

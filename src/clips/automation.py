@@ -82,7 +82,6 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
     Returns:
         A summary of generated video IDs, source states and errors.
     """
-    from src.clips.finder import find_and_download
     from src.clips.maker import make_clip_video, words_for
     from src.clips.metadata import create_metadata
     from src.clips.monitor import check_live_sources
@@ -98,14 +97,7 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
                          recording["platform"], recording.get("confirmed", False))
     statuses = check_live_sources(channel, config)
     errors = []
-    # Missing Twitch credentials do not block supplied recordings or Kick.
-    for streamer in settings.streamers:
-        if not streamer.enabled or streamer.platform != "twitch":
-            continue
-        try:
-            find_and_download(channel, config, streamer.username)
-        except Exception as error:
-            errors.append(safe_error(error))
+    # Discovery has its own six-hour job. Frequent inbox cycles never request downloads.
     try:
         scan_inboxes(channel, config, errors)
     except Exception as error:
@@ -116,8 +108,8 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
         library = source_library(channel, config)
         return {"video_ids":[], "sources":statuses, "errors":errors,
                 "stored_sources":library["stored_count"], "listed_sources":library["listed_count"],
-                "message":"Acquisition-only cycle complete. Discovery and authorized imports ran; "
-                          "transcription, editing and publishing are paused."}
+                "message":"Acquisition-only inbox cycle complete. Monitoring and authorized imports ran; "
+                          "metadata discovery runs separately. Transcription, editing and publishing are paused."}
     process_recordings(channel, config)
     waiting = clips_with_status(channel, "picked") + clips_with_status(channel, "downloaded")
     made = []
@@ -211,6 +203,7 @@ def queue_due_channels(only_channel=None):
             if config.get("type") != "clips" or not config.get("enabled", True):
                 continue
             settings = load_clip_settings(config)
+            started.extend(queue_due_discovery(channel, settings))
             connection = get_connection()
             try:
                 connection.execute("BEGIN IMMEDIATE")
@@ -232,6 +225,52 @@ def queue_due_channels(only_channel=None):
             from src.dashboard.accounts import safe_error
             logger.warning("Clips cycle deferred for %s: %s", channel, safe_error(error))
     return started
+
+
+def queue_due_discovery(channel, settings):
+    """
+    Reserve a due metadata check and launch it through the existing job queue.
+
+    Args:
+        channel: The clips channel's configuration key.
+        settings: Checked channel settings, including discovery interval and Start/Stop defaults.
+
+    Returns:
+        A list containing a new discovery job ID, or an empty list when paused or not due.
+    """
+    from src.dashboard import jobs
+    from src.dashboard.accounts import safe_error
+
+    if not settings.discovery.enabled:
+        return []
+    connection = get_connection()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        connection.execute("INSERT OR IGNORE INTO clip_automation (channel, enabled) VALUES (?, ?)",
+                           (channel, int(settings.automation.enabled)))
+        row = connection.execute("SELECT * FROM clip_automation WHERE channel=?", (channel,)).fetchone()
+        if not row["enabled"] or row["next_discovery"] > time.time():
+            return []
+        connection.execute("UPDATE clip_automation SET next_discovery=? WHERE channel=?",
+                           (time.time() + settings.discovery.interval_seconds, channel))
+        connection.commit()
+    finally:
+        connection.close()
+    try:
+        job_id, created = jobs.enqueue_job(channel, "clip_discovery", {}, False, uuid.uuid4().hex)
+        if created:
+            jobs.launch_job(job_id)
+            return [job_id]
+    except Exception as error:
+        connection = get_connection()
+        try:
+            connection.execute("UPDATE clip_automation SET next_discovery=?, last_error=? WHERE channel=?",
+                               (time.time() + min(300, settings.discovery.interval_seconds), safe_error(error), channel))
+            connection.commit()
+        finally:
+            connection.close()
+        logger.warning("Source discovery deferred for %s: %s", channel, safe_error(error))
+    return []
 
 
 def automation_loop(stopped, only_channel=None):

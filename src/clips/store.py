@@ -4,6 +4,8 @@
 # Every clip a clips channel finds (or that you upload) gets one
 # row. The row follows the clip through the pipeline:
 #
+#   discovered public clip/VOD metadata only, no attached video
+#   acquired   a manually imported recording attached to that discovery
 #   found       saved from Twitch's clip list
 #   downloaded  the video file is in cache/clips/
 #   picked      the best moment and hook title are chosen
@@ -17,6 +19,47 @@
 
 from src.storage.database import get_connection
 from src.storage.finance import utc_now
+
+
+def save_discovered_source(channel, details):
+    """
+    Save public clip/VOD metadata in the existing clips table, preserving acquired media.
+
+    Args:
+        channel: The source library's channel key.
+        details: Normalized public identity, attribution and metadata from discovery.
+
+    Returns:
+        True for a new discovery or False when an existing source's metadata was updated.
+    """
+    connection = get_connection()
+    try:
+        connection.execute("BEGIN IMMEDIATE")
+        existing = connection.execute("""SELECT * FROM clips
+            WHERE (platform=? AND external_id=?) OR (source='twitch' AND source_clip_id=?)""",
+            (details["platform"], details["external_id"], details["external_id"])).fetchone()
+        if existing and (existing["channel"] != channel or existing["streamer"] != details["streamer"]):
+            raise ValueError("This Twitch source already belongs to another channel or creator.")
+        values = (details["streamer_display_name"], details["clipper"], details["thumbnail_url"],
+                  details["game_id"], details["vod_offset"], details["source_video_id"], details["source_type"],
+                  details["external_id"], details["title"], details["clip_url"], details["view_count"],
+                  details["clip_created_at"], details["duration_seconds"], details["credit_text"])
+        if existing:
+            connection.execute("""UPDATE clips SET streamer_display_name=?, clipper=?, thumbnail_url=?,
+                game_id=?, vod_offset=?, source_video_id=?, source_type=?, external_id=?, title=?, clip_url=?,
+                view_count=?, clip_created_at=?, duration_seconds=?, credit_text=? WHERE id=?""",
+                values + (existing["id"],))
+        else:
+            connection.execute("""INSERT INTO clips
+                (streamer_display_name, clipper, thumbnail_url, game_id, vod_offset, source_video_id,
+                 source_type, external_id, title, clip_url, view_count, clip_created_at, duration_seconds,
+                 credit_text, channel, source, source_clip_id, streamer, platform, status, found_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'twitch', ?, ?, ?, 'discovered', ?)""",
+                values + (channel, details["external_id"], details["streamer"], details["platform"], utc_now()))
+        connection.commit()
+        return existing is None
+    finally:
+        connection.close()
 
 
 def is_clip_saved(source, source_clip_id):

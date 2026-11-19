@@ -31,10 +31,20 @@ Test media is explicitly synthetic; no real streamer download is claimed.
 
 ### Step 2 — select and connect an actual automatic media-delivery route
 
+**Discovery is now implemented:** bounded, paginated official Twitch Get Clips
+and Get Videos (archived VODs), saved as metadata-only records in the existing
+source library. An existing-queue discovery job runs every six hours when
+automation is started; CLI/browser checks are available too. Duplicate identities
+update metadata, including views. Uploads can attach footage to the selected
+discovery instead of displaying another source card. See
+[setup, bounds and manual landscape imports](source-discovery.md).
+This is not an automatic media-delivery route; the actual acquisition gate below
+remains incomplete. Background cycles no longer call the clip download adapter.
+
 | Platform/source | Discovery | Acquisition route | Current limit |
 |---|---|---|---|
-| Twitch clips | Existing official Get Clips integration works | Existing official download adapter when authorized | Broadcaster/editor download access is absent for Jason |
-| Twitch full VODs | Add bounded Get Videos discovery next | Authorized supplied recording/export or supported media feed | Public VOD metadata does not supply downloadable bytes |
+| Twitch clips | Paginated Get Clips metadata with date window | Manual official landscape export where available → upload to matching discovery | No media downloaded by discovery; broadcaster/editor API access is absent for Jason |
+| Twitch full VODs | Bounded paginated Get Videos archive metadata | Authorized supplied recording/export or supported media feed | Public VOD metadata does not supply downloadable bytes |
 | Kick | Existing official status adapter | Authorized completed recordings or a supported media feed | Kick app credentials are absent; no general VOD download connector identified in reviewed public API docs |
 | Your/creator-authorized recording producer | Configured creator inbox | Write completed output directly into its inbox | Needs a real recording producer/source with permission and access |
 

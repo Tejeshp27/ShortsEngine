@@ -17,6 +17,10 @@
 {% if job.video_id %}<a class="btn btn-primary" href="/video/{{ job.video_id }}">Open saved draft</a>{% endif %}
 {% for video_id in job.result.get('video_ids',[]) %}<a class="btn" href="/video/{{ video_id }}">Open clip {{ video_id }}</a>{% endfor %}
 {% for error in job.result.get('errors',[]) %}<p class="alert">{{ error }}</p>{% endfor %}
+{% if job.kind == 'clip_discovery' %}
+{% for warning in job.result.get('warnings',[]) %}<p class="note">{{ warning }}</p>{% endfor %}
+<a class="btn" href="/clips/{{ job.channel }}/sources">Open source library</a>
+{% endif %}
 {% if job.kind == 'clip_pipeline' %}<a class="btn" href="/clips/{{ job.channel }}">Streamers and recordings</a>{% endif %}
 {% if job.kind == 'discover' and job.status == 'succeeded' %}<a class="btn btn-primary" href="/new?channel={{ job.channel }}&source_job={{ job.id }}">Choose from {{ job.result.story_ids|length }} stories</a>{% endif %}
 {% if job.result.source_title %}<p>{{ job.result.source_title }} · {{ job.result.source_words }} source words checked</p>{% endif %}
