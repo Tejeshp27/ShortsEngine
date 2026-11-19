@@ -20,7 +20,7 @@
 {% if clip %}<h2>Clip</h2>
 {% if clip.highlight_score is not none %}<p>Estimated highlight score: <strong>{{ clip.highlight_score }}/100</strong> · <a href="/clips/{{ video.channel }}">See signal breakdown</a></p>{% endif %}
 {% if clip_quality %}<p class="note">Technical quality: {{ 'passed' if clip_quality.passed else 'failed' }} · {{ clip_quality.duration }} seconds</p>{% for warning in clip_quality.get('warnings',[]) %}<p class="notice">{{ warning }}</p>{% endfor %}{% endif %}
-{% if video.status != 'posted' and not deliveries and not public_posts %}<details><summary>Edit publishing title and description</summary><form method="post" action="/video/{{ video.id }}/metadata"><input type="hidden" name="form_token" value="{{ form_token }}"><div class="form-group"><label>Title<input name="title" maxlength="100" required value="{{ video.story_title }}"></label></div><div class="form-group"><label>Description<textarea name="description" maxlength="1500" rows="4">{{ clip_metadata.get('description','') }}</textarea></label></div><label class="checkbox"><input type="checkbox" name="youtube" value="true" {% if 'youtube' in destinations %}checked{% endif %}> YouTube Shorts</label><label class="checkbox"><input type="checkbox" name="tiktok" value="true" {% if 'tiktok' in destinations %}checked{% endif %}> TikTok inbox</label><p class="note">Attribution is added automatically. Saving returns the video to review. Use Re-cut below to change the text burned into the video.</p><button class="btn">Save metadata</button></form></details>{% endif %}
+{% if video.status != 'posted' and not deliveries and not public_posts %}<details open><summary>Edit YouTube title and post caption</summary><form method="post" action="/video/{{ video.id }}/metadata"><input type="hidden" name="form_token" value="{{ form_token }}"><div class="form-group"><label>YouTube title<input name="title" maxlength="100" required value="{{ video.story_title }}"></label></div><div class="form-group"><label>Caption<textarea name="description" maxlength="1500" rows="4">{{ clip_metadata.get('description','') }}</textarea></label></div><label class="checkbox"><input type="checkbox" name="youtube" value="true" {% if 'youtube' in destinations %}checked{% endif %}> YouTube Shorts</label><label class="checkbox"><input type="checkbox" name="tiktok" value="true" {% if 'tiktok' in destinations %}checked{% endif %}> TikTok inbox</label><p class="note">The post starts with the title shown in the video, then this caption, then the streamer credit and hashtags (see "Final caption" below). Swear words are starred out. Saving returns the video to review. Use Re-cut below to change the text shown in the video.</p><button class="btn">Save</button></form></details>{% endif %}
 <p class="note">Credit: <strong>{{ clip.credit_text }}</strong> · Original clip {{ '%.1f'|format(clip.duration_seconds) }}s · Moment used {{ '%.1f'|format(clip.start_seconds or 0) }}s to {{ '%.1f'|format(clip.end_seconds or 0) }}s{% if clip.pick_reason %} · {{ clip.pick_reason }}{% endif %}</p>
 {% if video.status != 'posted' and not deliveries and not public_posts %}<details>
 <summary>Change the moment or hook title</summary>
@@ -125,13 +125,6 @@
 <label class="checkbox">
 <input type="checkbox" name="dry_run" value="true"> Dry run — show where it would post, send nothing</label>
 <button class="btn btn-primary">Post now</button>
-</form>{% endif %}
-{% if clip %}<h3>Your caption</h3>
-<p class="note">Type the caption you want, or leave it empty for the automatic one. The on-screen title is always added at the start, and the streamer credit and hashtags at the end. Swear words are starred out.</p>
-<form method="post" action="/video/{{ video.id }}/caption">
-<input type="hidden" name="form_token" value="{{ form_token }}">
-<textarea name="custom_caption" rows="4" maxlength="1500" aria-label="Your caption">{{ clip.custom_caption or '' }}</textarea>
-<button class="btn" type="submit">Save caption</button>
 </form>{% endif %}
 {% if post_caption %}<h3>Final caption</h3>
 <p class="note">{% if clip %}Used as the YouTube description. {% endif %}{% if 'tiktok' in destinations %}TikTok drafts arrive without a caption (the API has no caption field for drafts), so copy this into the TikTok app before posting.{% endif %}</p>

@@ -439,7 +439,9 @@ disk; video processing is much heavier than an idle web dashboard.
   `max_seconds_per_letter`. Beep volume is set by `bleep.volume` (0.4 on this channel).
 - The on-screen credit tag is off on this channel (`credit.enabled: false`); every post
   caption still credits the streamer.
-- The video page has a **Your caption** box. The final caption is the on-screen title,
-  then your text (or the automatic description when empty), then the streamer credit
-  and hashtags. It is the YouTube description and the text to paste in TikTok.
+- The video page's **Edit YouTube title and post caption** form has one **Caption** box
+  (automatic text at first). The final caption is the on-screen title, then that caption,
+  then the streamer credit and hashtags; it is the YouTube description and the text to
+  paste in TikTok. The YouTube title field names the YouTube video only. Saving returns
+  the video to review.
 

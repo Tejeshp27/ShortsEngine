@@ -706,26 +706,26 @@ def test_review_page_shows_recut_form_and_caption(clip_portal):
     client, _, video_id = clip_portal
     page = client.get(f"/video/{video_id}").text
     assert "Change the moment or hook title" in page
-    assert "Your caption" in page and "Final caption" in page
+    assert "Edit YouTube title and post caption" in page and "Final caption" in page
     assert "https://twitch.tv/coolstreamer" in page
     assert "Make an animated video" not in page
 
 
-def test_typed_caption_keeps_on_screen_title_and_credit(clip_portal):
-    """The owner's caption goes after the on-screen title, and the credit and hashtags are always added."""
+def test_caption_box_sits_between_on_screen_title_and_credit(clip_portal):
+    """The caption typed in the page's one caption box follows the on-screen title; credit and hashtags are always added."""
     client, _, video_id = clip_portal
-    form = {"custom_caption": "He was NOT ready for this 😭", "form_token": token(client)}
-    assert client.post(f"/video/{video_id}/caption", data=form, follow_redirects=False).status_code == 303
+    form = {"title": "Chat was NOT ready", "description": "He was NOT ready for this 😭", "youtube": "true",
+            "tiktok": "true", "form_token": token(client)}
+    assert client.post(f"/video/{video_id}/metadata", data=form, follow_redirects=False).status_code == 303
     page = client.get(f"/video/{video_id}").text
+    assert "Your caption" not in page and "Caption" in page
     final = page.split('aria-label="Final caption">', 1)[1].split("</textarea>", 1)[0]
     assert final.startswith("Chat was NOT ready\n\nHe was NOT ready for this 😭\n\n🎥 Clip: twitch.tv/coolstreamer")
-    # Starting the caption with the title does not repeat it; clearing it returns to the automatic caption.
-    form["custom_caption"] = "Chat was NOT ready and neither was he"
-    client.post(f"/video/{video_id}/caption", data=form)
+    # Starting the caption with the title does not repeat it.
+    form["description"] = "Chat was NOT ready and neither was he"
+    client.post(f"/video/{video_id}/metadata", data=form)
     final = client.get(f"/video/{video_id}").text.split('aria-label="Final caption">', 1)[1]
     assert final.startswith("Chat was NOT ready and neither was he\n\n🎥 Clip:")
-    form["custom_caption"] = "x" * 1501
-    assert client.post(f"/video/{video_id}/caption", data=form).status_code == 400
 
 
 def test_recut_form_queues_a_free_clip_render_job(clip_portal):

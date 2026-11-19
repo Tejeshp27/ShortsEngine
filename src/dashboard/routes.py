@@ -962,33 +962,6 @@ def record_public_post(request: Request, video_id: int, platform: str = Form(...
     return redirect(f"/video/{video_id}")
 
 
-# The longest caption the owner may type; the title, credit and hashtags are
-# added around it, and TikTok's limit for the whole caption is 2,200 characters.
-CUSTOM_CAPTION_MAX = 1500
-
-
-@router.post("/video/{video_id}/caption")
-def save_custom_caption(request: Request, video_id: int, custom_caption: str = Form(""),
-                        form_token: str = Form("")):
-    """
-    Save the owner's own post caption for a clip video (empty = use the automatic one).
-
-    The on-screen title is put in front of it and the streamer credit and
-    hashtags after it whenever the caption is used.
-    """
-    from src.clips.store import get_clip_for_video, update_clip
-
-    require_form_token(request, form_token)
-    clip = get_clip_for_video(video_id)
-    if clip is None:
-        raise HTTPException(404, "This video was not made from a clip.")
-    text = custom_caption.replace("\r\n", "\n").strip()
-    if len(text) > CUSTOM_CAPTION_MAX:
-        raise HTTPException(400, f"Keep your caption under {CUSTOM_CAPTION_MAX} characters.")
-    update_clip(clip["id"], custom_caption=text)
-    return redirect(f"/video/{video_id}")
-
-
 # ---------------------------------------------------------------------------
 # Job progress
 # ---------------------------------------------------------------------------

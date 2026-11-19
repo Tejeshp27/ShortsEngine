@@ -136,7 +136,7 @@ def update_clip(clip_id, **fields):
     allowed = {"status", "file_path", "start_seconds", "end_seconds", "hook_title",
                "pick_reason", "last_error", "video_id", "duration_seconds", "recording_id",
                "highlight_score", "signals_json", "quality_json", "metadata_json",
-               "render_attempts", "render_retry_at", "custom_caption"}
+               "render_attempts", "render_retry_at"}
     assignments = []
     values = []
     for name, value in fields.items():

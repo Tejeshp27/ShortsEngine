@@ -106,9 +106,6 @@ def create_clip_automation_tables(connection):
         clip_fields.add(row["name"])
     if "files_released_at" not in clip_fields:
         connection.execute("ALTER TABLE clips ADD COLUMN files_released_at TEXT NOT NULL DEFAULT ''")
-    # The owner's own post caption, typed on the video page ("" = use the automatic one).
-    if "custom_caption" not in clip_fields:
-        connection.execute("ALTER TABLE clips ADD COLUMN custom_caption TEXT NOT NULL DEFAULT ''")
     create_live_recording_tables(connection)
 
 
