@@ -292,6 +292,34 @@ shortsengine/
 
 ## Current phase
 
+**Speech-first clip audio (2026-11-18, Codex):** owner requested voices above
+gameplay. Added per-channel `audio.speech_enhancement`, `dialogue_boost` (0–3)
+and `noise_reduction` (0–1); configured Twitch to true/2/0.8. Older channels
+retain normalization-only sound. FFmpeg dialogue enhancement, speech EQ and
+gentle compression feed a bundled original RNNoise model (303 KB, pinned hash,
+original BSD license retained), with no new Python library, paid call or runtime
+download. Model input is levelled consistently. Final measured fixed gain toward
+-14 LUFS plus oversampled -1.5 dB peak limiting preserves the cleaned background;
+the existing dynamic loudness pass had raised quiet gaps again after denoising.
+Both filter delays are padded/trimmed; mono/stereo timing, partial blocks, silence,
+invalid settings, fallback/cleanup and voice/background contrast have offline
+regressions. Enhancement failure logs a warning and preserves normalized original
+sound. Original source media stays unchanged; mixed-in game dialogue/other voices
+cannot be controlled independently.
+
+Draft 8 was updated by audio-only remux; its encoded 1080x1920/60 fps picture is
+bit-identical (packet hash checked), same 32.24-second edit/captions/hook/facecam.
+Final AAC measured -15.0 LUFS, -1.4 dB true peak; technical gate passed without
+warnings. Transcript-window versus between-word RMS contrast improved from 1.81
+to 5.19 dB (a window-based proxy, not isolated stem SNR). Private page returned
+200, seeking 206, logged-out access 303. Services reloaded; acquisition-only and
+publishing dry-run preserved. Latest export:
+`output/local_recording_probe/ready_to_post_voice_v5/`; ignored evidence:
+`output/local_recording_probe/audio/upgrade.json`, with previous MP4 retained.
+Updated README and operating/pilot docs. **582 tests passed in 26.30 seconds**,
+including 19 new audio regressions. Suggested commit:
+`feat: prioritize speech in stream clip audio`.
+
 **Source/export quality upgrade (2026-11-18, Codex):** owner reported softness.
 Diagnosed the first pilot's 1280x720/60 fps, ~3.1 Mbps source and its 285x191 camera
 crop being enlarged into a 1080x720 panel. Recovered the same moment from public

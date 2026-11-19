@@ -149,6 +149,12 @@ encoding:
   crf: 17                   # high-quality H.264; lower loses less detail but produces larger MP4s
   preset: medium            # better compression efficiency than fast; requires more encoding CPU time
 
+# Speech emphasis for every newly rendered clip; original source recordings stay untouched.
+audio:
+  speech_enhancement: true   # emphasize centered voices, reduce rumble and control loud mixed peaks before normalization
+  dialogue_boost: 2.0        # FFmpeg dialogue emphasis factor (0–3); mixed-in game dialogue may also be emphasized
+  noise_reduction: 0.8       # local RNNoise suppression blend (0–1); retain some original sound to protect natural voices
+
 # Burned-in word-by-word captions from the transcript.
 captions:
   words_per_caption: 3        # words on screen at once

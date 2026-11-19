@@ -502,33 +502,59 @@ def encoder_command(audio_path, duration, output_path, encoding=None):
     return command
 
 
-def prepare_audio(clip_path, start, duration, work_base):
+def prepare_audio(clip_path, start, duration, work_base, audio_settings=None):
     """
-    Cut the moment's sound and level its loudness for phones.
+    Cut the moment's sound, optionally emphasize speech, and level it for phones.
 
     Args:
         clip_path (str): The clip.
         start (float): The moment's start, in seconds.
         duration (float): The moment's length.
         work_base (str): Path prefix for temporary files.
+        audio_settings: Checked speech controls; None keeps normalization only.
 
     Returns:
-        str: The levelled WAV file (or the unlevelled one if levelling fails).
+        str: The levelled WAV, or the best available WAV if an optional pass fails.
     """
     raw_path = work_base + "_audio_raw.wav"
     levelled_path = work_base + "_audio.wav"
+    enhanced_path = work_base + "_audio_speech.wav"
     subprocess.run([
         "ffmpeg", "-nostdin", "-v", "error", "-y",
         "-ss", f"{start:.3f}", "-t", f"{duration:.3f}", "-i", clip_path,
         "-vn", "-ac", "2", "-ar", "44100",   # sound only, stereo, 44.1 kHz
         raw_path,
     ], check=True)
+    best_path = raw_path
+    if audio_settings is not None and audio_settings.speech_enhancement:
+        from src.video.clip_audio import enhance_speech
+        try:
+            enhance_speech(raw_path, enhanced_path, audio_settings)
+            best_path = enhanced_path
+        except subprocess.CalledProcessError:
+            # A build without dialoguenhance should still make a playable
+            # draft, with an explicit warning instead of silently dropping sound.
+            import logging
+            logging.getLogger(__name__).warning(
+                "Speech enhancement failed; using the original mix with loudness normalization.")
+            if os.path.exists(enhanced_path):
+                os.remove(enhanced_path)
     try:
-        normalize_loudness(raw_path, levelled_path, LOUDNESS_SETTINGS)
+        if best_path == enhanced_path:
+            from src.video.clip_audio import level_speech
+            level_speech(best_path, levelled_path, LOUDNESS_SETTINGS)
+        else:
+            normalize_loudness(best_path, levelled_path, LOUDNESS_SETTINGS)
     except (subprocess.CalledProcessError, ValueError, KeyError):
         # Very short or silent sound can't be measured; use it as it is.
-        return raw_path
-    os.remove(raw_path)
+        if os.path.exists(levelled_path):
+            os.remove(levelled_path)
+        if best_path != raw_path:
+            os.remove(raw_path)
+        return best_path
+    for temporary in (raw_path, enhanced_path):
+        if os.path.exists(temporary):
+            os.remove(temporary)
     return levelled_path
 
 
@@ -596,7 +622,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
     work_base = os.path.splitext(output_path)[0]
     audio_path = None
     if source["has_audio"]:
-        audio_path = prepare_audio(clip_path, start, duration, work_base)
+        audio_path = prepare_audio(clip_path, start, duration, work_base, settings.audio)
 
     # Layers that never change are drawn once.
     hook_y = FULL_LAYOUT_HOOK_Y

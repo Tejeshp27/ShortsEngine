@@ -1,6 +1,41 @@
 <!-- Real bounded local recording evidence, current limits and the next unattended-recorder milestone. -->
 # Local recording → website → clipped MP4 pilot
 
+**Latest audio revision (2026-11-18):** draft 8 now uses the configured local
+speech-first pass: dialogue emphasis, gentle EQ/compression, consistent model
+input levels, bundled RNNoise suppression blended at 80%, then fixed measured
+gain and oversampled peak limiting. A dynamic loudness pass after denoising
+had raised quiet gaps again; final level control now preserves that contrast.
+The original mixed source is effectively mono, so stereo dialogue emphasis alone
+was insufficient. The model can suppress non-speech sound, but cannot independently
+remove game dialogue or another person's voice. No paid call or model download
+is needed during rendering.
+
+The final 32.24-second H.264/AAC MP4 is 49,528,262 bytes. Its encoded picture
+packets have exactly the previous video hash, preserving 1080x1920 at 60 fps,
+facecam, captions and hook. AAC measured -15.0 LUFS and -1.4 dB true peak. The
+technical gate passed without warnings. Transcript-marked windows versus gaps
+show RMS contrast of 5.19 dB (previously 1.81 dB); this is a speech-heavy/gap-heavy
+comparison, not a measurement of separate microphone/game tracks. Subjective
+voice quality still needs listening. Private draft page returned 200, a byte-range
+request returned 206 with matching bytes, and logged-out access remained 303.
+Services were reloaded; source media, acquisition-only and publishing dry-run
+settings remain unchanged.
+
+**Latest bundle:** `output/local_recording_probe/ready_to_post_voice_v5/`.
+Evidence: `output/local_recording_probe/audio/upgrade.json`; pre-audio MP4:
+`audio/before-speech-enhancement.mp4`. Earlier bundles are historical versions.
+New audio regression coverage checks settings, fallbacks, centered speech versus
+stereo background, mono/stereo sync, partial blocks, silence, model paths and
+final contrast preservation. No paid calls, uploads or publications.
+Full offline suite: **582 passed in 26.30 seconds**, including 19 audio regressions.
+
+Files changed for audio: `src/video/clip_audio.py`, `src/video/clip_render.py`,
+`src/clips/settings.py`, `channels/twitch_clips.yaml`, `tests/test_clip_audio.py`,
+`assets/audio/rnnoise/{std.rnnn,COPYING,README.md}`, `README.md`, `CLAUDE.md`,
+`docs/stream-clips.md`, and this file. The supervisor independently maintains the
+marked runtime section in `AUTOMATION_STATUS.md`.
+
 **Latest quality revision (2026-11-18):** after the owner reported softness, the
 same exchange was recovered from the public archive in native 1920x1080/60 fps,
 around 7.0 Mbps video. The first pilot used a 1280x720/60 fps variant at 3.1 Mbps;

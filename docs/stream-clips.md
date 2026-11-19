@@ -207,6 +207,42 @@ Export quality is per channel under `encoding`: `frame_rate` (24–60), `crf`
 Panel/foreground resizing uses Lanczos. Higher frame rates and slower presets
 require more CPU and storage; benchmark before cloud deployment.
 
+### Speech and game audio
+
+The Twitch clips channel enables this local audio pass on every new render and
+re-cut. Existing drafts need a re-cut to adopt changed audio settings; draft 8
+has already been updated. Configure the channel YAML:
+
+```yaml
+audio:
+  speech_enhancement: true  # emphasize dialogue, reduce rumble and control loud peaks
+  dialogue_boost: 2.0       # centered-dialogue emphasis factor, from 0 to 3
+  noise_reduction: 0.8      # RNNoise blend, from 0 to 1; 0 disables denoising
+```
+
+FFmpeg enhances centered dialogue, adds gentle speech EQ/compression and levels
+the model input. Its `arnndn` filter then runs the bundled 303 KB RNNoise model,
+retaining 20% of the original sound with the configured blend. It works on mono
+mixes too. Final measured gain aims for -14 LUFS, with oversampled -1.5 dB peak
+limiting. It can finish slightly below the loudness target when limiting peaks.
+It does not dynamically lift quiet gaps, which would undo the noise reduction.
+Both filter delays are padded/trimmed so the cut, lips and captions stay in sync.
+
+A broadcast usually already mixes microphone, game and other voices together.
+This is speech enhancement, not separate mic/game stems: game dialogue or another
+person can also remain prominent. Stronger suppression can damage voices; preview
+before increasing the blend. Original recordings stay untouched. Missing sections
+default to the older normalization-only path. An enhancement failure logs a warning
+and uses normalized original sound rather than dropping the soundtrack.
+
+No new Python dependency, API key or paid service. The model and original license
+are in `assets/audio/rnnoise/`; no runtime download is performed. Implementation
+references: [FFmpeg dialogue enhancement](https://ffmpeg.org/ffmpeg-filters.html#dialoguenhance),
+[FFmpeg RNNoise filter](https://ffmpeg.org/ffmpeg-filters.html#arnndn) and
+[Xiph RNNoise](https://github.com/xiph/rnnoise).
+
+### Source detail and optional silence edits
+
 Capture the highest available original before enlarging facecam crops. The first
 720p pilot's camera was only 285×191 pixels; encoding a large portrait cannot
 recreate detail missing from that crop. Prefer native 1080p60 when available and

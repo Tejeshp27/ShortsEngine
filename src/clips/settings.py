@@ -109,6 +109,14 @@ class ClipEncodingSettings(BaseModel):
     preset: str = Field(default="fast", pattern=r"^(ultrafast|superfast|veryfast|faster|fast|medium|slow|slower|veryslow)$")
 
 
+class ClipAudioSettings(BaseModel):
+    """Check YAML speech enhancement controls; omitted settings keep the original normalization-only sound."""
+
+    speech_enhancement: bool = False
+    dialogue_boost: float = Field(default=2.0, ge=0, le=3)
+    noise_reduction: float = Field(default=0.0, ge=0, le=1)
+
+
 class AnalysisSettings(BaseModel):
     """Control local highlight estimates; inputs are YAML values, returned as checked settings."""
 
@@ -176,6 +184,7 @@ class ClipChannelSettings(BaseModel):
     transcription: TranscriptionSettings = TranscriptionSettings()
     layout: LayoutSettings = LayoutSettings()
     encoding: ClipEncodingSettings = ClipEncodingSettings()
+    audio: ClipAudioSettings = ClipAudioSettings()
     captions: CaptionSettings = CaptionSettings()
     hook_title: HookTitleSettings = HookTitleSettings()
     credit: CreditSettings = CreditSettings()
@@ -294,7 +303,7 @@ def load_clip_settings(config):
     # Only pass the sections this file understands; the rest (name,
     # schedule, publishing...) is used by other parts of the program.
     sections = {}
-    for key in ("streamers", "clips", "discovery", "transcription", "layout", "encoding", "captions", "hook_title", "credit", "analysis", "automation"):
+    for key in ("streamers", "clips", "discovery", "transcription", "layout", "encoding", "audio", "captions", "hook_title", "credit", "analysis", "automation"):
         if config.get(key) is not None:
             sections[key] = config[key]
 

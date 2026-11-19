@@ -26,6 +26,14 @@ CRF17/medium with Lanczos scaling; this retains more detail but uses more CPU an
 storage. Facecam detail remains limited by its size within the original broadcast.
 Original 720p footage is preserved. See the latest [quality evidence](docs/local-recording-pilot.md).
 
+**Speech-first clip audio:** the Twitch clips channel now automatically enhances
+dialogue, suppresses non-speech background sound with a bundled local RNNoise
+model, and controls loud peaks. Final level control preserves the quieter
+background instead of boosting it again during pauses. Draft 8 has the updated
+sound; its 1080p60 picture is unchanged. This improves a mixed broadcast, but
+cannot independently turn down game characters or other speakers. No paid
+service or model installation is needed. [Audio settings](docs/stream-clips.md#speech-and-game-audio).
+
 **Current focus: acquire source footage first.** Open the private
 [source-video library](http://localhost:8000/clips/twitch_clips/sources) to distinguish
 discovered Twitch links from stored original files, upload an authorized recording
