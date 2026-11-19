@@ -332,6 +332,19 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**Owner tweaks to clips (2026-11-19, Claude Code):** on-screen credit tag off
+(`credit.enabled: false`; post captions still credit the streamer). Bleeps quieter
+(`bleep.volume` 0.8 → 0.4, ≈6 dB) and placed precisely: new `src/clips/bleep_timing.py`
+re-times each flagged swear word with one faster-whisper pass over the moment (whisper.cpp
+times were 0.3–0.9 s off and up to 1 s long), falls back to a length limit
+(`max_seconds_per_letter: 0.09`) and also bleeps swear words only faster-whisper heard;
+`padding_seconds` 0.04 → 0.08. Draft 8 bleeps now 0.4–0.64 s on the right words; a
+re-transcription of the output hears the surrounding words that were lost before.
+New per-clip `custom_caption` (video page "Your caption" form, POST
+`/video/{id}/caption`, max 1,500 chars): the final caption is always the on-screen title,
+then the typed caption (or the automatic description), then credit + hashtags;
+swear words starred. **675 tests pass.**
+
 **Facecam-on-top split + sharper webcam (2026-11-19, Claude Code):** owner asked to
 re-render the Jason Roblox clip (draft 8) with the face on top and better quality.
 New `layout.split_facecam_position: top|bottom` (YAML: top); split plans now list

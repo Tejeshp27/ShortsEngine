@@ -232,21 +232,27 @@ def word_list_path(bleep_settings):
     return os.path.join(project_folder, path)
 
 
-def prepare_bleeps(captions, start, end, bleep_settings):
+def prepare_bleeps(captions, start, end, bleep_settings, source=None, transcription=None):
     """
     Flag swear words in a clip's captions and work out when to bleep them.
+
+    Each beep is moved onto the swear word's precise time when possible
+    (src/clips/bleep_timing.py), so the words around it stay audible.
 
     Args:
         captions (list[dict]): Timed words in source time.
         start (float): The moment's start in the source, in seconds.
         end (float): The moment's end.
         bleep_settings (BleepSettings): The channel's bleep settings.
+        source (str or None): The video the moment is cut from (for precise timing).
+        transcription (TranscriptionSettings or None): Whisper model and language.
 
     Returns:
         tuple: (captions with swear words flagged and masked,
                 bleep ranges counted from the moment's start).
                With bleeping off: (the captions unchanged, []).
     """
+    from src.clips.bleep_timing import align_bleeps, precise_swear_words
     from src.clips.profanity import bleep_spans, load_word_list, mark_profanity
     from src.video.clip_render import words_in_moment
 
@@ -254,8 +260,13 @@ def prepare_bleeps(captions, start, end, bleep_settings):
         return captions, []
     word_list = load_word_list(word_list_path(bleep_settings))
     marked = mark_profanity(captions, word_list, bleep_settings.mask_captions)
-    spans = bleep_spans(words_in_moment(marked, start, end), bleep_settings.padding_seconds,
-                        end - start, bleep_settings.min_seconds)
+    precise = []
+    if bleep_settings.precise_timing and source and transcription is not None:
+        precise = precise_swear_words(source, start, end, word_list,
+                                      transcription.whisper_model, transcription.language)
+    timed = align_bleeps(words_in_moment(marked, start, end), precise,
+                         bleep_settings.min_seconds, bleep_settings.max_seconds_per_letter)
+    spans = bleep_spans(timed, bleep_settings.padding_seconds, end - start, bleep_settings.min_seconds)
     return marked, spans
 
 
@@ -328,7 +339,7 @@ def render_and_save(config, settings, clip, moment, words, video_path, notes_pat
         source, start, end, captions, cleanup = clip["file_path"], moment_start, moment_end, words, None
         editing_note = "Optional silence trimming failed; original audio and timing preserved."
 
-    captions, spans = prepare_bleeps(captions, start, end, settings.bleep)
+    captions, spans = prepare_bleeps(captions, start, end, settings.bleep, source, settings.transcription)
     try:
         render_info = render_clip_video(source, start, end, captions, moment["hook_title"], clip["credit_text"],
                                         streamer.facecam, settings, temporary_path,

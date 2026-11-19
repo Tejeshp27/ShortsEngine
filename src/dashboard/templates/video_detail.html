@@ -126,9 +126,16 @@
 <input type="checkbox" name="dry_run" value="true"> Dry run — show where it would post, send nothing</label>
 <button class="btn btn-primary">Post now</button>
 </form>{% endif %}
-{% if post_caption and 'tiktok' in destinations %}<h3>Caption to paste in TikTok</h3>
-<p class="note">TikTok drafts arrive without a caption (the API has no caption field for drafts). Copy this into the TikTok app before posting.</p>
-<textarea readonly rows="6" aria-label="Caption to paste in TikTok">{{ post_caption }}</textarea>{% endif %}
+{% if clip %}<h3>Your caption</h3>
+<p class="note">Type the caption you want, or leave it empty for the automatic one. The on-screen title is always added at the start, and the streamer credit and hashtags at the end. Swear words are starred out.</p>
+<form method="post" action="/video/{{ video.id }}/caption">
+<input type="hidden" name="form_token" value="{{ form_token }}">
+<textarea name="custom_caption" rows="4" maxlength="1500" aria-label="Your caption">{{ clip.custom_caption or '' }}</textarea>
+<button class="btn" type="submit">Save caption</button>
+</form>{% endif %}
+{% if post_caption %}<h3>Final caption</h3>
+<p class="note">{% if clip %}Used as the YouTube description. {% endif %}{% if 'tiktok' in destinations %}TikTok drafts arrive without a caption (the API has no caption field for drafts), so copy this into the TikTok app before posting.{% endif %}</p>
+<textarea readonly rows="7" aria-label="Final caption">{{ post_caption }}</textarea>{% endif %}
 <p class="note">Record a post after you publish it in the platform app. A TikTok inbox upload is not a public post. These IDs let the daily collector find the video's statistics.</p>
 {% for post in public_posts %}<p>{{ platform_names[post.platform] }} · {% if post.platform == 'youtube' %}<a href="https://www.youtube.com/watch?v={{ post.post_id|urlencode }}" target="_blank" rel="noopener noreferrer">Watch published video ↗</a>{% else %}{{ post.post_id }}{% endif %} <span class="badge">Confirmed public</span>
 </p>{% endfor %}

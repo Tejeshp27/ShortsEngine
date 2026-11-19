@@ -204,6 +204,10 @@ class BleepSettings(BaseModel):
     tone_hz: The beep's pitch (1000 Hz is the classic TV bleep).
     volume: Beep loudness compared with the voice it replaces (1 = the same).
     mask_captions: Show "f***" instead of the word in the burned-in captions.
+    precise_timing: Re-time each swear word with faster-whisper so the beep sits
+                    exactly on it (see src/clips/bleep_timing.py).
+    max_seconds_per_letter: A swear word that can't be re-timed is bleeped for
+                            at most this long per letter, so following words stay audible.
     """
     enabled: bool = False
     word_list: str = "config/profanity.yaml"
@@ -212,6 +216,8 @@ class BleepSettings(BaseModel):
     tone_hz: int = Field(default=1000, ge=200, le=4000)
     volume: float = Field(default=0.8, ge=0.1, le=2)
     mask_captions: bool = True
+    precise_timing: bool = True
+    max_seconds_per_letter: float = Field(default=0.09, ge=0.04, le=0.3)
 
 
 class SourceQualitySettings(BaseModel):

@@ -431,3 +431,15 @@ binary for CPU use; volumes keep models, cached recordings, output and SQLite
 persistent. The Docker/hosting path needs a real container validation on the target
 server. Nothing is deployed by this change. Allow several GB RAM and sufficient
 disk; video processing is much heavier than an idle web dashboard.
+
+## Bleep timing and post captions (2026-11-19)
+
+- Bleeps are re-timed per swear word with faster-whisper (`bleep.precise_timing`), so
+  they cover the word and not the words after it; unmatched words are limited to
+  `max_seconds_per_letter`. Beep volume is set by `bleep.volume` (0.4 on this channel).
+- The on-screen credit tag is off on this channel (`credit.enabled: false`); every post
+  caption still credits the streamer.
+- The video page has a **Your caption** box. The final caption is the on-screen title,
+  then your text (or the automatic description when empty), then the streamer credit
+  and hashtags. It is the YouTube description and the text to paste in TikTok.
+

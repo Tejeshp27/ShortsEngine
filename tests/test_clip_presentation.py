@@ -129,7 +129,9 @@ def test_configured_channel_uses_new_quality_defaults():
     assert settings.encoding.frame_rate == "source" and settings.encoding.crf == 16
     assert settings.layout.split_facecam_position == "top"
     assert settings.encoding.preset == "slow" and settings.encoding.profile == "high"
-    assert settings.bleep.enabled and settings.credit.enabled and settings.credit.seconds > 0
+    assert settings.bleep.enabled and settings.bleep.precise_timing and settings.bleep.volume < 0.8
+    # The on-screen credit tag is off by owner choice; the post caption always credits the streamer.
+    assert not settings.credit.enabled
 
 
 def test_source_frame_rate_is_kept_and_matches_the_encoder():

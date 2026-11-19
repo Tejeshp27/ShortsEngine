@@ -243,3 +243,33 @@ def test_deleting_a_video_also_removes_its_review_files(tmp_path, monkeypatch):
     monkeypatch.setattr(media, "remove_cached_previews", lambda video: None)
     assert media.delete_video_file(str(output / "clip.mp4"))
     assert sorted(path.name for path in output.iterdir()) == ["other.bleeps.json"]
+
+
+
+def test_bleeps_move_onto_precise_swear_word_times():
+    """A loose swear word moves to the precise time; an unmatched one is cut to a realistic length."""
+    from src.clips.bleep_timing import align_bleeps
+    words = [{"word": "f******", "original": "fucking", "matched": "fuck", "bleep": True, "start": 6.61, "end": 6.70},
+             {"word": "Roblox?", "start": 6.70, "end": 7.40},
+             {"word": "s***,", "original": "shit,", "matched": "shit", "bleep": True, "start": 17.1, "end": 17.9}]
+    precise = [{"word": "fucking", "matched": "fuck", "start": 6.18, "end": 6.44},
+               {"word": "damn", "matched": "damn", "start": 20.0, "end": 20.3}]
+    timed = align_bleeps(words, precise, 0.15, 0.09)
+    first, _, shit, extra = timed
+    assert (first["start"], first["end"], first["timing"]) == (6.18, 6.44, "precise")
+    # "shit" had no precise match: it keeps its start but lasts at most 4 letters × 0.09 s.
+    assert shit["timing"] == "limited" and shit["end"] == pytest.approx(17.1 + 0.36)
+    # A swear word only the precise pass heard is bleeped too.
+    assert extra["bleep"] and extra["start"] == 20.0
+
+
+def test_prepare_bleeps_uses_precise_times(monkeypatch):
+    """With precise timing on, the beep follows faster-whisper's time for the word."""
+    from src.clips import bleep_timing, maker
+    from src.clips.settings import BleepSettings, TranscriptionSettings
+    monkeypatch.setattr(bleep_timing, "precise_swear_words",
+                        lambda *args: [{"word": "fuck", "matched": "fuck", "start": 1.0, "end": 1.3}])
+    captions = [{"word": "fuck", "start": 10.9, "end": 12.0}, {"word": "yeah", "start": 12.0, "end": 12.4}]
+    _, spans = maker.prepare_bleeps(captions, 10.0, 20.0, BleepSettings(enabled=True), "source.mp4",
+                                    TranscriptionSettings())
+    assert spans == [{"start": 0.96, "end": 1.34, "words": ["fuck"]}]

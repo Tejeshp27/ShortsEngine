@@ -84,21 +84,38 @@ def create_metadata(clip, words, config, settings, llm=None):
 
 def publishing_caption(clip, title, hashtags):
     """
-    Read editable clip metadata and enforce source attribution; return its post description/caption.
+    Build a clip's post caption: the on-screen title, then the owner's own
+    caption (or the automatic description), then the streamer credit and hashtags.
+
+    The title shown in the video always comes first, and the credit is
+    always added at the end, whatever the owner types.
 
     Args:
         clip: The database row for one source clip or selected recording interval.
-        title: The publishing title supplied by the user or generated from speech.
+        title: The video's title, used when the clip has no saved on-screen title.
         hashtags: The channel hashtags to append after attribution.
 
     Returns:
         The ready-to-use publishing text with attribution and hashtags.
+
+    Example:
+        A clip titled "ONE Roblox Question Set Jason OFF" with the custom caption
+        "He was NOT ready" gives "ONE Roblox Question Set Jason OFF\n\nHe was NOT
+        ready\n\n🎥 Clip: twitch.tv/jasontheween — ...\n\n#twitch ...".
     """
-    metadata = json.loads(clip.get("metadata_json", "{}") or "{}")
-    description = metadata.get("description", "")
-    content = title
-    if description:
-        content += "\n\n" + description
+    on_screen_title = clip.get("hook_title") or title
+    custom = (clip.get("custom_caption") or "").strip()
+    if custom:
+        body = custom
+    else:
+        metadata = json.loads(clip.get("metadata_json", "{}") or "{}")
+        body = metadata.get("description", "")
+    content = on_screen_title
+    # Don't repeat the title when the owner already started the caption with it.
+    if body and not body.lower().startswith(on_screen_title.lower()):
+        content += "\n\n" + body
+    elif body:
+        content = body
     return build_post_caption(mask_post_text(content), clip, hashtags)
 
 
