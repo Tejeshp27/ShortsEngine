@@ -313,6 +313,9 @@ def select_highlights(duration, words, media, settings, engagement=None):
         for event in engagement:
             if event["count"] >= baseline * 2:
                 peaks.append(event["time"])
+                # Chat reacts after the moment happens, so also try a window
+                # that starts earlier and keeps more of the build-up.
+                peaks.append(max(0, event["time"] - settings.analysis.candidate_seconds * 0.5))
     candidates = []
     seen = set()
     for peak in sorted(set(peaks)):

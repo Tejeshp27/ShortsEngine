@@ -770,6 +770,10 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
     # so the last one drawn is kept and reused until then.
     last_caption_key = None
     caption_layer = None
+    # True when the encoder stops reading first: it already has every frame
+    # it needs for the clip's length (the decoder can produce one or two
+    # extra frames when the source's picture starts slightly after its sound).
+    encoder_stopped_first = False
     try:
         while True:
             raw = decoder.stdout.read(frame_bytes)
@@ -797,7 +801,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
             frame_number += 1
         encoder.stdin.close()
     except BrokenPipeError:
-        pass  # the encoder stopped early; its log explains why (checked below)
+        encoder_stopped_first = True  # its exit code (checked below) says whether that was a failure
     except BaseException:
         # Time limits and Ctrl-C must stop both FFmpeg children too.
         decoder.terminate()
@@ -819,7 +823,9 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
         log_file.close()
         remove_files(audio["temporary"])
 
-    if frame_number == 0 or encoder.returncode != 0 or decoder.returncode != 0:
+    # The decoder then fails only because nobody reads its last frames; that is not an error.
+    decoder_failed = decoder.returncode != 0 and not encoder_stopped_first
+    if frame_number == 0 or encoder.returncode != 0 or decoder_failed:
         raise RuntimeError(f"FFmpeg could not render the clip. See {log_path}")
     os.remove(log_path)
     return {"path": output_path, "frame_rate": frame_rate, "layout": plan["mode"],

@@ -43,7 +43,8 @@ def recording_row(recording_id):
         connection.close()
 
 
-def import_recording(channel, config, path, username, platform, confirmed, skip_existing=False):
+def import_recording(channel, config, path, username, platform, confirmed, skip_existing=False,
+                     move=False, source_kind="import"):
     """
     Import a permitted local file for a configured streamer; return its recording ID without duplicating bytes.
 
@@ -55,6 +56,10 @@ def import_recording(channel, config, path, username, platform, confirmed, skip_
         platform: The configured platform name, such as twitch or kick.
         confirmed: Whether the user explicitly confirmed the required permission or reconciliation.
         skip_existing: True for inbox scans, where duplicate footage should not count as a new import.
+        move: True moves the file into the cache instead of copying it (used for
+              live-recorder chunks, so a 3 GB chunk never exists twice on disk).
+        source_kind: "import" for completed files, or "live" for rolling-recorder
+                     chunks that are deleted once their clips are made.
 
     Returns:
         The new or existing recording ID, or None for an existing recording when skip_existing is True.
@@ -85,22 +90,30 @@ def import_recording(channel, config, path, username, platform, confirmed, skip_
     engagement = read_engagement(path.with_suffix(".engagement.json"), details["duration"])
     destination = Path("cache/clips/recordings") / (fingerprint + path.suffix.lower())
     destination.parent.mkdir(parents=True, exist_ok=True)
-    partial = destination.with_suffix(destination.suffix + ".part")
-    shutil.copyfile(path, partial)
-    after = path.stat()
-    if before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns:
-        partial.unlink(missing_ok=True)
-        raise ValueError("The file is still changing. Wait until recording has finished.")
-    os.replace(partial, destination)
+    if move:
+        after = path.stat()
+        if before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns:
+            raise ValueError("The file is still changing. Wait until recording has finished.")
+        # Same disk, so this is an instant rename rather than a copy.
+        os.replace(path, destination)
+    else:
+        partial = destination.with_suffix(destination.suffix + ".part")
+        shutil.copyfile(path, partial)
+        after = path.stat()
+        if before.st_size != after.st_size or before.st_mtime_ns != after.st_mtime_ns:
+            partial.unlink(missing_ok=True)
+            raise ValueError("The file is still changing. Wait until recording has finished.")
+        os.replace(partial, destination)
     connection = get_connection()
     try:
         connection.execute("""
             INSERT OR IGNORE INTO recordings
                 (channel, platform, streamer, fingerprint, file_path, duration, created_at,
-                 original_path, original_size, original_mtime, engagement_json)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 original_path, original_size, original_mtime, engagement_json, source_kind)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (channel, platform, streamer.username.lower(), fingerprint, str(destination),
-              details["duration"], utc_now(), str(path), before.st_size, before.st_mtime_ns, json.dumps(engagement)))
+              details["duration"], utc_now(), str(path), before.st_size, before.st_mtime_ns,
+              json.dumps(engagement), source_kind))
         connection.commit()
         return connection.execute("SELECT id FROM recordings WHERE fingerprint = ?", (fingerprint,)).fetchone()["id"]
     finally:
@@ -241,6 +254,11 @@ def analyze_recording(recording_id, config):
     for candidate in candidates:
         if repeated_transcript(recording["channel"], streamer, candidate["transcript"]):
             continue
+        if recording["source_kind"] == "live":
+            from src.clips.live_recorder import overlaps_neighbouring_chunk
+            # Neighbouring live chunks share their boundary minutes; never clip a moment twice.
+            if overlaps_neighbouring_chunk(recording_id, candidate["start"], candidate["end"]):
+                continue
         identity = f"recording:{recording['fingerprint']}:{candidate['start']:.2f}:{candidate['end']:.2f}"
         clip_id = save_found_clip(recording["channel"], {
             "source": "upload", "source_clip_id": identity, "streamer": streamer.username,

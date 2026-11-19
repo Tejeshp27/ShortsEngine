@@ -10,6 +10,14 @@ The owner selected a $25/month future cloud budget, with local testing first.
 Continuous recording/recovery integration and the Linux container build remain
 unverified; the installed supervisor is still in acquisition-only mode.
 
+**Rolling live recorder (2026-11-19):** records approved streamers' public live
+streams in hour-long chunks (most-watched first, capped at a set number at once),
+counts live Twitch chat and viewer-made clips to find the moments people reacted
+to, turns each chunk into scored clips, then deletes the chunk and keeps only a
+short excerpt per clip, so disk use stays roughly fixed. A bounded real test
+recorded two live streams, produced seven clips that passed the technical gate and
+freed every chunk. Switched on 2026-11-19; see [docs/live-recording.md](docs/live-recording.md).
+
 **Stream clip quality pipeline (2026-11-18):** every clip goes through one
 decode → draw → encode pass. Layouts are configurable: **fit-blur** (default: the
 whole uncropped 16:9 picture over a blurred, darkened copy), **split** (gameplay on
@@ -345,8 +353,9 @@ its build still needs validation on a Docker host. No paid resources were provis
 
 The older `find`, `make`, `run`, `upload`, `list` commands still work; `make`/`run`
 use the older per-clip Claude picker and its configured API costs. Use `record` and
-`cycle` for the new free default. Automatic subject tracking, semantic gameplay
-recognition and live chat collection are not implemented.
+`cycle` for the new free default. Automatic subject tracking and semantic gameplay
+recognition are not implemented. Live Twitch chat activity is counted by the rolling
+live recorder ([docs/live-recording.md](docs/live-recording.md)).
 
 [Complete Mac/server setup, API research, configuration, recovery, demo and limitations](docs/stream-clips.md).
 

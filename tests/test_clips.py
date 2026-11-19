@@ -623,6 +623,25 @@ def test_render_makes_a_vertical_video_of_the_moment(tmp_path, monkeypatch):
 
 
 @pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is not installed")
+def test_render_from_zero_when_picture_starts_after_sound(tmp_path, monkeypatch):
+    """A live chunk's picture can start a fraction of a second after its sound; rendering from 0 still works."""
+    monkeypatch.setattr(clip_render, "credit_icon", Mock(return_value=None))
+    source = tmp_path / "late_picture.mp4"
+    subprocess.run([
+        "ffmpeg", "-v", "error", "-y",
+        "-itsoffset", "0.25", "-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=60:duration=4",
+        "-f", "lavfi", "-i", "sine=frequency=440:duration=4.25",
+        "-c:v", "libx264", "-preset", "ultrafast", "-c:a", "aac", str(source),
+    ], check=True)
+    output = tmp_path / "out.mp4"
+    clip_render.render_clip_video(str(source), 0.0, 3.0, make_words("no way he did that"),
+                                  "He did that", "twitch.tv/coolstreamer", None,
+                                  ClipChannelSettings(), str(output))
+    result = clip_render.probe_video(str(output))
+    assert abs(result["duration"] - 3.0) < 0.2 and result["has_audio"]
+
+
+@pytest.mark.skipif(not HAS_FFMPEG, reason="FFmpeg is not installed")
 def test_clip_becomes_a_drafted_video_in_the_review_queue(workspace, monkeypatch):
     """Downloaded clip → moment picked → rendered → drafted video with notes and credit."""
     monkeypatch.setattr(clip_render, "credit_icon", Mock(return_value=None))

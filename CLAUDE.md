@@ -5,6 +5,13 @@
 Read this file at the start of every session before reviewing or changing code.
 Update this file whenever significant behavior or architecture changes.
 
+### Latest: rolling live recorder built (2026-11-19)
+
+The recorder from the next-steps below is implemented and tested (see the first
+Current phase entry and `docs/live-recording.md`). It was switched on 2026-11-19. Next:
+watch the first real hour-long chunks for processing time vs. recording time,
+disk peak, clip quality; then Linux/Docker and the $25/month server choice.
+
 ### Latest owner direction and local pilot (2026-11-18)
 
 The owner selected a **$25/month future always-on budget**, with local testing
@@ -319,6 +326,36 @@ original agreement dates were not supplied):
    permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
+
+**Rolling live recorder (2026-11-19, Claude Code):** owner asked to record every
+approved streamer, process each hour, keep the most engaging moments, delete the
+raw footage and delete videos after publishing. Built: `src/clips/live_recorder.py`
+(supervisor tick: one Twitch `/streams` call for all streamers every 60 s, Kick via
+`streamlink --json`; starts captures most-viewers-first up to `max_concurrent`;
+per-streamer daily hours; disk start/stop limits; refuses while `acquisition.only`
+is true; finalizes chunks and imports them with `move=True`, `source_kind='live'`),
+`src/clips/live_capture.py` (one process per stream, `start_new_session` so it
+survives supervisor restarts: Streamlink → FFmpeg segment muxer into MPEG-TS
+chunks + `segments.csv`, FFmpeg `-progress` clock log), `src/clips/live_chat.py`
+(anonymous read-only Twitch IRC, message counts per second only), and
+`src/clips/retention.py` (keyframe-aligned ±30 s excerpt per clip with copied
+transcript cache, then delete chunk; delete MP4/excerpt 24 h after delivery to every
+platform or rejection). Engagement fills the existing `audience` score (weight now
+0.35): chat mapped clock→stream time through the FFmpeg clock log, minus a reaction
+delay, plus viewer clips made live (`vod_offset` within 120 s of creation). Each chunk
+carries the previous chunk's last 120 s; `overlaps_neighbouring_chunk` stops the same
+moment being clipped twice. Tables `live_sessions`/`live_chunks`; columns
+`recordings.source_kind/raw_deleted_at`, `clips.files_released_at`. Renderer fix:
+decoder broken pipe after the encoder already finished is no longer a failure
+(picture starting after sound). Bounded real test on a DB copy (2-min chunks): Kai
+Cenat then StableRonaldo recorded at 1080p60, 6 chunks imported, restart adoption
+worked, 7 clips rendered and gated with no warnings, all chunks deleted, excerpt
+re-render worked. Details: `docs/live-recording.md`. **669 tests pass** (19 new).
+**Switched on 2026-11-19 14:43 local** at the owner's request: `acquisition.only: false`,
+`live_recording.enabled: true`; supervisor and dashboard restarted; Kai Cenat and
+StableRonaldo began recording immediately. The restart also fixed a stale supervisor
+that had been failing every clip cycle since the quality commit (`frame_rate: source`). Publishing stays dry-run; hook titles use the
+existing metered Haiku call (~$0.001 per clip). Kick chat is not read.
 
 **Clip quality pipeline + bleeping (2026-11-18, Claude Code):** owner-specified
 upgrade of the existing renderer (no parallel pipeline). Layouts in

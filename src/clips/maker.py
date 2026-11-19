@@ -202,7 +202,14 @@ def words_for(clip, settings):
     """
     if clip.get("recording_id"):
         from src.clips.recordings import recording_row, recording_words
-        return recording_words(recording_row(clip["recording_id"]), settings)
+        recording = recording_row(clip["recording_id"])
+        # Once a live chunk is deleted the clip points at a short excerpt
+        # instead, whose words were copied into the cache when it was cut.
+        if recording is not None and recording["file_path"] == clip["file_path"]:
+            return recording_words(recording, settings)
+        cache_name = f"excerpt_{clip['id']}"
+        return transcribe_clip(clip["file_path"], cache_name, settings.transcription.whisper_model,
+                               settings.transcription.language, settings.transcription.engine)
     cache_name = f"{clip['source']}_{clip['id']}"
     return transcribe_clip(clip["file_path"], cache_name, settings.transcription.whisper_model,
                            settings.transcription.language, settings.transcription.engine)

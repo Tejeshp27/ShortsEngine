@@ -181,6 +181,59 @@ def publish_clips():
             event("publishing_check_failed", channel=item["key"], error=safe_error(error))
 
 
+def clip_jobs_running(channel):
+    """
+    Check whether a clip pipeline or re-cut job is working on this channel right now.
+
+    Args:
+        channel: The clips channel's configuration key.
+
+    Returns:
+        True while such a job is queued or running (its files must not be deleted).
+    """
+    from src.storage.database import get_connection
+
+    connection = get_connection()
+    try:
+        row = connection.execute("""SELECT 1 FROM jobs WHERE channel=? AND status IN ('queued','running')
+            AND kind IN ('clip_pipeline','clip_render') LIMIT 1""", (channel,)).fetchone()
+    finally:
+        connection.close()
+    return row is not None
+
+
+def manage_live_channels():
+    """
+    Run the rolling live recorder and footage clean-up for every clips channel.
+
+    Returns:
+        A dictionary of channel → recorder summary. One channel's error never stops another.
+    """
+    from src.clips.live_recorder import manage_live_recording
+    from src.clips.retention import release_processed_recordings, release_published_videos
+    from src.dashboard.accounts import safe_error
+    from src.dashboard.settings import channel_config, list_channels
+
+    results = {}
+    for item in list_channels():
+        channel = item["key"]
+        try:
+            config = channel_config(channel)
+            if config.get("type") != "clips":
+                continue
+            summary = manage_live_recording(channel, config)
+            summary["released"] = []
+            # Never delete footage while a job may be reading it.
+            if not clip_jobs_running(channel):
+                summary["released"] = release_processed_recordings(channel, config)
+                release_published_videos(channel, config)
+            results[channel] = summary
+        except Exception as error:
+            event("live_recording_failed", channel=channel, error=safe_error(error))
+            results[channel] = {"errors": [safe_error(error)]}
+    return results
+
+
 def tick(publishing=False):
     """
     Recover stale jobs, queue due work, clean safe fragments and write health; return a status dictionary.
@@ -203,15 +256,19 @@ def tick(publishing=False):
     jobs = []
     if not low_disk:
         jobs = queue_due_channels()
+    live = manage_live_channels()
     status.update({"pid": os.getpid(), "updated_at": time.time(), "alive": True,
                    "low_disk": low_disk, "free_gb": round(free, 2), "new_jobs": jobs,
-                   "publishing_check_running": publishing})
+                   "publishing_check_running": publishing, "live_recording": live})
     STATE.mkdir(parents=True, exist_ok=True)
     temporary = STATE / "health.json.part"
     temporary.write_text(json.dumps(status, indent=2))
     os.replace(temporary, STATE / "health.json")
     write_status(status)
     event("tick", new_jobs=jobs, low_disk=low_disk, removed_temporary_files=len(removed))
+    for channel, summary in live.items():
+        if summary.get("started") or summary.get("stopped") or summary.get("imported") or summary.get("released"):
+            event("live_recording", channel=channel, **summary)
     return status
 
 

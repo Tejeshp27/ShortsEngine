@@ -170,6 +170,12 @@ were not recorded. The existing supervisor continues its established schedule.
 
 ## Next implementation
 
+**Update 2026-11-19:** steps 1–5 are built as the rolling live recorder
+(`docs/live-recording.md`): all approved streamers (most-watched first, capped
+concurrency), chunk overlap, chat and viewer-clip engagement, atomic import with
+move, low-disk limits, restart adoption, duplicate-moment guard and automatic
+deletion. A bounded real test passed and it was switched on 2026-11-19; step 6 (Linux/Docker, server choice) remains.
+
 1. Wrap the tested Streamlink CLI route in a bounded recorder adapter driven by
    existing live-status monitoring and the supervisor. Begin with Jason only,
    one recording at a time; retain channel-specific creator settings.

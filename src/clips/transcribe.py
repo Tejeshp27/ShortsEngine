@@ -334,6 +334,52 @@ def words_from_whisper_cpp(wav_path, output_base, model_name, language):
     return words
 
 
+def transcript_cache_path(cache_name, model_name, language, engine):
+    """
+    Work out where a clip's transcript is saved in the cache folder.
+
+    Args:
+        cache_name (str): The clip's unique cache name, e.g. "excerpt_12".
+        model_name (str): Which Whisper model made it, e.g. "small.en".
+        language (str): The spoken language, e.g. "en".
+        engine (str): The engine actually used ("whisper.cpp" or "faster-whisper").
+
+    Returns:
+        str: The JSON file path, e.g. "cache/transcripts/excerpt_12_small.en_en.json".
+    """
+    # A different engine/language/model must not silently reuse an older
+    # transcript. whisper.cpp keeps its original file names.
+    suffix = ""
+    if engine == "faster-whisper":
+        suffix = "_faster-whisper"
+    return os.path.join(TRANSCRIPT_CACHE_FOLDER, f"{cache_name}_{model_name}_{language}{suffix}.json")
+
+
+def save_transcript_cache(cache_name, words, model_name="small.en", language="en", engine="auto"):
+    """
+    Save already-known timed words as a clip's cached transcript.
+
+    Used when a short excerpt is cut from a longer recording that was
+    already transcribed: its words are copied instead of running Whisper again.
+
+    Args:
+        cache_name (str): The excerpt's unique cache name.
+        words (list[dict]): [{"word", "start", "end"}, ...] timed from the excerpt's start.
+        model_name (str): The Whisper model the words came from.
+        language (str): The spoken language.
+        engine (str): "auto", "faster-whisper" or "whisper.cpp", as in the channel settings.
+
+    Returns:
+        str: The saved cache file path.
+    """
+    os.makedirs(TRANSCRIPT_CACHE_FOLDER, exist_ok=True)
+    cache_path = transcript_cache_path(cache_name, model_name, language, choose_engine(engine))
+    with open(cache_path + ".part", "w", encoding="utf-8") as file:
+        json.dump(words, file)
+    os.replace(cache_path + ".part", cache_path)
+    return cache_path
+
+
 def transcribe_clip(video_path, cache_name, model_name="small.en", language="en", engine="auto"):
     """
     Get the timed words spoken in a clip (cached after the first time).
@@ -353,12 +399,7 @@ def transcribe_clip(video_path, cache_name, model_name="small.en", language="en"
     """
     os.makedirs(TRANSCRIPT_CACHE_FOLDER, exist_ok=True)
     engine = choose_engine(engine)
-    # A different engine/language/model must not silently reuse an older
-    # transcript. whisper.cpp keeps its original file names.
-    suffix = ""
-    if engine == "faster-whisper":
-        suffix = "_faster-whisper"
-    cache_path = os.path.join(TRANSCRIPT_CACHE_FOLDER, f"{cache_name}_{model_name}_{language}{suffix}.json")
+    cache_path = transcript_cache_path(cache_name, model_name, language, engine)
     if os.path.exists(cache_path):
         with open(cache_path, "r", encoding="utf-8") as file:
             return json.load(file)

@@ -250,7 +250,7 @@ discovery:
 
 # Raw uploads are separate from metadata-only discovery.
 acquisition:
-  only: true                  # current phase: acquire/store sources; skip automatic editing and posting
+  only: false                 # false = recorded/imported sources are clipped automatically (posting still follows publish_dry_run)
   max_upload_mb: 2048          # bounded browser upload size; large existing recordings can use local-path import
 
 # Free, explainable local scoring. Scores estimate usefulness, not future views.
@@ -261,12 +261,12 @@ analysis:
   context_seconds: 5          # begin this many seconds before a detected reaction peak
   use_llm: false              # optional metered Claude metadata; local text is free by default
   weights:                    # relative weights; unavailable dimensions are excluded
-    entertainment: 0.25       # excitement terms plus audio contrast, not a semantic certainty
-    hook: 0.20                # an interesting opening in the first six seconds
-    audience: 0.15            # omitted unless real engagement data is available
-    clarity: 0.20             # speech coverage and complete endings
-    audio: 0.10               # audible sound, penalizing probable clipping
-    visual: 0.10              # sampled frame changes; does not recognize game events
+    entertainment: 0.20       # excitement terms plus audio contrast, not a semantic certainty
+    hook: 0.15                # an interesting opening in the first six seconds
+    audience: 0.35            # live chat bursts + viewer-made clips: the strongest sign people reacted (omitted when absent)
+    clarity: 0.15             # speech coverage and complete endings
+    audio: 0.08               # audible sound, penalizing probable clipping
+    visual: 0.07              # sampled frame changes; does not recognize game events
   excitement_terms: [wow, what, wait, unbelievable, "no way", amazing, why]  # speech cues to look for
 
 # Start from /clips/twitch_clips, or use the CLI watch command.
@@ -280,3 +280,26 @@ automation:
   require_approval: false     # owner requested autonomous clips; auto-approve only passing exports without quality warnings
   publish_dry_run: true       # scheduled publishing logs a plan and sends nothing until false
   max_uploads_per_day: 3      # distinct videos attempted per local day; both destinations share the reservation
+
+# Rolling live recorder: records approved streamers' public live streams in
+# chunks, turns each finished chunk into clips, then deletes the chunk so the
+# disk is reused. Run by the clips supervisor; follows the Start/Stop button.
+# Needs acquisition.only: false (otherwise chunks would never be clipped and deleted).
+live_recording:
+  enabled: true               # true = record streamers while they are live
+  quality: "1080p60,1080p,best"   # Streamlink qualities to try, best first (720p60 halves disk use)
+  chunk_minutes: 60           # length of each saved piece; clips come out after each piece ends
+  overlap_seconds: 120        # last 2 minutes of the previous piece are added to the next, so a moment on the boundary is not split
+  max_concurrent: 2           # most streams recorded at the same time (most-watched live streamers first)
+  max_hours_per_streamer_per_day: 6   # daily recording limit for each streamer
+  check_seconds: 60           # how often to check who is live (one Twitch API call for everyone)
+  min_free_gb_to_start: 20    # free disk needed before a new recording starts
+  stop_below_free_gb: 10      # running recordings stop if free disk drops below this
+  chat: true                  # count Twitch chat messages while recording (counts only; no text or names saved)
+  chat_bin_seconds: 5         # chat is counted in 5-second buckets
+  chat_reaction_seconds: 4    # chat usually reacts this many seconds after the moment
+  viewer_clip_weight: 3       # one viewer-made Twitch clip counts like 3x a normal bucket of chat
+  keep_source_padding_seconds: 30   # footage kept on each side of a chosen moment after the full piece is deleted (for re-cuts)
+  delete_raw_after_processing: true # delete each full piece once its clips are made
+  delete_posted_after_hours: 24     # delete a finished video's file this long after it reached every platform (or was rejected)
+  folder: "recordings/live"   # where pieces are written while recording (git-ignored)

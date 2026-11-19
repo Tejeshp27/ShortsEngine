@@ -237,6 +237,57 @@ class AnalysisSettings(BaseModel):
     excitement_terms: list[str] = ["wow", "what", "wait", "unbelievable", "no way", "amazing", "why"]
 
 
+class LiveRecordingSettings(BaseModel):
+    """
+    How approved streamers' public live streams are recorded in rolling chunks.
+
+    The recorder saves each stream in chunks (for example one hour), turns
+    every finished chunk into clips, then deletes the chunk so the disk is
+    reused. Live chat activity and viewer-made Twitch clips are counted
+    while recording, because they show which moments people reacted to.
+
+    Fields (see channels/twitch_clips.yaml for a comment on each):
+        enabled: Record live streams at all.
+        quality: Streamlink quality names to try, best first.
+        chunk_minutes: Length of each saved piece of a stream.
+        overlap_seconds: Seconds of the previous chunk added to the start of
+            the next one, so a moment on the boundary is not cut in half.
+        max_concurrent: Most streams recorded at the same time.
+        max_hours_per_streamer_per_day: Daily recording limit per streamer.
+        check_seconds: How often to check who is live.
+        min_free_gb_to_start: Free disk needed before a new recording starts.
+        stop_below_free_gb: Running recordings stop when free disk drops below this.
+        chat: Count Twitch chat messages while recording (no text is stored).
+        chat_bin_seconds: Chat messages are counted in buckets of this many seconds.
+        chat_reaction_seconds: How long after a moment chat usually reacts.
+        viewer_clip_weight: How much one viewer-made clip counts, compared
+            with a normal amount of chat in one bucket.
+        keep_source_padding_seconds: Seconds of footage kept on each side of
+            every chosen moment after the full chunk is deleted (for re-cuts).
+        delete_raw_after_processing: Delete each chunk once its clips are made.
+        delete_posted_after_hours: Delete a finished video's file this many
+            hours after it was delivered everywhere (or rejected).
+        folder: Where chunks are written while a stream is being recorded.
+    """
+    enabled: bool = False
+    quality: str = Field(default="1080p60,1080p,best", pattern=r"^[A-Za-z0-9_,]+$")
+    chunk_minutes: float = Field(default=60, ge=2, le=180)
+    overlap_seconds: float = Field(default=120, ge=0, le=600)
+    max_concurrent: int = Field(default=2, ge=1, le=20)
+    max_hours_per_streamer_per_day: float = Field(default=6, gt=0, le=24)
+    check_seconds: int = Field(default=60, ge=30, le=3600)
+    min_free_gb_to_start: float = Field(default=20, ge=1)
+    stop_below_free_gb: float = Field(default=10, ge=0.5)
+    chat: bool = True
+    chat_bin_seconds: int = Field(default=5, ge=1, le=60)
+    chat_reaction_seconds: float = Field(default=4, ge=0, le=30)
+    viewer_clip_weight: float = Field(default=3, ge=0, le=50)
+    keep_source_padding_seconds: float = Field(default=30, ge=0, le=300)
+    delete_raw_after_processing: bool = True
+    delete_posted_after_hours: float = Field(default=24, ge=0, le=8760)
+    folder: str = "recordings/live"
+
+
 class AutomationSettings(BaseModel):
     """Control repeated runs; YAML inputs set intervals, retries, review, and daily upload limits."""
 
@@ -306,6 +357,7 @@ class ClipChannelSettings(BaseModel):
     credit: CreditSettings = CreditSettings()
     analysis: AnalysisSettings = AnalysisSettings()
     automation: AutomationSettings = AutomationSettings()
+    live_recording: LiveRecordingSettings = LiveRecordingSettings()
 
 
 def is_clips_channel(config):
@@ -420,7 +472,8 @@ def load_clip_settings(config):
     # schedule, publishing...) is used by other parts of the program.
     sections = {}
     known_sections = ["streamers", "clips", "discovery", "transcription", "layout", "encoding",
-                      "audio", "bleep", "source", "captions", "hook_title", "credit", "analysis", "automation"]
+                      "audio", "bleep", "source", "captions", "hook_title", "credit", "analysis", "automation",
+                      "live_recording"]
     for key in known_sections:
         if config.get(key) is not None:
             sections[key] = config[key]
@@ -446,6 +499,11 @@ def load_clip_settings(config):
         total += weight
     if total <= 0:
         raise ValueError("At least one analysis weight must be positive.")
+    live = settings.live_recording
+    if live.stop_below_free_gb >= live.min_free_gb_to_start:
+        raise ValueError("live_recording.stop_below_free_gb must be smaller than min_free_gb_to_start.")
+    if live.overlap_seconds >= live.chunk_minutes * 60:
+        raise ValueError("live_recording.overlap_seconds must be shorter than one chunk.")
     return settings
 
 
