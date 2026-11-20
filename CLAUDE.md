@@ -7,6 +7,10 @@ Update this file whenever significant behavior or architecture changes.
 
 ### Latest: rolling live recorder built (2026-11-19)
 
+**Paused 2026-11-20 by the owner:** `live_recording.enabled: false` in
+`channels/twitch_clips.yaml`. The supervisor stopped the running capture; chunks
+already recorded are still turned into clips for review. Set it back to `true` to resume.
+
 The recorder from the next-steps below is implemented and tested (see the first
 Current phase entry and `docs/live-recording.md`). It was switched on 2026-11-19. The same day the owner moved all three News Made
 Simple connections (YouTube NewsMadeSimple, Instagram newsmadesimple60s, TikTok

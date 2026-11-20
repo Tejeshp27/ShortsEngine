@@ -300,7 +300,7 @@ automation:
 # disk is reused. Run by the clips supervisor; follows the Start/Stop button.
 # Needs acquisition.only: false (otherwise chunks would never be clipped and deleted).
 live_recording:
-  enabled: true               # true = record streamers while they are live
+  enabled: false              # true = record streamers while they are live
   quality: "1080p60,1080p,best"   # Streamlink qualities to try, best first (720p60 halves disk use)
   chunk_minutes: 60           # length of each saved piece; clips come out after each piece ends
   overlap_seconds: 120        # last 2 minutes of the previous piece are added to the next, so a moment on the boundary is not split

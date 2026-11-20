@@ -207,16 +207,16 @@ Suggested commit after review: `feat: supervise clip automation with launchd and
 <!-- RUNTIME_STATUS_START -->
 ## Live supervisor status
 
-Updated: 2026-11-20 13:55:13 CST · PID 74145
-Free disk: 115.09 GB · Low-disk pause: False
+Updated: 2026-11-20 17:30:43 CST · PID 74145
+Free disk: 115.79 GB · Low-disk pause: False
 
-- twitch_clips: queue enabled=True; recordings=41; finished clips=95.
+- twitch_clips: queue enabled=True; recordings=44; finished clips=107.
   - TikTok inbox delivery requires manual posting; Direct Post is not enabled.
   - Scheduled publishing is a dry run.
 
 Accepted file uploads (these are not public-post counts):
-- tiktok: 1
-- youtube: 1
+- tiktok: 2
+- youtube: 2
 
 Verified public URLs:
 - youtube, video 8: https://www.youtube.com/shorts/YZx9m0Zm0_E
