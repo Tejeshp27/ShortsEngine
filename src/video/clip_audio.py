@@ -201,7 +201,10 @@ def beep_amplitude(speech_rms, volume):
 
     Example:
         beep_amplitude(0.1, 1.0)  # → 0.1414...
+        beep_amplitude(0.1, 0)    # → 0.0 (silence: the word is muted, no tone)
     """
+    if volume <= 0:
+        return 0.0
     amplitude = speech_rms * math.sqrt(2) * volume
     return min(MAX_BEEP_AMPLITUDE, max(MIN_BEEP_AMPLITUDE, amplitude))
 
@@ -255,7 +258,10 @@ def apply_bleeps(samples, spans, tone_hz, volume, sample_rate=SAMPLE_RATE):
         original = samples[first:last]
         speech_rms = float(np.sqrt(np.mean(original ** 2)))
         amplitude = beep_amplitude(speech_rms, volume)
-        levels.append(round(20 * math.log10(amplitude), 1))
+        if amplitude > 0:
+            levels.append(round(20 * math.log10(amplitude), 1))
+        else:
+            levels.append(None)   # muted, no tone played
 
         envelope = bleep_envelope(last - first, sample_rate)
         times = np.arange(last - first) / sample_rate

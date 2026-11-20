@@ -233,3 +233,14 @@ def test_failed_cleanup_warns_and_uses_plain_sound(tmp_path, monkeypatch):
     assert Path(result["path"]).read_bytes() == b"plain"
     assert result["filter"] is None
     assert any("cleanup failed" in warning for warning in result["warnings"])
+
+
+def test_volume_zero_mutes_the_word_without_a_tone():
+    """bleep.volume 0 silences the swear word and adds no beep sound."""
+    samples = np.full((48000, 2), 0.3, dtype=np.float32)
+    result, levels = clip_audio.apply_bleeps(samples, [{"start": 0.25, "end": 0.75}], 1000, 0)
+    middle = result[int(0.3 * 48000):int(0.7 * 48000)]
+    assert float(np.abs(middle).max()) == 0.0
+    assert levels == [None]
+    # Sound outside the muted word is untouched.
+    assert np.array_equal(result[:int(0.2 * 48000)], samples[:int(0.2 * 48000)])

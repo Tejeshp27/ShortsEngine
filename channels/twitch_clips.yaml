@@ -183,12 +183,12 @@ audio:
 
 # Profanity bleeping. Edit the word list in config/profanity.yaml.
 bleep:
-  enabled: true               # mute each listed word and play a beep instead
+  enabled: true               # mute each listed word (and play a beep if volume > 0)
   word_list: "config/profanity.yaml"  # editable list of words to bleep
   padding_seconds: 0.08       # extra muted time before and after each word (precise word edges can still be ~0.1 s off)
   min_seconds: 0.15           # shortest beep, so a quick word is not just a click
   tone_hz: 1000               # beep pitch (1 kHz is the classic TV bleep)
-  volume: 0.4                 # beep loudness compared with the voice it replaces (1 = the same; 0.4 = clearly quieter)
+  volume: 0                   # beep loudness vs. the voice it replaces (1 = the same; 0.1 = faint; 0 = no tone, the word is just muted — owner choice 2026-11-20)
   mask_captions: true         # show "f******" in the burned-in captions too
   precise_timing: true        # re-time each swear word with faster-whisper so the beep sits exactly on it
   max_seconds_per_letter: 0.09  # a word that can't be re-timed is bleeped at most this long per letter, so the next words are heard

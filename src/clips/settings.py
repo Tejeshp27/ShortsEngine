@@ -205,7 +205,8 @@ class BleepSettings(BaseModel):
     padding_seconds: Extra muted time before and after each word.
     min_seconds: The shortest beep, so a quick word is not just a click.
     tone_hz: The beep's pitch (1000 Hz is the classic TV bleep).
-    volume: Beep loudness compared with the voice it replaces (1 = the same).
+    volume: Beep loudness compared with the voice it replaces (1 = the same;
+            0 = no tone at all, the word is simply muted).
     mask_captions: Show "f***" instead of the word in the burned-in captions.
     precise_timing: Re-time each swear word with faster-whisper so the beep sits
                     exactly on it (see src/clips/bleep_timing.py).
@@ -217,7 +218,7 @@ class BleepSettings(BaseModel):
     padding_seconds: float = Field(default=0.04, ge=0, le=0.3)
     min_seconds: float = Field(default=0.15, ge=0.05, le=1)
     tone_hz: int = Field(default=1000, ge=200, le=4000)
-    volume: float = Field(default=0.8, ge=0.1, le=2)
+    volume: float = Field(default=0.8, ge=0, le=2)
     mask_captions: bool = True
     precise_timing: bool = True
     max_seconds_per_letter: float = Field(default=0.09, ge=0.04, le=0.3)

@@ -336,6 +336,13 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**Silent bleeps (2026-11-20, Claude Code):** owner wanted swear words removed without
+added noise. `bleep.volume` may now be 0 (was ≥0.1): the word is faded out and muted
+(8 ms fades) with no tone; `beep_levels_db` records None. Twitch YAML set to 0. Existing
+drafts keep their old 0.4 beeps until re-rendered. TikTok "succeeded" deliveries (videos
+8, 10) are inbox uploads that never appeared in the owner's app; Direct Post is not
+available for this kind of private upload tool (see the 2026-11-17 notes). **686 tests pass.**
+
 **Streamer-only captions (2026-11-19, Claude Code):** Whisper split "[MUSIC PLAYING]"
 into two words and only the first was dropped, so "PLAYING]" reached captions (and
 "Cheering)" a title); `transcribe.remove_sound_labels` now drops whole labels, including
