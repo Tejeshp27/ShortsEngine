@@ -23,6 +23,8 @@
 
 import json
 import os
+import time
+import urllib.error
 import urllib.request
 import urllib.parse
 
@@ -51,8 +53,23 @@ def _tiktok_post(endpoint, payload, access_token):
     request.add_header("Authorization", f"Bearer {access_token}")
     request.add_header("Content-Type", "application/json; charset=UTF-8")
 
-    with urllib.request.urlopen(request, timeout=30) as response:
-        result = json.loads(response.read())
+    # urlopen raises HTTPError for 4xx/5xx answers. TikTok puts the real
+    # reason (for example "spam_risk_too_many_pending_share") in the body,
+    # so we read the body instead of letting it get thrown away.
+    try:
+        with urllib.request.urlopen(request, timeout=30) as response:
+            result = json.loads(response.read())
+    except urllib.error.HTTPError as http_error:
+        body = http_error.read().decode("utf-8", errors="replace")
+        try:
+            result = json.loads(body)
+        except ValueError:
+            raise RuntimeError(f"TikTok HTTP {http_error.code}: {body[:300]}")
+        error = result.get("error", {})
+        raise RuntimeError(
+            f"TikTok HTTP {http_error.code}: {error.get('code', '?')} - "
+            f"{error.get('message', body[:300])} (log_id {error.get('log_id', '?')})"
+        )
 
     error = result.get("error", {})
     if error.get("code", "ok") != "ok":
@@ -101,15 +118,18 @@ def upload_to_drafts(video_path, caption, access_token=None):
 
     video_size = os.path.getsize(video_path)
 
+    # A single chunk can be at most 64 MB. Shorts are almost always smaller.
+    if video_size > 64 * 1024 * 1024:
+        raise RuntimeError(
+            f"Video is {video_size // (1024 * 1024)} MB; single-chunk upload "
+            "only supports up to 64 MB. Re-encode it smaller first."
+        )
+
     # Step 1: Tell TikTok we're about to upload and get an upload URL.
+    # The inbox (draft) endpoint only takes "source_info". Caption and
+    # privacy are chosen by you in the TikTok app when you finish the draft,
+    # so "post_info" is not sent here (it belongs to Direct Post).
     init_payload = {
-        "post_info": {
-            "title": caption[:150],       # TikTok uses "title" for the caption
-            "privacy_level": "SELF_ONLY", # keeps it private until you post manually
-            "disable_duet": False,
-            "disable_comment": False,
-            "disable_stitch": False,
-        },
         "source_info": {
             "source": "FILE_UPLOAD",
             "video_size": video_size,
@@ -140,9 +160,50 @@ def upload_to_drafts(video_path, caption, access_token=None):
         if resp.status not in (200, 201, 204):
             raise RuntimeError(f"TikTok video upload failed with HTTP {resp.status}")
 
-    print(f"  Uploaded to TikTok inbox (publish_id: {publish_id})")
-    print("  Open the TikTok app → inbox → tap the notification to review and post.")
+    # Step 3: Wait for TikTok to finish processing so we know it really worked.
+    status = wait_for_status(publish_id, token)
+    print(f"  TikTok status: {status} (publish_id: {publish_id})")
+    print("  Open the TikTok app → Inbox → tap the notification to finish posting.")
+    print("  Caption to paste:")
+    print("  " + caption)
     return publish_id
+
+
+def wait_for_status(publish_id, access_token, max_wait_seconds=180):
+    """
+    Ask TikTok how the upload is going until it lands in the inbox or fails.
+
+    Args:
+        publish_id (str): The id returned by the init call.
+        access_token (str): Bearer token.
+        max_wait_seconds (int): Give up checking after this long.
+
+    Returns:
+        str: The last status TikTok reported, e.g. "SEND_TO_USER_INBOX".
+
+    Raises:
+        RuntimeError: If TikTok reports the upload FAILED.
+    """
+    status = "UNKNOWN"
+    waited = 0
+    while waited < max_wait_seconds:
+        result = _tiktok_post(
+            "/post/publish/status/fetch/", {"publish_id": publish_id}, access_token
+        )
+        data = result.get("data", {})
+        status = data.get("status", "UNKNOWN")
+
+        if status == "FAILED":
+            raise RuntimeError(f"TikTok processing failed: {data.get('fail_reason', 'unknown')}")
+        if status in ("SEND_TO_USER_INBOX", "PUBLISH_COMPLETE"):
+            return status
+
+        # Still PROCESSING_UPLOAD; check again in a few seconds.
+        time.sleep(5)
+        waited += 5
+
+    # Not an error: big files can take a while. Check the app's inbox.
+    return status
 
 
 def build_caption(story_title, story_url, channel_config):
