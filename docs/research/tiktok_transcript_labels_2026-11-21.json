@@ -1,0 +1,626 @@
+{
+ "7696646774114536717": {
+  "blind_code": "T001",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7698474079187111198": {
+  "blind_code": "T002",
+  "moment": "banter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7634771428809657622": {
+  "blind_code": "T003",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7707478099167874317": {
+  "blind_code": "T004",
+  "moment": "conflict",
+  "moment_group": "conflict/drama",
+  "payoff": "no"
+ },
+ "7706833012645825822": {
+  "blind_code": "T005",
+  "moment": "opinion/gossip",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7705539805286796557": {
+  "blind_code": "T006",
+  "moment": "outcome (game)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7697344192799984926": {
+  "blind_code": "T007",
+  "moment": "discovery",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7707457211194150174": {
+  "blind_code": "T008",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7672506445530746134": {
+  "blind_code": "T009",
+  "moment": "reveal/visual",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7705974039533194518": {
+  "blind_code": "T010",
+  "moment": "argument",
+  "moment_group": "conflict/drama",
+  "payoff": "no"
+ },
+ "7707741723883080982": {
+  "blind_code": "T011",
+  "moment": "outcome (award)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7704086847584062750": {
+  "blind_code": "T012",
+  "moment": "interview",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7697424274868522254": {
+  "blind_code": "T013",
+  "moment": "drama story",
+  "moment_group": "conflict/drama",
+  "payoff": "weak"
+ },
+ "7705954721915260191": {
+  "blind_code": "T014",
+  "moment": "mishap",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7546714031336230199": {
+  "blind_code": "T015",
+  "moment": "song/rap",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7707481664531844366": {
+  "blind_code": "T016",
+  "moment": "banter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7706785979230637342": {
+  "blind_code": "T017",
+  "moment": "awkward",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7705950891894983949": {
+  "blind_code": "T018",
+  "moment": "outcome (game)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7707109022242999582": {
+  "blind_code": "T019",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7697414308715679006": {
+  "blind_code": "T020",
+  "moment": "outcome (award)",
+  "moment_group": "something happens",
+  "payoff": "weak"
+ },
+ "7704861698607402262": {
+  "blind_code": "T021",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7697012338158865694": {
+  "blind_code": "T022",
+  "moment": "comic monologue",
+  "moment_group": "one-liner/joke",
+  "payoff": "yes"
+ },
+ "7704836906340830467": {
+  "blind_code": "T023",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7706444346018647309": {
+  "blind_code": "T024",
+  "moment": "outcome (game)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7692832926798482702": {
+  "blind_code": "T025",
+  "moment": "reaction",
+  "moment_group": "chat/encounter/other",
+  "payoff": "yes"
+ },
+ "7682590141801712909": {
+  "blind_code": "T026",
+  "moment": "visual (no words)",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7698599014924619022": {
+  "blind_code": "T027",
+  "moment": "reveal (money)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7704866725275241741": {
+  "blind_code": "T028",
+  "moment": "gossip",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7706753096763854111": {
+  "blind_code": "T029",
+  "moment": "banter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7706734321356279071": {
+  "blind_code": "T030",
+  "moment": "outcome (quiz)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7702675489294388511": {
+  "blind_code": "T031",
+  "moment": "gift/surprise",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7551574567299386638": {
+  "blind_code": "T032",
+  "moment": "reaction/rant",
+  "moment_group": "chat/encounter/other",
+  "payoff": "yes"
+ },
+ "7684097987466775821": {
+  "blind_code": "T033",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7704885639694634271": {
+  "blind_code": "T034",
+  "moment": "confession story",
+  "moment_group": "emotional/story",
+  "payoff": "weak"
+ },
+ "7685690085265771809": {
+  "blind_code": "T035",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7698487496094584078": {
+  "blind_code": "T036",
+  "moment": "family chaos",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7707411674352880927": {
+  "blind_code": "T037",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7707499397998775565": {
+  "blind_code": "T038",
+  "moment": "emotional speech",
+  "moment_group": "emotional/story",
+  "payoff": "weak"
+ },
+ "7707871855377435926": {
+  "blind_code": "T039",
+  "moment": "banter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7696954892627234062": {
+  "blind_code": "T040",
+  "moment": "drama gossip",
+  "moment_group": "conflict/drama",
+  "payoff": "weak"
+ },
+ "7698151954530274590": {
+  "blind_code": "T041",
+  "moment": "conflict reveal",
+  "moment_group": "conflict/drama",
+  "payoff": "yes"
+ },
+ "7697420500858965280": {
+  "blind_code": "T042",
+  "moment": "drama gossip",
+  "moment_group": "conflict/drama",
+  "payoff": "weak"
+ },
+ "7678221744657681695": {
+  "blind_code": "T043",
+  "moment": "comic line",
+  "moment_group": "one-liner/joke",
+  "payoff": "yes"
+ },
+ "7678933373175237902": {
+  "blind_code": "T044",
+  "moment": "jump scare",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7567854186134605069": {
+  "blind_code": "T045",
+  "moment": "banter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7703292519785696534": {
+  "blind_code": "T046",
+  "moment": "travel chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7704869563740998943": {
+  "blind_code": "T047",
+  "moment": "reveal (money)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7704516913912696094": {
+  "blind_code": "T048",
+  "moment": "food review",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7680311569347005709": {
+  "blind_code": "T049",
+  "moment": "story (money)",
+  "moment_group": "emotional/story",
+  "payoff": "yes"
+ },
+ "7706996714984557855": {
+  "blind_code": "T050",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7700776919310011662": {
+  "blind_code": "T051",
+  "moment": "challenge",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7704547463146835213": {
+  "blind_code": "T052",
+  "moment": "opinion",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7678527495754337567": {
+  "blind_code": "T053",
+  "moment": "purchase",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7704423401678490902": {
+  "blind_code": "T054",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7697478412750916897": {
+  "blind_code": "T055",
+  "moment": "emotional speech",
+  "moment_group": "emotional/story",
+  "payoff": "yes"
+ },
+ "7704850310623137055": {
+  "blind_code": "T056",
+  "moment": "callout/drama",
+  "moment_group": "conflict/drama",
+  "payoff": "yes"
+ },
+ "7700003955438374174": {
+  "blind_code": "T057",
+  "moment": "reveal (first)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7695559259936918815": {
+  "blind_code": "T058",
+  "moment": "outcome (game)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7705939863337454879": {
+  "blind_code": "T059",
+  "moment": "confrontation",
+  "moment_group": "conflict/drama",
+  "payoff": "yes"
+ },
+ "7700705486584270110": {
+  "blind_code": "T060",
+  "moment": "reveal (car)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7679864210792189197": {
+  "blind_code": "T061",
+  "moment": "skit",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7706013437041577247": {
+  "blind_code": "T062",
+  "moment": "relationship game",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7685848614048042242": {
+  "blind_code": "T063",
+  "moment": "banter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7538542054373215501": {
+  "blind_code": "T064",
+  "moment": "family skit",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7693427922945772814": {
+  "blind_code": "T065",
+  "moment": "confession",
+  "moment_group": "emotional/story",
+  "payoff": "weak"
+ },
+ "7704103869097332001": {
+  "blind_code": "T066",
+  "moment": "reveal (identity)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7702630749261942030": {
+  "blind_code": "T067",
+  "moment": "gossip",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7705225618215963917": {
+  "blind_code": "T068",
+  "moment": "song/rap",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7679498937656446221": {
+  "blind_code": "T069",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7701416302258195725": {
+  "blind_code": "T070",
+  "moment": "conflict",
+  "moment_group": "conflict/drama",
+  "payoff": "weak"
+ },
+ "7689627102165110018": {
+  "blind_code": "T071",
+  "moment": "gift/surprise",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7704105200922955041": {
+  "blind_code": "T072",
+  "moment": "story (anecdote)",
+  "moment_group": "emotional/story",
+  "payoff": "weak"
+ },
+ "7706385195829611807": {
+  "blind_code": "T073",
+  "moment": "confession story",
+  "moment_group": "emotional/story",
+  "payoff": "weak"
+ },
+ "7699230716348861709": {
+  "blind_code": "T074",
+  "moment": "drama rant",
+  "moment_group": "conflict/drama",
+  "payoff": "yes"
+ },
+ "7707778097206152470": {
+  "blind_code": "T075",
+  "moment": "outcome (award)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7695440056374299937": {
+  "blind_code": "T076",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7699276453065542934": {
+  "blind_code": "T077",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "yes"
+ },
+ "7696631435893017869": {
+  "blind_code": "T078",
+  "moment": "banter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7678927017311538445": {
+  "blind_code": "T079",
+  "moment": "discovery",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7706486719800970526": {
+  "blind_code": "T080",
+  "moment": "opinion",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7698489334877474081": {
+  "blind_code": "T081",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7658377053753871630": {
+  "blind_code": "T082",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7685424407069658399": {
+  "blind_code": "T083",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7705244797350448414": {
+  "blind_code": "T084",
+  "moment": "comic line",
+  "moment_group": "one-liner/joke",
+  "payoff": "yes"
+ },
+ "7706005385202765078": {
+  "blind_code": "T085",
+  "moment": "surprise arrival",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7683777982502079757": {
+  "blind_code": "T086",
+  "moment": "argument",
+  "moment_group": "conflict/drama",
+  "payoff": "weak"
+ },
+ "7693313848589274398": {
+  "blind_code": "T087",
+  "moment": "comic list",
+  "moment_group": "one-liner/joke",
+  "payoff": "yes"
+ },
+ "7684799882850241823": {
+  "blind_code": "T088",
+  "moment": "reaction (song)",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7685872415347461407": {
+  "blind_code": "T089",
+  "moment": "trivia story",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7695154007756639519": {
+  "blind_code": "T090",
+  "moment": "setup only",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7685871161527291158": {
+  "blind_code": "T091",
+  "moment": "discovery",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7706396758246444318": {
+  "blind_code": "T092",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7704770713999166723": {
+  "blind_code": "T093",
+  "moment": "emotional speech",
+  "moment_group": "emotional/story",
+  "payoff": "yes"
+ },
+ "7700009954261978390": {
+  "blind_code": "T094",
+  "moment": "outcome (game)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7687041997714050337": {
+  "blind_code": "T095",
+  "moment": "encounter",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7697423295808802080": {
+  "blind_code": "T096",
+  "moment": "outcome (fight)",
+  "moment_group": "something happens",
+  "payoff": "yes"
+ },
+ "7707499777230916895": {
+  "blind_code": "T097",
+  "moment": "chit-chat",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7707466587950894366": {
+  "blind_code": "T098",
+  "moment": "music",
+  "moment_group": "chat/encounter/other",
+  "payoff": "no"
+ },
+ "7702314927406566687": {
+  "blind_code": "T099",
+  "moment": "gossip",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7690377861596826902": {
+  "blind_code": "T100",
+  "moment": "controversy",
+  "moment_group": "conflict/drama",
+  "payoff": "weak"
+ },
+ "7686340748391894294": {
+  "blind_code": "T101",
+  "moment": "chaos",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7682590680627154190": {
+  "blind_code": "T102",
+  "moment": "tour/reveal",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7684686942893542669": {
+  "blind_code": "T103",
+  "moment": "reaction",
+  "moment_group": "chat/encounter/other",
+  "payoff": "weak"
+ },
+ "7702617147062750494": {
+  "blind_code": "T104",
+  "moment": "apology",
+  "moment_group": "emotional/story",
+  "payoff": "weak"
+ }
+}
