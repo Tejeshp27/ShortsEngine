@@ -169,6 +169,17 @@ model (`src/clips/expressions.py`), alongside the sound model and the transcript
 - **How clips end:** hits leave about 1 s after the last word (1.0 s vs 0.5 s;
   18 / 8). Our trimming already keeps 1 s, and up to 3 s while laughing.
 
+- **Spoken words** (auto-transcripts; 927 clips at 3x+ usual vs 714 at 0.4x
+  or less, words used in 6+ accounts). Clips are pooled across accounts, so
+  these are themes, not measured effects:
+  - *Breakout words* are real-world action and people: open (37 vs 7 clips),
+    buy (30 vs 5), family, outside, award, week, song, fake, bet, message,
+    Kai, Marlon, streamers, and body words (hands, head, eyes, touch).
+  - *Flop words* are gaming and explaining: gta, kill, fight, winner,
+    basically, story, reason, plus generic "holy", "funny" and "chat".
+  This agrees with the shock finding: real-life events and other people beat
+  in-game action and explanations.
+
 Small blind samples; treat the percentages as directions.
 
 ### 2.5 Smaller notes
