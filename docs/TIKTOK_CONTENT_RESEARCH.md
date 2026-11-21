@@ -144,6 +144,33 @@ against 0.91x for the later one. This is suggestive (caption matching is
 loose), but it fits the live recorder's advantage: we can post a moment
 within the hour.
 
+### 2.4b Watching for laughing and shocked faces (2,000+ more clips)
+
+The watcher also read every face twice a second with the FER+ expression
+model (`src/clips/expressions.py`), alongside the sound model and the transcript.
+
+- **A laughing face alone does not make a clip.** Peak "happiness" first
+  looked higher in hits (20 / 6 accounts after 197 clips). After 431 clips it
+  was 15 / 11. Streamers smile and laugh constantly, in flops too. The model
+  also scores plain smiles as happiness and open-mouth talking as surprise.
+- **What caused the laugh matters** (60 laughs read blind, 30 per group):
+  banter jokes were equally common (37% of hit laughs vs 43% of flop laughs)
+  and polite or social laughs were more common in flops (33% vs 20%).
+  Awkward moments (13% vs 0%), hype (13% vs 7%) and chaos (10% vs 7%) leaned
+  towards hits.
+- **What caused the shock matters** (40 shocked faces with nobody talking,
+  stills read blind): a **real-life shock** was 42% of hit moments vs 10% of
+  flop moments. That means a stunt, a prank, a scare, police, something
+  breaking, a surprise arrival or a drama reveal. **In-game hype** (a win, a
+  near-miss, a buzzer-beater) was 33% of flop moments vs 5% of hit moments.
+- **The sound model misses most laughs.** On TikTok audio, CED-tiny rarely
+  scored laughter or screaming above 0.3 (median peak laughter 0.07). It
+  hears "music" almost everywhere. Loudness plus "no words" catches far more.
+- **How clips end:** hits leave about 1 s after the last word (1.0 s vs 0.5 s;
+  18 / 8). Our trimming already keeps 1 s, and up to 3 s while laughing.
+
+Small blind samples; treat the percentages as directions.
+
 ### 2.5 Smaller notes
 
 - Hits were a little longer (median 29 s vs 23 s; 16 / 10), in line with part 1.

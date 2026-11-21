@@ -46,6 +46,9 @@ What TikTok data adds (624 streamer clips; each account's breakouts vs. its own 
   seconds are shown below as "(no words for N s, loud: a reaction)"; keep them inside the clip.
 - A laugh only counts when something CAUSED it: chaos, an awkward or embarrassing moment, a reveal, a win.
   Polite laughs (greetings, thank-yous, small talk) and casual banter laughs were just as common in flops.
+- Shock that works is about something that happened in REAL life: a stunt, a prank, a scare, police, something
+  breaking, a surprise arrival, a drama reveal (42% of shocked moments in breakouts vs. 10% in flops).
+  In-game hype (a win, a near-miss, a kill) was mostly in flops (33% vs. 5%).
 - Do not open on someone explaining what is about to happen; open inside the situation (talking set-ups
   were 45% of flop openings vs. 17% of breakout openings).
 - Moments tied to this week's story (awards, a new game, a feud, a famous guest) do best.
