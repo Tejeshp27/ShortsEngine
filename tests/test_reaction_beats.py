@@ -46,3 +46,23 @@ def test_pacing_does_not_punish_a_laughing_gap():
     assert quiet_evidence["reaction_beats"] == 0
     assert quiet_evidence["dead_air_seconds"] > 0
     assert loud_parts["pacing"] > quiet_parts["pacing"]
+
+
+def test_editor_message_marks_reaction_beats():
+    from src.clips import editor
+
+    words = make_words([(second, second + 0.9) for second in range(0, 6)] +
+                       [(second, second + 0.9) for second in range(10, 15)])
+    volume = [-20] * 6 + [-16, -15, -17, -18] + [-20] * 5
+    beats = editor.reaction_beats(words, 0, 15, volume, [])
+    assert beats == [(5.9, 4.1)]
+    message = editor.build_user_message([{"start": 0, "end": 15}], words, [], [], 0, 15, volume=volume)
+    assert "(no words for 4 s, loud: a reaction)" in message
+
+
+def test_editor_message_without_volume_has_no_beats():
+    from src.clips import editor
+
+    words = make_words([(0, 1), (5, 6)])
+    message = editor.build_user_message([{"start": 0, "end": 6}], words, [], [], 0, 6)
+    assert "no words for" not in message

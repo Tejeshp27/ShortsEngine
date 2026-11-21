@@ -40,6 +40,16 @@ What the data says (10,263 Shorts from 78 streamer-clip channels, each channel's
   explaining, game menus, and GTA/NPC roleplay dialogue ("in GTA" titles were 2.6x more common among flops).
 - If you cannot name the unexpected event in a few words, reject the moment.
 
+What TikTok data adds (624 streamer clips; each account's breakouts vs. its own flops):
+- Breakouts have moments where the reaction takes over from the talking: a few seconds with no words but
+  loud sound (dying laughing, screaming, a crowd, a stunned reaction). Shown below as "(no words for N s,
+  loud: a reaction)". Wall-to-wall talking rarely breaks out. Keep those reaction seconds inside the clip.
+- A laugh only counts when something CAUSED it: chaos, an awkward or embarrassing moment, a reveal, a win.
+  Polite laughs (greetings, thank-yous, small talk) and casual banter laughs were just as common in flops.
+- Do not open on someone explaining what is about to happen; open inside the situation (talking set-ups
+  were 45% of flop openings vs. 17% of breakout openings).
+- Moments tied to this week's story (awards, a new game, a feud, a famous guest) do best.
+
 How to judge (streamer culture):
 - Loud is not funny. Deadpan remarks, sarcasm, irony, awkward silences, someone admitting something
   embarrassing, a misunderstanding, a plan that obviously backfires, or a perfectly timed reply are often
@@ -88,7 +98,7 @@ fields to one short sentence. For a kept one, start/end must be tight (the setup
 the reaction), not the whole range of lines shown."""
 
 
-def transcript_lines(words, start, end, marks, chat_peaks):
+def transcript_lines(words, start, end, marks, chat_peaks, beats=None):
     """
     Write a window's speech as short timestamped lines, with sound/chat marks.
 
@@ -98,6 +108,8 @@ def transcript_lines(words, start, end, marks, chat_peaks):
         end (float): ...to this time.
         marks (list[tuple]): (second, "LAUGH"/"SCREAM"/"CHEER") from audio_events.event_marks().
         chat_peaks (list[tuple]): (second, ratio) chat bursts.
+        beats (list[tuple]): (start_second, length_seconds) of loud wordless
+            reaction beats (from reaction_beats), or None.
 
     Returns:
         str: For example "[12.3] why would you do that?\\n[15] (LAUGH heard)".
@@ -125,6 +137,9 @@ def transcript_lines(words, start, end, marks, chat_peaks):
     for second, ratio in chat_peaks:
         if start <= second <= end:
             entries.append((float(second), f"(CHAT x{ratio:.0f})"))
+    for beat_start, beat_length in beats or []:
+        if start <= beat_start <= end:
+            entries.append((float(beat_start), f"(no words for {beat_length:.0f} s, loud: a reaction)"))
     entries.sort(key=first_item)
     text = []
     for time_seconds, content in entries:
@@ -170,7 +185,54 @@ def chat_peaks(engagement):
     return peaks
 
 
-def build_user_message(candidates, words, sounds, engagement, context_seconds, duration, after_seconds=15):
+def reaction_beats(words, start, end, volume, sounds):
+    """
+    Find the loud moments with no words inside a stretch of the recording.
+
+    These "reaction beats" (laughing, screaming, a crowd) are what TikTok
+    breakouts have more of (docs/TIKTOK_CONTENT_RESEARCH.md, section 2.2),
+    so the editor model is shown where they are.
+
+    Args:
+        words (list[dict]): Timed words of the recording.
+        start (float): Look from this time...
+        end (float): ...to this time.
+        volume (list[float]): Loudness in dB per second (signals.measure_media), may be empty.
+        sounds (list[dict]): Per-second sound chances, may be empty.
+
+    Returns:
+        list[tuple]: (start_second, length_seconds) for each gap of 2 s or
+        more that is a reaction rather than silence.
+
+    Example:
+        reaction_beats(words, 10, 40, volume, sounds)   # [(21.4, 3.1)]
+    """
+    from src.clips.ranking import gap_is_reaction, speech_gaps, words_between
+
+    spoken = words_between(words, start, end)
+    if not volume and not sounds:
+        return []
+    talk_level = None
+    if volume and spoken:
+        levels = []
+        for word in spoken:
+            second = int(word["start"])
+            if second < len(volume):
+                levels.append(volume[second])
+        if levels:
+            levels.sort()
+            talk_level = levels[len(levels) // 2]
+    beats = []
+    for gap_start, gap_end in speech_gaps(spoken, start, end):
+        if gap_end - gap_start < 2.0:
+            continue
+        if gap_is_reaction(gap_start, gap_end, volume or [], talk_level, sounds or []):
+            beats.append((round(gap_start, 1), round(gap_end - gap_start, 1)))
+    return beats
+
+
+def build_user_message(candidates, words, sounds, engagement, context_seconds, duration, after_seconds=15,
+                       volume=None):
     """
     Write the model's input: each candidate with extra context before and after.
 
@@ -181,6 +243,8 @@ def build_user_message(candidates, words, sounds, engagement, context_seconds, d
         engagement (list[dict]): Chat samples.
         context_seconds (float): Extra seconds shown before each window (setup may start earlier).
         duration (float): Recording length.
+        after_seconds (float): Extra seconds shown after each window (the best line is often later).
+        volume (list[float]): Loudness in dB per second, used to mark reaction beats (optional).
 
     Returns:
         str: The message text.
@@ -194,7 +258,8 @@ def build_user_message(candidates, words, sounds, engagement, context_seconds, d
         # Show what comes after the rough window too: the best line is often a little later.
         shown_end = min(duration, candidate["end"] + after_seconds)
         marks = event_marks(sounds, shown_start, shown_end) if sounds else []
-        lines = transcript_lines(words, shown_start, shown_end, marks, peaks)
+        beats = reaction_beats(words, shown_start, shown_end, volume or [], sounds or [])
+        lines = transcript_lines(words, shown_start, shown_end, marks, peaks, beats)
         parts.append(f"Candidate {number} (lines {shown_start:.1f}-{shown_end:.1f}s; "
                      f"rough window {candidate['start']:.1f}-{candidate['end']:.1f}s):\n{lines or '(no speech)'}")
     return "\n\n".join(parts)
@@ -272,7 +337,8 @@ def text_list(value):
     return items
 
 
-def review_candidates(candidates, words, sounds, engagement, duration, name, config, settings, llm, taste=""):
+def review_candidates(candidates, words, sounds, engagement, duration, name, config, settings, llm, taste="",
+                      volume=None):
     """
     Ask the editor model to review shortlisted moments; return one review per candidate.
 
@@ -287,6 +353,8 @@ def review_candidates(candidates, words, sounds, engagement, duration, name, con
         settings (ClipChannelSettings): ranking.context_seconds.
         llm (LLMClient): The metered, cached AI client.
         taste (str): The owner's taste notes and latest verdicts (src/clips/taste.py).
+        volume (list[float]): Loudness in dB per second (signals.measure_media), so the
+            model can see the loud wordless reaction beats (optional).
 
     Returns:
         list: Reviews (dict or None) in the candidates' order; empty list when the
@@ -297,7 +365,7 @@ def review_candidates(candidates, words, sounds, engagement, duration, name, con
     if llm is None or not candidates:
         return []
     message = build_user_message(candidates, words, sounds, engagement,
-                                 settings.ranking.context_seconds, duration)
+                                 settings.ranking.context_seconds, duration, volume=volume)
     # About 450 tokens per reviewed moment (titles included) plus the wrapper.
     max_tokens = min(4500, 450 * len(candidates) + 300)
     try:

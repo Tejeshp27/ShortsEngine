@@ -342,7 +342,7 @@ def rank_moments(recording, words, media, engagement, config, settings, streamer
     if settings.ranking.use_editor_model and llm is not None:
         from src.clips.taste import taste_block
         reviews = review_candidates(shortlist, words, sounds, engagement, duration, name, config, settings, llm,
-                                    taste_block(recording["channel"]))
+                                    taste_block(recording["channel"]), volume=media.get("volume_db", []))
     result = decide_candidates(shortlist, reviews, words, duration, settings, profile)
     recent = recent_titles(recording["channel"])
     hashtags = config.get("publishing", {}).get("hashtags", [])
