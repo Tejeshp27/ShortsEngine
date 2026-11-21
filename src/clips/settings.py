@@ -27,7 +27,8 @@ from pydantic import BaseModel, Field, ValidationError, field_validator
 
 # The streaming sites a streamer can be on, and their channel web address.
 # The credit on screen and in captions is "<address>/<username>".
-STREAM_PLATFORM_ADDRESSES = {"twitch": "twitch.tv", "kick": "kick.com"}
+# YouTube channels are addressed by their @handle (youtube.com/@ishowspeed).
+STREAM_PLATFORM_ADDRESSES = {"twitch": "twitch.tv", "kick": "kick.com", "youtube": "youtube.com"}
 
 
 # The three ways a wide stream picture can be fitted to a tall phone screen
@@ -59,7 +60,7 @@ class ApprovedStreamer(BaseModel):
 
     Fields:
         username: Their login name, e.g. "examplestreamer".
-        platform: "twitch" (clips fetched automatically) or "kick" (clips added by hand).
+        platform: "twitch" (clips fetched automatically), "kick" or "youtube" (live recording only).
         permission_note: How and where they agreed, e.g. "Said yes in a Twitch DM".
         permission_date: The day they agreed.
         permission_proof: Optional path to your screenshot of the agreement.
@@ -71,7 +72,7 @@ class ApprovedStreamer(BaseModel):
     """
     # Logins are letters, numbers, underscores (and hyphens on Kick).
     username: str = Field(min_length=1, max_length=25, pattern=r"^[A-Za-z0-9_-]+$")
-    platform: str = Field(default="twitch", pattern=r"^(twitch|kick)$")
+    platform: str = Field(default="twitch", pattern=r"^(twitch|kick|youtube)$")
     permission_note: str = Field(min_length=5, max_length=500)
     permission_date: date
     permission_proof: str = ""
@@ -331,11 +332,159 @@ class CaptionSettings(BaseModel):
     # pieces less similar than voice_match_min (0-1) are left out.
     streamer_voice_only: bool = False
     voice_match_min: float = Field(default=0.6, ge=0.2, le=0.95)
+    # Look: "clean" (sentence case, one key word coloured), "bold" (capitals,
+    # spoken word coloured), "boxed" (text on a dark box), "quote" (no word
+    # captions; the hook line stays up the whole clip), "punch" (1-2 big
+    # capital words at a time, like the top streamer-clip channels).
+    style: str = Field(default="bold", pattern=r"^(clean|bold|boxed|quote|punch)$")
+    # Colour for words from another voice (friend, guest) so viewers see who is talking.
+    other_speaker_color: str = Field(default="#7FE7FF", pattern=r"^#[0-9A-Fa-f]{6}$")
+    # Show *LAUGHING* / *SCREAMING* when those sounds are heard and nobody is talking.
+    sound_labels: bool = False
+    # Other voices: "exchange" keeps them when they talk WITH the streamer,
+    # "none" keeps only the streamer, "all" keeps every voice.
+    other_voices: str = Field(default="none", pattern=r"^(exchange|none|all)$")
+    # Remove Whisper mistakes (stock phrases over silence, loops, unheard words).
+    check_accuracy: bool = True
+
+
+class PackagingSettings(BaseModel):
+    """
+    Packaging experiments (src/clips/packaging.py): titles, hashtags and caption looks
+    keep varying, guided by how earlier posts performed, until winners are clear.
+
+    enabled: Vary packaging per clip (False = always the channel's fixed settings).
+    explore_min_tries: Each option is used at least this many times before results steer.
+    winner_confidence: An option is reported as the winner once it is this likely to be best.
+    dimensions: Optional override of the options to test, e.g. {hashtags: [minimal, game]}.
+    """
+    enabled: bool = False
+    explore_min_tries: int = Field(default=3, ge=1, le=20)
+    winner_confidence: float = Field(default=0.95, ge=0.5, le=0.999)
+    dimensions: dict[str, list[str]] = {}
+
+
+class EffectSettings(BaseModel):
+    """
+    Small edits seen in top clips (src/clips/production.py).
+
+    payoff_zoom: Slowly zoom the face (or picture) this much during the reaction
+                 after the payoff (1.0 = off; 1.12 = 12% closer).
+    payoff_black_white: Turn the reaction black-and-white (used by some top clippers).
+    """
+    payoff_zoom: float = Field(default=1.0, ge=1.0, le=1.4)
+    payoff_black_white: bool = False
+
+
+class FramingSettings(BaseModel):
+    """
+    Face-aware framing (src/clips/framing.py): find the streamer's face in
+    every clip and choose a layout that keeps the whole head visible.
+
+    enabled: Detect faces per clip (False = the fixed layout settings above).
+    sample_frames: How many frames of the moment are checked for faces.
+    full_camera_face_height: A face at least this tall (share of the picture
+        height) means a full-camera/IRL shot, cropped tall around the person.
+    gameplay_share: Gameplay's share of the screen in the stacked layout.
+    reaction_gameplay_share: Same, for reaction/conversation moments (bigger face).
+    face_share: How much of the facecam panel's height the face fills.
+    max_zoom: Largest allowed enlargement of the facecam (beyond it: fall back).
+    """
+    enabled: bool = True
+    sample_frames: int = Field(default=12, ge=4, le=40)
+    full_camera_face_height: float = Field(default=0.2, ge=0.08, le=0.6)
+    gameplay_share: float = Field(default=0.55, ge=0.4, le=0.75)
+    reaction_gameplay_share: float = Field(default=0.5, ge=0.35, le=0.75)
+    face_share: float = Field(default=0.3, ge=0.15, le=0.6)
+    max_zoom: float = Field(default=4.0, ge=1.5, le=8)
+
+
+class RankingSettings(BaseModel):
+    """
+    Moment ranking (src/clips/ranking.py + src/clips/editor.py).
+
+    enabled: Use this ranking (False = the older analysis.weights scoring).
+    profile: The versioned weights/thresholds file (config/clip_ranking/).
+             Roll back by pointing at an older file.
+    ab_profile: Optional second profile for an A/B test: odd-numbered
+                recordings use it, even ones use `profile`; the decision log
+                records which one chose each clip (compare with `feedback`).
+    use_editor_model: Let the cheap model read and judge shortlisted moments
+                      (one call per recording, ~1–2 cents per recorded hour).
+    shortlist_size: How many locally found moments the model reviews.
+    context_seconds: Extra transcript shown before each moment (for its setup).
+    """
+    enabled: bool = True
+    profile: str = "config/clip_ranking/v1.yaml"
+    ab_profile: str = ""
+    use_editor_model: bool = True
+    shortlist_size: int = Field(default=6, ge=1, le=12)
+    context_seconds: float = Field(default=20, ge=0, le=60)
+
+
+class TrimSettings(BaseModel):
+    """
+    Smart trimming (src/clips/trimming.py). Seconds unless stated.
+
+    enabled: Tighten every clip (False = keep the chosen start/end as they are).
+    lead_seconds: Sound kept before the first line.
+    max_dead_air_seconds: Silent gaps longer than this may be shortened...
+    keep_gap_seconds: ...down to this much.
+    comedic_pause_seconds: The pause just before the payoff may stay this long.
+    reaction_tail_seconds: Kept after the payoff line.
+    max_tail_seconds: Longest tail while people are still laughing.
+    max_cuts: Most jump cuts per clip (prevents over-editing).
+    """
+    enabled: bool = True
+    lead_seconds: float = Field(default=0.25, ge=0, le=2)
+    max_dead_air_seconds: float = Field(default=1.4, ge=0.5, le=10)
+    keep_gap_seconds: float = Field(default=0.5, ge=0.1, le=3)
+    comedic_pause_seconds: float = Field(default=2.5, ge=0.5, le=6)
+    reaction_tail_seconds: float = Field(default=1.0, ge=0.2, le=5)
+    max_tail_seconds: float = Field(default=3.0, ge=0.5, le=8)
+    max_cuts: int = Field(default=3, ge=0, le=10)
+
+
+class TitleSettings(BaseModel):
+    """
+    Title rules (src/clips/titles.py).
+
+    hook_max_words: On-screen hook text length.
+    youtube_max_words: YouTube Shorts title length.
+    max_emoji: Most emoji in a title.
+    max_hashtags: Most hashtags in a post (TikTok shows at most 5).
+    minimum_score: Model title ideas scoring below this (0–100) are not used.
+    """
+    hook_max_words: int = Field(default=8, ge=2, le=15)
+    youtube_max_words: int = Field(default=12, ge=4, le=20)
+    max_emoji: int = Field(default=1, ge=0, le=3)
+    max_hashtags: int = Field(default=4, ge=0, le=5)
+    minimum_score: float = Field(default=55, ge=0, le=100)
+
+
+class QASettings(BaseModel):
+    """
+    Final quality control (src/clips/qa.py).
+
+    minimum_score: Clips scoring below this (0–100) are rejected.
+    flag_below: Clips below this are kept but flagged for the owner.
+    max_repairs: Automatic re-renders for fixable problems (no endless loops).
+    min_caption_confidence: Captions below this confidence fail the caption check.
+    """
+    minimum_score: float = Field(default=60, ge=0, le=100)
+    flag_below: float = Field(default=75, ge=0, le=100)
+    max_repairs: int = Field(default=1, ge=0, le=3)
+    min_caption_confidence: float = Field(default=0.6, ge=0, le=1)
 
 
 class HookTitleSettings(BaseModel):
-    """Validate opening title duration, size, word limit and optional model generation; missing YAML uses defaults."""
-    seconds: float = Field(default=3.0, ge=0.5, le=10)
+    """Validate opening title duration, size, word limit and optional model generation; missing YAML uses defaults.
+
+    seconds: how long the hook/context line stays up; 0 = the whole clip.
+    style: "box" (dark text on a white box) or "outline" (white text with a black outline).
+    """
+    seconds: float = Field(default=3.0, ge=0, le=10)
+    style: str = Field(default="box", pattern=r"^(box|outline)$")
     font_size: int = Field(default=80, ge=30, le=160)
     max_words: int = Field(default=8, ge=2, le=15)
     use_llm: bool = False
@@ -375,6 +524,13 @@ class ClipChannelSettings(BaseModel):
     analysis: AnalysisSettings = AnalysisSettings()
     automation: AutomationSettings = AutomationSettings()
     live_recording: LiveRecordingSettings = LiveRecordingSettings()
+    framing: FramingSettings = FramingSettings(enabled=False)
+    ranking: RankingSettings = RankingSettings(enabled=False, use_editor_model=False)
+    trimming: TrimSettings = TrimSettings(enabled=False)
+    titles: TitleSettings = TitleSettings()
+    qa: QASettings = QASettings()
+    effects: EffectSettings = EffectSettings()
+    packaging: PackagingSettings = PackagingSettings()
 
 
 def is_clips_channel(config):
@@ -490,7 +646,7 @@ def load_clip_settings(config):
     sections = {}
     known_sections = ["streamers", "clips", "discovery", "transcription", "layout", "encoding",
                       "audio", "bleep", "source", "captions", "hook_title", "credit", "analysis", "automation",
-                      "live_recording"]
+                      "live_recording", "framing", "ranking", "trimming", "titles", "qa", "effects", "packaging"]
     for key in known_sections:
         if config.get(key) is not None:
             sections[key] = config[key]
@@ -532,8 +688,10 @@ def credit_for(streamer):
         streamer (ApprovedStreamer): An approved streamer.
 
     Returns:
-        str: For example "twitch.tv/coolstreamer" or "kick.com/coolstreamer".
+        str: For example "twitch.tv/coolstreamer", "kick.com/coolstreamer" or "youtube.com/@coolstreamer".
     """
+    if streamer.platform == "youtube":
+        return f"youtube.com/@{streamer.username.lower()}"
     return f"{STREAM_PLATFORM_ADDRESSES[streamer.platform]}/{streamer.username.lower()}"
 
 

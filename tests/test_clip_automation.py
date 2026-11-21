@@ -428,6 +428,9 @@ def test_daily_cap_and_revocation_block_new_uploads(workspace):
     assert scheduler.claim_delivery(videos[0], "youtube")
     assert scheduler.claim_delivery(videos[0], "tiktok")
     assert not scheduler.claim_delivery(videos[1], "youtube")
+    # The owner is told the real reason, not a vague "already sent or not ready".
+    assert "daily upload limit reached (1 of 1" in scheduler.delivery_block_reason(videos[1], "youtube")
+    assert "already sending" in scheduler.delivery_block_reason(videos[0], "youtube")
     config["streamers"][0]["enabled"] = False
     (root / "channels/clips_demo.yaml").write_text(yaml.safe_dump(config))
     with pytest.raises(StreamerNotApproved):

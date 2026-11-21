@@ -69,6 +69,9 @@ TEXT_BOTTOM_LIMIT = 1440
 # center-crop keeps the older fixed positions.
 CENTER_CROP_HOOK_Y = 520
 CENTER_CROP_CAPTION_Y = 1330
+# face-crop (IRL / full camera): the head is in the upper half, text goes low.
+FACE_CROP_HOOK_Y = 1250
+FACE_CROP_CAPTION_Y = 1420
 
 
 def round_to_even(number):
@@ -229,6 +232,32 @@ def make_panel(crop, height, role="picture"):
             "zoom": round(OUTPUT_WIDTH / crop["width"], 2), "role": role}
 
 
+def plan_face_square(source_width, source_height, focus_x, foreground_center):
+    """
+    Plan a fit-blur layout whose picture is a square cut around the person.
+
+    Used for close-up IRL shots whose head is too wide for a tall crop: the
+    person appears much bigger than in plain fit-blur, nothing is cut off.
+
+    Args:
+        source_width (int): Stream picture width.
+        source_height (int): Stream picture height.
+        focus_x (float): Horizontal centre of the head(s), 0 to 1.
+        foreground_center (float): Vertical position of the square (0.5 = middle).
+
+    Returns:
+        dict: A fit-blur plan with foreground["crop"] and "variant": "face-square".
+    """
+    side = round_to_even(min(source_width, source_height))
+    left = round_to_even(keep_between(source_width * focus_x - side / 2, 0, source_width - side))
+    top = round_to_even((source_height - side) / 2)
+    plan = plan_fit_blur(side, side, foreground_center)
+    plan["foreground"]["crop"] = {"x": left, "y": top, "width": side, "height": side}
+    plan["foreground"]["enlarged"] = is_enlarged(side, OUTPUT_WIDTH)
+    plan["variant"] = "face-square"
+    return plan
+
+
 def plan_fit_blur(source_width, source_height, foreground_center):
     """
     Plan the fit-blur layout: the whole picture, uncropped, on a blurred copy.
@@ -287,6 +316,51 @@ def plan_split(source_width, source_height, facecam, gameplay_share, focus_x, fa
     if facecam_on_top:
         return {"mode": "split", "panels": [camera, gameplay]}
     return {"mode": "split", "panels": [gameplay, camera]}
+
+
+def plan_framed_split(source_width, source_height, camera_crop, gameplay_share, focus_x, facecam_on_top=True):
+    """
+    Plan a split layout from a facecam crop found by face detection (src/clips/framing.py).
+
+    Same as plan_split(), but the facecam panel uses an exact pixel crop
+    around the streamer's head instead of a hand-measured webcam box.
+
+    Args:
+        source_width (int): Stream picture width.
+        source_height (int): Stream picture height.
+        camera_crop (dict): {"x", "y", "width", "height"} in source pixels, already
+                            shaped like the facecam panel.
+        gameplay_share (float): Share of the screen height for gameplay.
+        focus_x (float): Which part of the gameplay to keep (0 to 1).
+        facecam_on_top (bool): True puts the face above the gameplay.
+
+    Returns:
+        dict: {"mode": "split", "panels": [...]} like plan_split().
+    """
+    gameplay_height = round_to_even(OUTPUT_HEIGHT * gameplay_share)
+    facecam_height = OUTPUT_HEIGHT - gameplay_height
+    gameplay_crop = full_height_slice(source_width, source_height, focus_x, gameplay_height)
+    gameplay = make_panel(gameplay_crop, gameplay_height, "gameplay")
+    camera = make_panel(camera_crop, facecam_height, "facecam")
+    if facecam_on_top:
+        return {"mode": "split", "panels": [camera, gameplay]}
+    return {"mode": "split", "panels": [gameplay, camera]}
+
+
+def plan_face_crop(source_width, source_height, focus_x):
+    """
+    Plan a tall crop centred on the person (IRL or full-camera streams).
+
+    Args:
+        source_width (int): Stream picture width.
+        source_height (int): Stream picture height.
+        focus_x (float): Horizontal centre of the head(s), 0 to 1.
+
+    Returns:
+        dict: {"mode": "face-crop", "panels": [one "picture" panel]}.
+    """
+    crop = full_height_slice(source_width, source_height, focus_x, OUTPUT_HEIGHT)
+    return {"mode": "face-crop", "panels": [make_panel(crop, OUTPUT_HEIGHT, "picture")]}
 
 
 def plan_center_crop(source_width, source_height, focus_x):
@@ -375,6 +449,9 @@ def fit_blur_filter(plan, blur, darken):
     """
     foreground = plan["foreground"]
     front = f"scale={foreground['width']}:{foreground['height']}:flags={SCALE_FLAGS}"
+    if foreground.get("crop"):
+        crop = foreground["crop"]
+        front = f"crop={crop['width']}:{crop['height']}:{crop['x']}:{crop['y']}," + front
     if foreground["enlarged"]:
         front += "," + SHARPEN_FILTER
     # Background: fill the screen (cutting the sides), shrink, blur,
@@ -417,7 +494,7 @@ def build_video_filter(plan, fps, blur=20, darken=0.12):
     if plan["mode"] == "fit-blur":
         return start + fit_blur_filter(plan, blur, darken) + "," + finish
 
-    if plan["mode"] == "center-crop":
+    if plan["mode"] in ("center-crop", "face-crop"):
         return start + crop_and_scale(plan["panels"][0]) + "," + finish
 
     upper = plan["panels"][0]
@@ -460,9 +537,16 @@ def text_positions(plan):
         hook_y = foreground["top"] - 150
         caption_y = foreground["top"] + foreground["height"] + 110
     elif plan["mode"] == "split" and plan["panels"][0]["role"] == "facecam":
+        # Research (docs/VIRAL_CONTENT_RESEARCH.md): top clippers put a context
+        # line just under the face/gameplay seam and the big word captions in
+        # the middle of the gameplay, so neither covers the face.
         seam = plan["panels"][0]["height"]
-        hook_y = seam + 40
-        caption_y = seam + (TEXT_BOTTOM_LIMIT - seam) * 0.6
+        hook_y = seam + 95
+        caption_y = seam + (TEXT_BOTTOM_LIMIT - seam) * 0.55
+    elif plan["mode"] == "face-crop":
+        # The person fills the upper/middle screen; text sits low, above the app's buttons.
+        hook_y = FACE_CROP_HOOK_Y
+        caption_y = FACE_CROP_CAPTION_Y
     elif plan["mode"] == "split":
         seam = plan["panels"][0]["height"]
         hook_y = 440

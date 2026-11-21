@@ -2,6 +2,11 @@
 
 # Local recording → website → clipped MP4 pilot
 
+> **Note (2026-11-20):** the pilot evidence folder `output/local_recording_probe/`
+> (earlier draft versions, probe reports) was moved to the macOS Trash
+> (`~/.Trash/shortsengine-cleanup-20261120/`) during a clean-up. The imported
+> recordings themselves are kept in `cache/clips/recordings/`.
+
 **Quality pipeline re-render (2026-11-18, Claude Code):** draft 8 was re-rendered
 through the normal `rerender_clip` path with the new layouts, encoding, two-pass
 loudnorm and profanity bleeping (details: `docs/stream-clips.md`). Result: 22.42 s

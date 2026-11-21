@@ -1,5 +1,20 @@
 <!-- Engineering audit and evidence; the supervisor maintains only its marked live-status section. -->
-# Automation status — November 18, 2026 launch
+# Automation status
+
+**Current state (2026-11-20 evening):** live recording ON (resumed 18:16 after a
+same-day pause; supervisor restarted onto current code). Every finished chunk now
+goes through the overhauled clip pipeline: sound-event + chat + speech ranking, one
+editor-model review per recorded hour (~1–2 cents), smart trimming, caption accuracy
+checks, face-aware framing, automated QA and a decision log
+(`python -m src.clips --channel twitch_clips decisions`). Owner approval is required
+for every clip; scheduled publishing remains a dry run. Real-footage test: 12 sources
+from 6 streamers → see the 2026-11-20 entry in CLAUDE.md for counts and sample paths.
+Removed stale files: TODAY_LAUNCH_CHECKLIST.md, docs/clips-handoff.md,
+docs/video-acquisition-plan.md (Git history keeps them); `output/local_recording_probe/`
+and empty demo folders moved to `~/.Trash/shortsengine-cleanup-20261120/`.
+Everything below this paragraph is the historical audit (2026-11-18/19).
+
+# Automation status — November 18, 2026 launch (historical)
 
 **Quality revision (2026-11-18):** replaced draft 8's 720p input with matched native
 1080p60 archive footage (recording 2), preserving recording 1. Audio correlation
@@ -18,7 +33,7 @@ Future dramatic hooks use the existing cached/metered model independently of loc
 scoring, with job budget reservations. Re-render/export technical checks passed
 without warnings; opening/later frames inspected. No paid call for this revision
 or publication. **556 tests pass**. Latest bundle:
-`output/local_recording_probe/ready_to_post_facecam_v2`.
+`output/local_recording_probe/ready_to_post_facecam_v2` (moved to the Trash 2026-11-20).
 
 **Real local recording/clipping pilot (2026-11-18):** a bounded Streamlink capture
 of Jason's public live stream succeeded (46 seconds, 720p with audio). Existing
@@ -47,7 +62,7 @@ historical/measured evidence.
 Full offline suite: **545 tests pass**, including 31 new discovery regressions.
 
 **Latest direction: acquisition first, editing second, posting third.** The first
-step of [the acquisition plan](docs/video-acquisition-plan.md) is implemented:
+step of the acquisition plan (completed and removed 2026-11-20) is implemented:
 private source-video library, browser import and original playback, with automatic
 analysis/editing/scheduled posting paused by `acquisition.only: true`.
 **503 tests pass**. Real-media upload/playback/deduplication were verified using an
@@ -196,7 +211,7 @@ Repository files changed in this pass: `src/clips/runtime.py`, `src/clips/servic
 `channels/twitch_clips.yaml`, `config/runtime.yaml`, `docker-compose.yml`,
 `tests/test_clip_runtime.py`, `tests/test_upload_verification.py`,
 `tests/test_optional_clip_edit.py`, `README.md`, `CLAUDE.md`,
-`TODAY_LAUNCH_CHECKLIST.md`, `AUTOMATION_STATUS.md`, `HUMAN_SETUP_GUIDE.md`.
+`AUTOMATION_STATUS.md`, `HUMAN_SETUP_GUIDE.md` (the launch checklist was removed 2026-11-20).
 
 Installed local files: `~/Library/LaunchAgents/com.shortsengine.clips.plist` and
 `~/Library/LaunchAgents/com.shortsengine.dashboard.plist`. Logs and health evidence
@@ -207,18 +222,22 @@ Suggested commit after review: `feat: supervise clip automation with launchd and
 <!-- RUNTIME_STATUS_START -->
 ## Live supervisor status
 
-Updated: 2026-11-20 17:36:23 CST · PID 74145
-Free disk: 119.07 GB · Low-disk pause: False
+Updated: 2026-11-20 20:56:02 CST · PID 77119
+Free disk: 111.79 GB · Low-disk pause: False
 
-- twitch_clips: queue enabled=True; recordings=45; finished clips=107.
+- twitch_clips: queue enabled=True; recordings=48; finished clips=117.
   - TikTok inbox delivery requires manual posting; Direct Post is not enabled.
   - Scheduled publishing is a dry run.
 
 Accepted file uploads (these are not public-post counts):
-- tiktok: 2
-- youtube: 2
+- tiktok: 6
+- youtube: 6
 
 Verified public URLs:
 - youtube, video 8: https://www.youtube.com/shorts/YZx9m0Zm0_E
 - youtube, video 10: https://www.youtube.com/shorts/S27xoY5FHBY
+- youtube, video 110: https://www.youtube.com/shorts/ASgX_7_Mkko
+- youtube, video 12: https://www.youtube.com/shorts/hvSlT5EZNWI
+- youtube, video 122: https://www.youtube.com/shorts/zojJvh7pBpo
+- youtube, video 124: https://www.youtube.com/shorts/VXRPT0jBHOc
 <!-- RUNTIME_STATUS_END -->

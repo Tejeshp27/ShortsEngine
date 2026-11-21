@@ -7,7 +7,7 @@ now accepts completed source videos from either platform directly in the browser
 stores originals and provides private playback. This is a fallback import, not
 fully automatic remote acquisition. No path copying or manual folder movement is
 required. The next acquisition milestone is connecting an actual permitted media
-delivery source; see [the plan](docs/video-acquisition-plan.md). No further browser
+delivery source; this is now the [rolling live recorder](docs/live-recording.md). No further browser
 connection troubleshooting or publishing setup is required to review step 1.
 
 **Do only the first action now.** The background services are installed, running,

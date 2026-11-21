@@ -114,6 +114,9 @@ def publishing_caption(clip, title, hashtags):
     """
     on_screen_title = clip.get("hook_title") or title
     metadata = json.loads(clip.get("metadata_json", "{}") or "{}")
+    # Clips ranked by the new pipeline carry their own few relevant hashtags.
+    if metadata.get("hashtags"):
+        hashtags = metadata["hashtags"]
     body = metadata.get("description", "").strip()
     content = on_screen_title
     # Don't repeat the title when the owner already started the caption with it.

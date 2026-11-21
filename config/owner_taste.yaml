@@ -1,0 +1,27 @@
+# =============================================================
+# config/owner_taste.yaml — what the channel owner likes and dislikes
+#
+# Given to the editor model (src/clips/editor.py) every time it judges a
+# recording, together with the owner's latest approve/reject decisions from
+# the review queue (src/clips/taste.py). Edit freely: add a line whenever
+# you notice a pattern in what you approve or reject.
+# =============================================================
+
+# General rules in the owner's own words.
+notes:
+  - "Very short one-liners (around 10 seconds) with no build-up are not worth posting. Aim for 18-45 seconds with a real exchange."
+  - "Always let the person finish their sentence. End at a natural stop just after the last line or laugh, never mid-thought."
+  - "Do not start dry. Start where the conversation gets interesting, not on the slow lead-in."
+  - "Never cut out the best line at the end. When unsure, run a few seconds longer."
+
+# Concrete examples with the owner's verdict (liked / disliked) and why.
+examples:
+  - verdict: disliked
+    clip: "StableRonaldo: Lucia tells him to dig a hole (10.6 s)"
+    why: "Weak one-liner with no build-up, far too short. Nobody would watch it."
+  - verdict: liked
+    clip: "StableRonaldo gets roasted about his weight and defends himself with his TikTok thirst traps (37 s)"
+    why: "Real back-and-forth roast. The cut started dry and missed the best part at the end."
+  - verdict: liked
+    clip: "StableRonaldo insists he is not balding, it's a 'growth spurt' (33 s)"
+    why: "Good awkward, defensive humour. It ended mid-sentence; it should let him finish."

@@ -5,97 +5,36 @@
 Read this file at the start of every session before reviewing or changing code.
 Update this file whenever significant behavior or architecture changes.
 
-### Latest: rolling live recorder built (2026-11-19)
+### Latest: clip quality overhaul (2026-11-20)
 
-**Paused 2026-11-20 by the owner:** `live_recording.enabled: false` in
-`channels/twitch_clips.yaml`. The supervisor stopped the running capture; chunks
-already recorded are still turned into clips for review. Set it back to `true` to resume.
+The owner's "current to do" brief (13 phases: research → framing → selection →
+trimming → captions → titles → streamer culture → QA → improvement loop) was
+implemented, tested on real footage and the brief file deleted. Read
+`docs/VIRAL_CONTENT_RESEARCH.md` (what was measured, sources, limits) and the
+"How moments are chosen and edited" section of `docs/stream-clips.md` first.
+New modules: `src/clips/{research,audio_events,ranking,editor,titles,trimming,
+caption_check,framing,production,qa,decisions,feedback}.py`; profile
+`config/clip_ranking/v1.yaml`; dependency `opencv-python-headless` (YuNet face
+model auto-downloaded to `models/face/`, CED-tiny sound model to
+`models/audio_tagging/`). The editor model costs ~1–2 cents per recorded hour
+(it replaces the per-clip title calls). Publishing stays dry-run, owner approval
+stays on. The dashboard navigation was regrouped (Clips / Results / Settings),
+the clips page redesigned (status cards, why each clip was kept or skipped) and
+video pages show a "Why this clip" panel. Stale files removed (see Current phase).
 
-The recorder from the next-steps below is implemented and tested (see the first
-Current phase entry and `docs/live-recording.md`). It was switched on 2026-11-19. The same day the owner moved all three News Made
-Simple connections (YouTube NewsMadeSimple, Instagram newsmadesimple60s, TikTok
-newssimplified60) to `twitch_clips` (accounts.channel updated; tokens are not
-channel-bound; DB backup in `cache/backups/`). Instagram was then moved back to
-news (clips do not post there), so news keeps Instagram only. Account boxes now show
-only a channel's own platforms (`accounts.account_platforms_for`). Next:
-watch the first real hour-long chunks for processing time vs. recording time,
-disk peak, clip quality; then Linux/Docker and the $25/month server choice.
+**Live recording resumed 2026-11-20 18:16** at the owner's request
+(`live_recording.enabled: true`; it had been paused earlier that day). The
+supervisor had to be restarted because it was still running pre-silent-bleep code.
 
-### Latest owner direction and local pilot (2026-11-18)
-
-The owner selected a **$25/month future always-on budget**, with local testing
-before paying for hosting. They explicitly set aside the earlier official-API-only
-restriction for the proposed Streamlink recording approach. Use that narrow
-exception for configured, owner-approved public streams; retain all credential,
-cost and publishing safeguards. Do not repeat requests for Jason's account.
-
-A real bounded Streamlink 8.6.3 capture succeeded locally without cookies,
-browser automation or manual downloading/uploading: 46 seconds, 1280x720 with
-audio, 19,035,529-byte MP4. Existing import returned recording 1 twice for identical
-bytes. Existing local Whisper/scoring/rendering created draft 8: 32.24 seconds,
-1080x1920 H.264/AAC, score 79, full decode/technical gate passed with no warnings.
-Original playback was byte-identical through the running private site; seeking
-returned HTTP 206; draft page returned 200. Export bundle includes one clip and
-upload text. Zero paid AI calls or uploads. Details: `docs/local-recording-pilot.md`;
-ignored report: `output/local_recording_probe/report.json`.
-
-This was a one-off bounded diagnostic using existing pipeline functions, not a
-continuous recorder installation. Next: build a bounded recorder adapter around
-this measured route, reusing supervisor/queue/importer, then test recovery and
-Linux/Docker before deployment. Docker is absent locally. Keep production
-`acquisition.only: true` and publishing dry-run enabled until that validation.
-No cloud resources were provisioned. These newer directions/evidence supersede
-historical zero-footage snapshots and source-access instructions below.
-
-### Resume here — owner stepping away (2026-11-18)
-
-The owner requested saving the handoff and committing all current work. The next
-session should resume **source acquisition**, then editing, then posting. Read
-`docs/video-acquisition-plan.md` and the latest `AUTOMATION_STATUS.md` first. This
-handoff takes priority over historical "next human steps" farther down this file.
-
-1. Check `git status`, the installed launchd services and
-   `output/runtime/health.json`. Preserve existing work and do not reinstall or
-   rebuild the working supervisor, source library, importer or editing pipeline.
-   Last verified: **514 tests pass** (2026-11-18 review), 67 discovered sources, **0 stored creator
-   originals**, zero real creator clips/publications. Discovery counts can change;
-   query current state rather than treating this snapshot as live status.
-2. Keep `acquisition.only: true` in `channels/twitch_clips.yaml`. The private site
-   at `http://localhost:8000/clips/twitch_clips/sources` supports raw-source upload,
-   playback, seeking and duplicate prevention. Browser upload is a fallback, not
-   the requested unattended acquisition solution. Do not restart browser connection
-   troubleshooting unless it is needed for a concrete supported media route.
-3. Public clip/VOD discovery is now implemented; see `docs/source-discovery.md`
-   and the latest Current phase entry. Use `python -m src.clips --channel
-   twitch_clips discover` or the source page's Check button. Metadata is never
-   downloaded footage. The next acquisition step remains an actual permitted
-   media-delivery source; do not build another queue/dashboard or reinstate the
-   downloader in background cycles.
-4. Establish a real permitted automatic media-delivery route before claiming
-   acquisition works. Existing Twitch clip downloads need broadcaster/editor
-   authorization; the owner does not know Jason and cannot sign in as him. Do not
-   repeat that request. Twitch app credentials work, but a viewer login/public URL
-   does not establish download access. Full-VOD discovery alone also supplies no
-   video bytes. Kick credentials are absent; a general official VOD-download
-   connector has not been identified. Inspect current official interfaces and any
-   already-configured authorized recording/feed sources. Implement a provider
-   adapter only when its permitted interface and access are known; no speculative
-   private playback scraping or access-control bypasses. If all remaining routes
-   need owner action, document the precise missing access and ask one question.
-5. Reuse existing fingerprinted ingestion for a confirmed route. Bound transfers,
-   check disk space, use temporary files and atomic completion, retain attribution,
-   retry transient failures and skip known source IDs before downloading. Prove a
-   real authorized original plays with audio, repeats without duplication and
-   survives interrupted processing/restart. Record actual evidence; synthetic
-   uploads and remote metadata are not acquired creator footage.
-6. Update status, setup instructions and the plan as facts change; run pytest.
-   Editing starts after real-source acquisition is demonstrated, and posting comes
-   after editing. Keep account selection and publishing setup deferred. Do not
-   incur costs, expose credentials or push commits without an owner instruction.
-
-The Mac services run independently while the Mac is awake, powered, online and
-logged in. `AUTOMATION_STATUS.md` has a runtime-maintained section that may change
-after a commit; do not discard its audit or stop services just to hide that diff.
+Earlier history (rolling recorder built 2026-11-19, local pilot and acquisition
+phase 2026-11-18) is in the Current phase entries below and in
+`docs/live-recording.md` / `docs/local-recording-pilot.md`. The owner chose a
+$25/month always-on budget for later; nothing is deployed yet (Linux/Docker next).
+The owner set aside the official-API-only rule for Streamlink recording of
+configured, approved public streams; keep all credential, cost and publishing
+safeguards. Do not repeat requests for Jason's account. Accounts (2026-11-19):
+YouTube NewsMadeSimple and TikTok newssimplified60 are connected to `twitch_clips`;
+Instagram newsmadesimple60s stays with `news` (DB backup in `cache/backups/`).
 
 ## What this project is
 
@@ -318,7 +257,10 @@ original agreement dates were not supplied):
 | marlon | Twitch | 2026-11-17 |
 | lacy | Twitch | 2026-11-17 |
 | jasontheween | Twitch | 2026-11-17 |
-| silky | Twitch | 2026-11-17 |
+| silky | Twitch | 2026-11-17 (recording off since 2026-11-20: not on the focus list) |
+| ishowspeed | YouTube | 2026-11-20 |
+| ddg | Twitch | 2026-11-20 |
+| notquitelikedub (DUB) | Twitch | 2026-11-20 |
 
 ## How to work
 
@@ -335,6 +277,83 @@ original agreement dates were not supplied):
    permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
+
+**TikTok results feed the learning (2026-11-20 night, Claude Code):** the existing TikTok connection (newssimplified60, scope video.list already granted) can list the account's own posts. `src/clips/tiktok_posts.py` matches hand-posted TikToks to clips by caption (the pasted Final caption starts with the title) and timing, then saves them in `platform_posts`. Unclear or ambiguous posts are skipped, not guessed. The daily collector (`analytics/accounts.collect_account` → `link_hand_posted_tiktoks`) runs this before reading statistics, so TikTok views now count in `packaging`/`feedback`, compared with each platform's own median. First run: video 8 (Roblox, 2 views) and video 124 (roast) were linked. Two older posts with owner-written captions could not be matched. **758 tests pass.**
+
+**Packaging experiments (2026-11-20 night, Claude Code):** the owner wants packaging to keep varying and learn from past posts until a successful combination is found.
+- *Module:* `src/clips/packaging.py` is a Thompson-sampling bandit over six dimensions: title_emoji (none/one), title_case (natural/lowercase), hashtags (minimal/game/broad), caption_style (punch/clean), context_line (whole/opening) and description (summary/question). The editor model now also writes a viewer `question`.
+- *Learning rule:* each option gets `explore_min_tries` (3) forced tries first. Only posts at least 48 h old count. A post counts as a success when its views/day are at or above the channel median on that platform, reusing `feedback.published_clips`. The title emoji and casing are read from the title as actually posted.
+- *Records:* the choice and its reasons are saved in `decision_json.packaging` and `metadata.packaging`. `production.produce_clip` applies the caption style and context-line time per clip (`render_overrides`).
+- *Report:* `feedback` prints per-option results, the chance each option is best, and a WINNER once it is at least 95% likely to be best.
+- *Limit:* only YouTube statistics are available. TikTok needs the Display API `video.list` scope on the TikTok app. **756 tests pass.**
+
+**Focus streamers (2026-11-20 night, Claude Code):** the owner wants only these recorded, always, whenever they are live: jasontheween, stableronaldo, lacy, adapt, kaicenat, ddg (Twitch), ishowspeed (YouTube), adinross (Kick), marlon, and DUB (`notquitelikedub`, confirmed by the owner). Silky is disabled. YouTube live is now supported: `platform: youtube`, Streamlink records `youtube.com/@handle/live`, the live check is `live_recorder.streamlink_is_live`, credit is `youtube.com/@handle`, and there is no clip discovery. Recorder settings: `max_concurrent: 10`, `max_hours_per_streamer_per_day: 24`, `automation.poll_seconds: 120`. The disk guards (start at 20 GB, stop at 10 GB free) still apply. `automation.max_uploads_per_day: 100` (owner posts ~5/day by hand; the YouTube quota still caps at ~6). **749 tests pass.**
+
+**Owner feedback on drafts 121-123 (2026-11-20 night, Claude Code):**
+- *Owner's verdicts:* "dig a hole" (11 s) was horrible and far too short. The roast was decent but started dry and missed the best part at the end. The balding clip was good but cut off mid-sentence.
+- *Scores:* they did not match the owner's taste (the disliked clip scored 73, the liked ones 64-68).
+- *Length:* `clips.moment_min_seconds` is now 18, and the v2 lengths are reaction/gameplay 18-35 and awkward 18-45.
+- *Endings:* `ranking.apply_boundaries` extends a mid-sentence end to the end of that sentence (up to +8 s; `ends_cleanly` keeps clean ends).
+- *Openings:* `skip_leading_fragment` stops a clip opening on the tail of an earlier sentence. `ends_sentence_word` ignores Whisper's "face.-" dashes.
+- *Editor input:* the editor sees 15 s after each window, is told to end after the last funny line on a finished sentence, and gets a taste block (`src/clips/taste.py`). That block holds the rules and examples from `config/owner_taste.yaml` plus the latest approved/posted (liked) and rejected (disliked) clips with reviewer notes.
+- *Threshold:* v2 `minimum_score` is now 62 (66 dropped a liked moment).
+- *Drafts:* 122 was re-cut to 29.6-68.2 s (ends on "say it how you want"). New draft 124 (roast, recording 48) runs 73.9-116.0 s: it opens on "I hate fat people, bro" and keeps the ending.
+- *Notes:* rejected videos count as dislikes in the taste block, so a short reject note helps. Cost was $0.015. **747 tests pass.**
+
+**Dashboard redesign reverted (2026-11-20 night, Claude Code):** the owner preferred the old website. `src/dashboard/` is back to the committed version, with the redesign saved as `output/backups/dashboard-redesign-2026-11-20.patch`. The owner's plan: get the clip algorithm right first, then fix the dashboard. Any dashboard/review-queue redesign described in the entries below is NOT live. The 3 v2 samples are now real drafts in the review queue: videos 121-123 (recordings 46, 47, 48; cached AI answers, $0). **741 tests pass.**
+
+**Second research round + stricter, punchier clips (2026-11-20 evening, Claude Code):** the owner said the clips were not funny and had rejected 105 of them. A within-channel study (`python -m src.clips.research --channels-from …`; 10,263 Shorts from 78 clip channels, `docs/research/youtube_channels_2026-11-20.json.gz`) found that a channel's best and worst quarters have the same lengths and title/caption style, so the moment is what matters. "in GTA" titles were 2.6x more common among flops, and generic hashtags 3-6x. 16 more videos were watched frame by frame (13 hits, 3 flops); see `docs/VIRAL_CONTENT_RESEARCH.md` section 9. Changes:
+- The editor prompt carries this evidence and must name the unexpected `event`.
+- Profile `config/clip_ranking/v2.yaml` is active (surprise 25, pacing 5, minimum 66, payoff floor 0.55, model share 0.85, `require_event`); roll back by pointing at v1.
+- Caption style `punch` (1-2 capital words, no full stops, other speakers in `other_speaker_color`).
+- The context line stays up the whole clip (`hook_title.seconds: 0`, `style: outline`), sitting just under the face seam; captions sit mid-gameplay.
+- `captions.sound_labels` (*LAUGHING*/*SCREAMING* from the sound model when nobody talks).
+- `effects.payoff_zoom: 1.1` (push-in on the reaction) and an optional `payoff_black_white`.
+- Channel hashtags are now only #twitch/#kick (the platform is filtered).
+- `remap_words` keeps speaker and bleep marks.
+- The review queue was rebuilt as a grid of playable 9:16 clips with status tabs, counts, why each was chosen and inline Approve/Reject.
+Real test (same 12 sources, $0.08): v2 kept 3 (StableRonaldo: "Lucia tells him to dig a hole" 10.6 s; hairline "growth spurt" 32.8 s; thirst-traps roast 37.1 s). It rejected every GTA-NPC/calm moment with reasons. Samples are in `output/overhaul_test/clips/`, earlier rounds in `round2_before/`. Known: NPC lines can still be captioned when the voice check is unsure. **741 tests pass.**
+
+**Posting limit (2026-11-20, Claude Code):** posting video 118 said "already sent or not ready"; the real cause was `automation.max_uploads_per_day: 3` (3 sent that day). The owner asked for a higher limit: now 6 (YouTube's default 10,000-unit quota ≈ 6 uploads at 1,600 each). The skip message now states the real reason (`scheduler.delivery_block_reason`: daily limit, not approved, quality failed, already sent, job running). **736 tests pass.**
+
+**Clip quality overhaul (2026-11-20, Claude Code):** the owner's 13-phase brief.
+*Research:* `docs/VIRAL_CONTENT_RESEARCH.md` + `docs/research/youtube_shorts_2026-11-20.json`
+(130 Shorts via YouTube Data API: median 27.5 s, 58% of titles start with the name,
+73% have an emoji, 6% all-lowercase; 5 videos watched frame by frame: facecam on top,
+1–3-word captions on the seam; ~25 GitHub repos inspected; TikTok/retention data not
+accessible). *Code:* see the Latest section for modules. Ranking weights 25/20/15/15/
+10/10/5 in `config/clip_ranking/v1.yaml` (A/B via `ranking.ab_profile`; feedback
+suggests ±15% changes only after ≥20 published clips, never auto-applied). Editor model
+= `models.clip_pick` (Haiku 4.5), one call per recording, transcript treated as data,
+told not to guess pronouns; titles scored by rules (clickbait list, caps/emoji limits,
+invented names/numbers, guessed pronouns, repeated formulas; quote fallback). Captions:
+style `clean`, `other_voices: exchange`, Whisper hallucination/loop/unheard-word removal,
+joining dashes stripped. Framing: YuNet steady-face detection → split (face top) /
+face-crop / face-square / fit-blur with head-safety + text-on-face checks; Jason's moved
+camera is now found automatically. QA (`src/clips/qa.py`) rejects (status `skipped`,
+no retry loop) or flags; one fit-blur repair. Decision log: `clips.decision_json`,
+`<video>.decision.json`, `output/clip_decisions/<channel>.jsonl`; CLI `decisions`,
+`feedback`; dashboard "Why this clip" panel. `clips.moment_min_seconds` 20 → 10.
+*Real-footage test* (DB copy; 12 sources: a 7.5-min StableRonaldo chunk + 11 saved
+excerpts of Jason, Marlon, StableRonaldo, Lacy, Kai Cenat, Adin Ross): old pipeline
+had made 14 clips from these (scores 82–97, 35–60 s, every title "Name CAPS-VERB…",
+fit-blur for everyone but Jason). New: 6 clips kept (19–55 s, scores 64–74, QA 96–100),
+6 sources skipped with written reasons (NPC dialogue, no payoff, garbled); 12 editor
+calls cost $0.07; a second run kept 7 — model judgement varies run to run. Samples:
+`output/overhaul_test/clips/` (git-ignored; each with `.decision.json`). Before/after
+titles e.g. "StableRonaldo PRANKS with fake actors in trunk" → "StableRonaldo claims the
+trunk screams are paid actors"; "Lacy gets weed that smells like RACCOONS" → "lacy tried
+bringing weed that smells like raccoons". *Dashboard:* sidebar grouped (Clips / Results /
+Settings) with review count, live/review status bar, one logout, clips page rebuilt
+(status cards, kept/skipped reasoning, tools folded), /clips goes straight to the only
+clips channel, news "+ New video" buttons removed from library/activity (still on the
+news channel page), negative money shown as -$x. *Clean-up:* removed
+TODAY_LAUNCH_CHECKLIST.md, docs/clips-handoff.md, docs/video-acquisition-plan.md;
+moved `output/local_recording_probe/` + empty demo folders to
+`~/.Trash/shortsengine-cleanup-20261120/` and test artefacts to
+`~/.Trash/shortsengine-overhaul-test-20261120/`. Known: cv2 and PyAV both bundle
+libavdevice (harmless objc warning; no camera capture is used). **736 tests pass**
+(50 new in `tests/test_clip_overhaul.py`).
 
 **Silent bleeps (2026-11-20, Claude Code):** owner wanted swear words removed without
 added noise. `bleep.volume` may now be 0 (was ≥0.1): the word is faded out and muted
@@ -581,7 +600,7 @@ and a stale variable. **514 tests pass.**
 
 **Acquisition-first phase (2026-11-18, Codex, latest owner direction):** prioritize
 getting Twitch/Kick originals into the site; editing comes next, posting afterward.
-Plan: `docs/video-acquisition-plan.md`. First step implemented: private raw-source
+Plan (file removed 2026-11-20; completed by the live recorder). First step implemented: private raw-source
 library at `/clips/twitch_clips/sources`, using existing discovery/recording tables
 and cache; browser upload of authorized completed recordings, original playback
 with range requests, existing fingerprint deduplication and permission checks.
@@ -662,9 +681,9 @@ Existing Google/TikTok app credentials and news-account connections were detecte
 but clips has no connected destinations; the owner deferred account selection.
 **Zero real creator clips and zero uploads/publications** so far; synthetic checks
 do not count. Live clips OAuth/uploads remain unvalidated. See
-`TODAY_LAUNCH_CHECKLIST.md` for exact owner steps, counts, evidence and blockers.
+the launch checklist (removed 2026-11-20; superseded by AUTOMATION_STATUS.md) for owner steps then.
 Changed this pass: `src/clips/launch.py`, `src/clips/__main__.py`,
-`tests/test_clip_launch.py`, `README.md`, `CLAUDE.md`, `TODAY_LAUNCH_CHECKLIST.md`.
+`tests/test_clip_launch.py`, `README.md`, `CLAUDE.md` and the (since removed) launch checklist.
 
 **Clips completion checks (2026-11-17, Codex):** inbox scans now isolate corrupt
 files and unreadable folders, report source-specific errors on the existing job
@@ -728,7 +747,7 @@ report: output/creator_setup_demo_2026_11_17/report.json. Nothing was uploaded.
   whisper.cpp CPU build and persistent models/recording mounts; container validation
   remains necessary on the target host. **454 tests pass** (425 existing + 29 new
   cases); actual background-worker dry run and real local media demo also passed.
-  See docs/clips-handoff.md for the changed-file list and verification limits.
+  (The handoff file docs/clips-handoff.md was removed 2026-11-20; see Git history.)
 
 
 **Phases 1–7 code complete. M-series visual upgrade (M.1–M.6) code complete.

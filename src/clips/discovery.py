@@ -84,6 +84,8 @@ def discover_sources(channel, config, only_streamer=None, dry_run=False):
         if streamer.platform == "kick":
             result["warnings"].append(kick.discover_sources(streamer.username)["message"])
             continue
+        if streamer.platform == "youtube":
+            continue   # YouTube streamers are recorded live only; there is no clip discovery for them
         try:
             user = twitch.resolve_user(streamer.username)
         except (twitch.TwitchError, ValueError) as error:

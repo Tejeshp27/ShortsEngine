@@ -171,4 +171,4 @@ Files changed for Claude Code review:
   `src/dashboard/templates/job.html`.
 - `channels/twitch_clips.yaml`, `.env.example`, `tests/test_source_discovery.py`.
 - `README.md`, `CLAUDE.md`, `AUTOMATION_STATUS.md`,
-  `docs/video-acquisition-plan.md`, `docs/source-discovery.md`.
+  `docs/source-discovery.md` (the acquisition plan it mentions was completed by the live recorder and removed 2026-11-20).

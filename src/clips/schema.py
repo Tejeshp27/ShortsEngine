@@ -72,6 +72,8 @@ def create_clip_automation_tables(connection):
         "vod_offset": "REAL",
         "source_video_id": "TEXT NOT NULL DEFAULT ''",
         "permission_confirmed": "INTEGER NOT NULL DEFAULT 0",
+        # Every editorial decision for this clip (src/clips/decisions.py).
+        "decision_json": "TEXT NOT NULL DEFAULT '{}'",
     }
     existing = set()
     for row in connection.execute("PRAGMA table_info(clips)"):

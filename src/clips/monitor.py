@@ -31,6 +31,9 @@ def check_live_sources(channel, config):
         try:
             if streamer.platform == "kick":
                 details = kick.live_status(streamer.username)
+            elif streamer.platform == "youtube":
+                from src.clips.live_recorder import streamlink_is_live
+                details = {"live": streamlink_is_live("youtube", streamer.username)}
             else:
                 data = twitch.twitch_get("/streams", {"user_login": streamer.username}, twitch.get_app_token())
                 streams = data.get("data", [])

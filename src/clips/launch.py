@@ -247,7 +247,7 @@ def export_bundle(channel, config, video_ids, destination, dry_run=False, platfo
         "answer the audience question truthfully, finish Checks and choose Public → Publish.\n"
         "2. TikTok: https://www.tiktok.com/tiktokstudio → Upload. Paste the clip's caption, "
         "check the preview, account and privacy, then Post.\n"
-        "3. Verify each public URL plays and record platform confirmation/URLs in TODAY_LAUNCH_CHECKLIST.md. "
+        "3. Verify each public URL plays and record platform confirmation/URLs in AUTOMATION_STATUS.md. "
         "Do not count this export or an inbox notification as publication.\n"
     )
     (folder / "UPLOAD_INSTRUCTIONS.md").write_text(instructions, encoding="utf-8")

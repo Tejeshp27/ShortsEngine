@@ -85,6 +85,7 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
     from src.clips.maker import make_clip_video, words_for
     from src.clips.metadata import create_metadata
     from src.clips.monitor import check_live_sources
+    from src.clips.qa import QARejected
     from src.clips.recordings import import_recording, process_recordings, scan_inboxes
     from src.dashboard.accounts import safe_error
 
@@ -110,7 +111,7 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
                 "stored_sources":library["stored_count"], "listed_sources":library["listed_count"],
                 "message":"Acquisition-only inbox cycle complete. Monitoring and authorized imports ran; "
                           "metadata discovery runs separately. Transcription, editing and publishing are paused."}
-    process_recordings(channel, config)
+    process_recordings(channel, config, llm)
     waiting = clips_with_status(channel, "picked") + clips_with_status(channel, "downloaded")
     made = []
     maximum = settings.analysis.max_clips_per_recording * settings.automation.max_recordings_per_run
@@ -135,7 +136,7 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
                 clip = prepare_downloaded(clip, config, settings)
                 if clip is None:
                     continue
-            if not json.loads(clip["metadata_json"] or "{}"):
+            if not json.loads(clip.get("metadata_json") or "{}"):
                 create_metadata(clip, words_for(clip, settings), config, settings, llm)
                 clip = get_clip(clip["id"])
             if clip["highlight_score"] is not None and clip["highlight_score"] < settings.analysis.minimum_score:
@@ -157,6 +158,10 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
                 from src.storage.queries import approve_video
                 approve_video(video_id, "Automatic approval enabled in this clips channel.")
             made.append(video_id)
+        except QARejected as error:
+            # A clip that fails quality control is skipped, never regenerated in a loop.
+            update_clip(clip["id"], status="skipped", pick_reason=str(error)[:500], last_error="")
+            continue
         except Exception as error:
             message = safe_error(error)
             errors.append(message)

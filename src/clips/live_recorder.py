@@ -542,16 +542,30 @@ def kick_is_live(username):
     """
     Ask Streamlink whether a Kick channel has a playable live stream.
 
-    Kick credentials are not configured, so this uses the same public
-    page Streamlink records from.
-
     Args:
         username (str): The Kick login name.
 
     Returns:
         bool: True when a stream can be played now.
     """
-    result = subprocess.run(["streamlink", "--json", stream_url("kick", username)],
+    return streamlink_is_live("kick", username)
+
+
+def streamlink_is_live(platform, username):
+    """
+    Ask Streamlink whether a Kick or YouTube channel has a playable live stream.
+
+    These platforms have no API credentials configured here, so this checks the
+    same public page Streamlink records from (one quick request per streamer).
+
+    Args:
+        platform (str): "kick" or "youtube".
+        username (str): The login name (@handle on YouTube).
+
+    Returns:
+        bool: True when a stream can be played now.
+    """
+    result = subprocess.run(["streamlink", "--json", stream_url(platform, username)],
                             capture_output=True, text=True, timeout=60)
     try:
         return bool(json.loads(result.stdout).get("streams"))
@@ -602,11 +616,14 @@ def check_who_is_live(channel, settings):
                          "broadcaster_id": details["broadcaster_id"], "started_at": details["started_at"]})
         else:
             try:
-                is_live = kick_is_live(name)
+                if streamer.platform == "kick":
+                    is_live = kick_is_live(name)
+                else:
+                    is_live = streamlink_is_live(streamer.platform, name)
             except Exception as error:
-                save_stream_status(channel, "kick", name, "unknown", {"error": safe_error(error)})
+                save_stream_status(channel, streamer.platform, name, "unknown", {"error": safe_error(error)})
                 continue
-            save_stream_status(channel, "kick", name, "live" if is_live else "offline", {"live": is_live})
+            save_stream_status(channel, streamer.platform, name, "live" if is_live else "offline", {"live": is_live})
             if is_live:
                 live.append({"streamer": streamer, "viewers": 0, "broadcaster_id": "", "started_at": 0.0})
     # More viewers means more chat to find moments with and a wider audience.

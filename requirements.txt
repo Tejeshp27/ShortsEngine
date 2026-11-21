@@ -89,3 +89,8 @@ huggingface_hub>=0.22.0
 # Voice recognition so captions show only the streamer's words (src/clips/speaker_filter.py).
 # Chosen over pyannote/SpeechBrain: no PyTorch, one package, supports Python 3.15.
 sherpa-onnx==2.0.2
+# OpenCV (headless) — face detection for face-aware clip framing (src/clips/framing.py)
+#   using the YuNet model (MIT, 230 KB, auto-downloaded to models/face/ and hash-checked).
+#   The most-used computer-vision library (Apache-2.0); "headless" = no GUI parts.
+#   Chosen over MediaPipe (larger, Google-specific runtime) and dlib (needs compiling).
+opencv-python-headless==5.1.0.95

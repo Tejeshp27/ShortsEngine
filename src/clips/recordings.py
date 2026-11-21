@@ -14,7 +14,7 @@ import time
 from pathlib import Path
 
 from src.clips.finder import UPLOAD_EXTENSIONS, file_fingerprint
-from src.clips.settings import credit_for, find_approved_streamer, load_clip_settings
+from src.clips.settings import credit_for, display_name_for, find_approved_streamer, load_clip_settings
 from src.clips.signals import measure_media, select_highlights
 from src.clips.store import save_found_clip, update_clip
 from src.clips.transcribe import transcribe_clip
@@ -220,13 +220,14 @@ def recording_words(recording, settings):
                            settings.transcription.engine)
 
 
-def analyze_recording(recording_id, config):
+def analyze_recording(recording_id, config, llm=None):
     """
     Analyze an imported recording and persist diverse candidates once; return newly created clip IDs.
 
     Args:
         recording_id: The local database ID of the imported recording.
         config: The channel settings loaded from YAML.
+        llm: The metered AI client for the editor model (None = local evidence only).
 
     Returns:
         The IDs of newly created or recovered candidate clips.
@@ -248,8 +249,11 @@ def analyze_recording(recording_id, config):
         partial = media_path.with_suffix(".part")
         partial.write_text(json.dumps(media))
         partial.replace(media_path)
-    candidates = select_highlights(recording["duration"], words, media, settings,
-                                    json.loads(recording["engagement_json"]))
+    engagement = json.loads(recording["engagement_json"])
+    if settings.ranking.enabled:
+        candidates = rank_moments(recording, words, media, engagement, config, settings, streamer, llm)
+    else:
+        candidates = select_highlights(recording["duration"], words, media, settings, engagement)
     clip_ids = []
     for candidate in candidates:
         if repeated_transcript(recording["channel"], streamer, candidate["transcript"]):
@@ -279,7 +283,14 @@ def analyze_recording(recording_id, config):
         update_clip(clip_id, recording_id=recording_id, file_path=recording["file_path"],
                     status="picked", start_seconds=candidate["start"], end_seconds=candidate["end"],
                     hook_title=candidate["hook_title"], highlight_score=candidate["score"],
-                    pick_reason=candidate["note"], signals_json=json.dumps(candidate))
+                    pick_reason=candidate["note"], signals_json=json.dumps(candidate, default=str))
+        if candidate.get("metadata"):
+            from src.clips.decisions import save_part
+            update_clip(clip_id, metadata_json=json.dumps(candidate["metadata"], ensure_ascii=False))
+            save_part(clip_id, "selection", candidate["decision"])
+            save_part(clip_id, "titles", candidate["titles"])
+            if candidate.get("packaging"):
+                save_part(clip_id, "packaging", candidate["packaging"])
         clip_ids.append(clip_id)
     connection = get_connection()
     try:
@@ -290,13 +301,138 @@ def analyze_recording(recording_id, config):
     return clip_ids
 
 
-def process_recordings(channel, config):
+def rank_moments(recording, words, media, engagement, config, settings, streamer, llm):
+    """
+    Rank a recording with the new multimodal ranking and prepare each chosen moment's texts.
+
+    Local evidence (sound events, chat, speech) proposes a shortlist; the
+    editor model (when enabled) reads it and judges what is actually funny;
+    weak moments are rejected. Every decision is logged.
+
+    Args:
+        recording: The recording row.
+        words: Timed words.
+        media: Per-second volume/motion.
+        engagement: Chat samples.
+        config: Channel YAML.
+        settings: Checked clip settings.
+        streamer: The approved streamer.
+        llm: The metered AI client, or None.
+
+    Returns:
+        A list of candidate dictionaries ready to be saved as picked clips
+        (with "hook_title", "score", "note", "metadata", "decision", "titles").
+    """
+    from src.clips.audio_events import recording_events
+    from src.clips.decisions import log_event, selection_record
+    from src.clips.editor import review_candidates
+    from src.clips.ranking import decide_candidates, load_profile, propose_candidates
+    from src.clips.titles import choose_titles
+
+    profile_path = settings.ranking.profile
+    if settings.ranking.ab_profile and recording["id"] % 2 == 1:
+        # A/B test: alternate recordings use the second profile.
+        profile_path = settings.ranking.ab_profile
+    profile = load_profile(profile_path)
+    sounds = recording_events(recording["file_path"])
+    duration = recording["duration"]
+    shortlist = propose_candidates(duration, words, media, sounds, engagement, settings, profile)
+    name = display_name_for(streamer)
+    reviews = []
+    if settings.ranking.use_editor_model and llm is not None:
+        from src.clips.taste import taste_block
+        reviews = review_candidates(shortlist, words, sounds, engagement, duration, name, config, settings, llm,
+                                    taste_block(recording["channel"]))
+    result = decide_candidates(shortlist, reviews, words, duration, settings, profile)
+    recent = recent_titles(recording["channel"])
+    hashtags = config.get("publishing", {}).get("hashtags", [])
+    outcomes = None
+    if settings.packaging.enabled:
+        from src.clips.packaging import published_outcomes
+        outcomes = published_outcomes(recording["channel"])
+    chosen = []
+    for candidate in result["selected"]:
+        spoken = []
+        for word in words:
+            if word["end"] > candidate["start"] and word["start"] < candidate["end"]:
+                spoken.append(word["word"])
+        transcript = " ".join(spoken)
+        candidate["transcript"] = transcript
+        review = candidate.get("review") or {}
+        others = []
+        for part in str(review.get("who", "")).replace(" and ", ",").split(","):
+            if part.strip():
+                others.append(part.strip())
+        titles = choose_titles(review, transcript, name, streamer.username, streamer.platform, others,
+                               recent, settings.titles, hashtags)
+        recent.append(titles["youtube_title"])
+        from src.clips.metadata import mask_post_text
+        youtube_title = mask_post_text(titles["youtube_title"])
+        candidate["hook_title"] = youtube_title
+        candidate["note"] = candidate.get("reason", "")
+        candidate["metadata"] = {"youtube_title": youtube_title, "hook_text": mask_post_text(titles["hook_text"]),
+                                 "description": mask_post_text(titles["tiktok_description"]),
+                                 "hashtags": titles["hashtags"], "attribution": credit_for(streamer),
+                                 "method": titles["title_method"]}
+        if settings.packaging.enabled:
+            # Keep experimenting with titles/hashtags/caption looks, guided by past results.
+            from src.clips.packaging import apply_packaging, choose_packaging
+            packaging = choose_packaging(recording["channel"], settings, outcomes=outcomes)
+            candidate["metadata"] = apply_packaging(candidate["metadata"], titles, review, streamer, settings, packaging)
+            candidate["metadata"]["youtube_title"] = mask_post_text(candidate["metadata"]["youtube_title"])
+            candidate["hook_title"] = candidate["metadata"]["youtube_title"]
+            candidate["packaging"] = packaging
+        candidate["titles"] = titles
+        candidate["decision"] = selection_record(candidate, recording, profile, result["rejected"])
+        chosen.append(candidate)
+    summary_rejected = []
+    for candidate in result["rejected"]:
+        summary_rejected.append({"start": candidate["start"], "end": candidate["end"],
+                                 "score": candidate.get("score"), "reason": candidate.get("rejected"),
+                                 "what_happened": (candidate.get("review") or {}).get("what_happened", "")})
+    summary_chosen = []
+    for candidate in chosen:
+        summary_chosen.append({"start": candidate["start"], "end": candidate["end"], "score": candidate["score"],
+                               "category": candidate.get("category"), "reason": candidate.get("reason"),
+                               "title": candidate["hook_title"]})
+    log_event(recording["channel"], "recording_ranked",
+              {"recording_id": recording["id"], "streamer": recording["streamer"], "duration": duration,
+               "profile": profile.get("version"), "editor_reviewed": result["reviewed"],
+               "shortlisted": len(shortlist), "chosen": summary_chosen, "rejected": summary_rejected})
+    return chosen
+
+
+def recent_titles(channel, limit=40):
+    """
+    The channel's most recent clip titles (to avoid repeating the same formula).
+
+    Args:
+        channel: The channel key.
+        limit: How many titles.
+
+    Returns:
+        A list of title strings.
+    """
+    connection = get_connection()
+    try:
+        rows = connection.execute("SELECT hook_title FROM clips WHERE channel=? AND hook_title != '' "
+                                  "ORDER BY id DESC LIMIT ?", (channel, limit)).fetchall()
+    finally:
+        connection.close()
+    titles = []
+    for row in rows:
+        titles.append(row["hook_title"])
+    return titles
+
+
+def process_recordings(channel, config, llm=None):
     """
     Analyze due recordings with bounded persistent retries; return candidate IDs and continue after individual failures.
 
     Args:
         channel: The channel configuration name, without its YAML extension.
         config: The channel settings loaded from YAML.
+        llm: The metered AI client for the editor model (optional).
 
     Returns:
         Candidate clip IDs created by due recording analyses.
@@ -322,7 +458,7 @@ def process_recordings(channel, config):
         finally:
             connection.close()
         try:
-            clips.extend(analyze_recording(row["id"], config))
+            clips.extend(analyze_recording(row["id"], config, llm))
         except Exception as error:
             connection = get_connection()
             try:

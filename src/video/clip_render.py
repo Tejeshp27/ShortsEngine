@@ -205,12 +205,21 @@ def ends_sentence(word):
     return word.endswith(".") or word.endswith("!") or word.endswith("?")
 
 
+# A caption should not end on one of these small words ("going to the" /
+# "store"): the break moves one word later so each caption reads as a phrase.
+WEAK_ENDINGS = {"the", "a", "an", "to", "of", "and", "or", "but", "my", "your", "his", "her", "their",
+                "in", "on", "at", "for", "with", "is", "was", "i", "we", "you", "they", "he", "she", "it's"}
+# A pause this long between words also starts a new caption (a natural phrase break).
+PHRASE_PAUSE_SECONDS = 0.35
+
+
 def group_caption_words(words, words_per_caption):
     """
-    Split timed words into short caption groups.
+    Split timed words into short caption groups that read as natural phrases.
 
     A group ends after `words_per_caption` words, at the end of a
-    sentence, or before a long pause.
+    sentence or clause (. ! ? , ;), or at a pause in speech. A group
+    never ends on a small word like "the" or "to" when one more word fits.
 
     Args:
         words (list[dict]): Timed words, times counted from the moment's start.
@@ -224,8 +233,15 @@ def group_caption_words(words, words_per_caption):
     for index, word in enumerate(words):
         current.append(word)
         is_last = index == len(words) - 1
-        pause_follows = not is_last and words[index + 1]["start"] - word["end"] > CAPTION_PAUSE_SECONDS
-        if is_last or len(current) >= words_per_caption or ends_sentence(word["word"]) or pause_follows:
+        gap = 0.0 if is_last else words[index + 1]["start"] - word["end"]
+        clause_end = ends_sentence(word["word"]) or word["word"].endswith((",", ";", ":"))
+        full = len(current) >= words_per_caption
+        weak = word["word"].strip(".,!?").lower() in WEAK_ENDINGS
+        # Allow one extra word rather than ending a phrase on "the"/"to".
+        if full and weak and not is_last and len(current) <= words_per_caption and gap < PHRASE_PAUSE_SECONDS:
+            full = False
+        too_long = len(current) > words_per_caption
+        if is_last or full or too_long or clause_end or gap > PHRASE_PAUSE_SECONDS:
             groups.append({"words": current, "start": current[0]["start"], "end": current[-1]["end"]})
             current = []
     return groups
@@ -276,6 +292,49 @@ def spoken_word_number(group, now):
     return current
 
 
+def key_word_number(group):
+    """
+    Pick the one word in a caption worth highlighting (the longest meaningful word).
+
+    Research: good clips highlight sparingly (one coloured key word), not every word.
+
+    Args:
+        group (dict): One caption group.
+
+    Returns:
+        int or None: The word's number, or None for a group of only small words.
+    """
+    best = None
+    best_length = 3
+    for number, word in enumerate(group["words"]):
+        text = word["word"].strip(".,!?\"'")
+        if text.lower() in WEAK_ENDINGS or "*" in text:
+            continue
+        if len(text) > best_length:
+            best = number
+            best_length = len(text)
+    return best
+
+
+def caption_style_text(text, style):
+    """
+    Change a caption word's look for a style (only "bold" uses capitals).
+
+    Args:
+        text (str): The word as spoken.
+        style (str): The caption style name.
+
+    Returns:
+        str: The word to draw.
+    """
+    if style == "punch":
+        # Top clippers show no full stops or commas in big word captions.
+        return text.upper().rstrip(".,;:")
+    if style == "bold":
+        return text.upper()
+    return text
+
+
 def draw_caption(layer, group, active_word, settings, center_y):
     """
     Draw one caption line, with the spoken word in the highlight colour.
@@ -290,11 +349,20 @@ def draw_caption(layer, group, active_word, settings, center_y):
         settings (CaptionSettings): Size and colours.
         center_y (int): The height of the line's middle (from clip_layout.text_positions).
     """
+    style = getattr(settings, "style", "bold")
     texts = []
     for word in group["words"]:
-        texts.append(word["word"])
+        texts.append(caption_style_text(word["word"], style))
     line = " ".join(texts)
     size = settings.font_size
+    if style == "clean":
+        size = int(settings.font_size * 0.86)   # sentence case reads fine a little smaller
+    if style == "punch":
+        size = int(settings.font_size * 1.15)   # one or two big words at a time
+    highlighted = active_word
+    if style in ("clean", "boxed"):
+        # One static key word, not a colour that jumps word by word.
+        highlighted = key_word_number(group) if style == "clean" else None
     font = caption_font(settings.font_path, size)
     max_width = SAFE_RIGHT - SAFE_LEFT - settings.outline_width * 2
     while font.getlength(line) > max_width and size > 24:
@@ -308,12 +376,21 @@ def draw_caption(layer, group, active_word, settings, center_y):
     space = font.getlength(" ")
     x = (SAFE_LEFT + SAFE_RIGHT - font.getlength(line)) / 2
     draw = ImageDraw.Draw(layer)
+    if style == "boxed":
+        # Dark see-through box behind the line: readable on any gameplay.
+        padding = int(size * 0.35)
+        draw.rounded_rectangle([x - padding, center_y - size * 0.75, x + font.getlength(line) + padding,
+                                center_y + size * 0.75], radius=int(size * 0.3), fill=(0, 0, 0, 170))
     for word_number, text in enumerate(texts):
         color = hex_to_rgb(settings.text_color)
-        if word_number == active_word:
+        if group["words"][word_number].get("speaker") == "other":
+            # Another person's words get their own colour, so viewers know who talks.
+            color = hex_to_rgb(getattr(settings, "other_speaker_color", settings.text_color))
+        if word_number == highlighted:
             color = hex_to_rgb(settings.highlight_color)
+        outline = 0 if style == "boxed" else settings.outline_width
         draw.text((x, center_y), text, font=font, fill=color, anchor="lm",
-                  stroke_width=settings.outline_width, stroke_fill=hex_to_rgb(settings.outline_color))
+                  stroke_width=outline, stroke_fill=hex_to_rgb(settings.outline_color))
         x += font.getlength(text) + space
 
 
@@ -353,6 +430,9 @@ def draw_hook_title(layer, title, center_y, settings):
         center_y (int): Where the middle of the box goes.
         settings (HookTitleSettings): The font size.
     """
+    if getattr(settings, "style", "box") == "outline":
+        draw_context_line(layer, title, center_y, settings)
+        return
     max_width = SAFE_RIGHT - SAFE_LEFT - 60
     size = settings.font_size
     lines = wrap_text(title, size, max_width)
@@ -377,6 +457,77 @@ def draw_hook_title(layer, title, center_y, settings):
     for line in lines:
         draw_text(layer, line, OUTPUT_WIDTH / 2, y, size, HOOK_TEXT_COLOR, outline=False)
         y += line_height
+
+
+def draw_context_line(layer, title, center_y, settings):
+    """
+    Draw the context line top clippers keep on screen: white bold text with a black outline.
+
+    Args:
+        layer (PIL.Image): A transparent picture to draw on.
+        title (str): The context line, e.g. "Chat told CaseOh to spam the kitty".
+        center_y (int): Where the middle of the text goes.
+        settings (HookTitleSettings): The font size.
+    """
+    max_width = SAFE_RIGHT - SAFE_LEFT - 40
+    size = int(settings.font_size * 0.72)
+    lines = wrap_text(title, size, max_width)
+    while len(lines) > 2 and size > 36:
+        size -= 4
+        lines = wrap_text(title, size, max_width)
+    line_height = int(size * 1.2)
+    y = center_y - line_height * (len(lines) - 1) / 2
+    for line in lines:
+        draw_text(layer, line, OUTPUT_WIDTH / 2, y, size, (255, 255, 255), outline=True)
+        y += line_height
+
+
+def draw_sound_label(layer, text, center_y, settings):
+    """
+    Draw a sound label such as *LAUGHING* where the captions go.
+
+    Args:
+        layer (PIL.Image): A transparent picture to draw on.
+        text (str): The label, e.g. "*LAUGHING*".
+        center_y (int): Caption height.
+        settings (CaptionSettings): Font and outline settings.
+    """
+    font = caption_font(settings.font_path, int(settings.font_size * 0.9))
+    draw = ImageDraw.Draw(layer)
+    draw.text((OUTPUT_WIDTH / 2, center_y), text, font=font, fill=(255, 80, 80), anchor="mm",
+              stroke_width=settings.outline_width, stroke_fill=hex_to_rgb(settings.outline_color))
+
+
+def punch_in(frame, punch, now):
+    """
+    Zoom slowly into part of the frame after the payoff (and optionally go black-and-white).
+
+    The zoom grows over 0.4 seconds to its full size, then holds, so it reads
+    as one deliberate push-in on the reaction, not a shaky effect.
+
+    Args:
+        frame (PIL.Image): The video frame (changed in place).
+        punch (dict or None): {"start": seconds, "zoom": 1.12, "top": px, "bottom": px,
+                               "black_white": bool}.
+        now (float): Seconds since the clip started.
+    """
+    if not punch or now < punch["start"]:
+        return
+    progress = min(1.0, (now - punch["start"]) / 0.4)
+    zoom = 1.0 + (punch["zoom"] - 1.0) * progress
+    top = punch["top"]
+    bottom = punch["bottom"]
+    region = frame.crop((0, top, OUTPUT_WIDTH, bottom))
+    if zoom > 1.001:
+        width = OUTPUT_WIDTH / zoom
+        height = (bottom - top) / zoom
+        left = (OUTPUT_WIDTH - width) / 2
+        upper = ((bottom - top) - height) * 0.4   # keep a little more of the top (the head)
+        region = region.crop((int(left), int(upper), int(left + width), int(upper + height)))
+        region = region.resize((OUTPUT_WIDTH, bottom - top), Image.BILINEAR)
+    if punch.get("black_white"):
+        region = region.convert("L").convert("RGB")
+    frame.paste(region, (0, top))
 
 
 def credit_icon(size):
@@ -656,7 +807,7 @@ def check_source_resolution(source, quality_settings):
     return message
 
 
-def layout_for_source(source, facecam, settings, layout_mode=None):
+def layout_for_source(source, facecam, settings, layout_mode=None, framing=None):
     """
     Plan the picture layout for one source and build its FFmpeg filter.
 
@@ -665,15 +816,21 @@ def layout_for_source(source, facecam, settings, layout_mode=None):
         facecam (FacecamBox or None): The streamer's webcam position.
         settings (ClipChannelSettings): Layout and encoding settings.
         layout_mode (str or None): A per-streamer layout; None uses layout.mode.
+        framing (dict or None): A checked face-aware plan from
+                                src/clips/framing.framed_layout(); it replaces
+                                the fixed layout when given.
 
     Returns:
         tuple: (plan, video filter text, output frame rate).
     """
     layout = settings.layout
     mode = layout_mode or layout.mode
-    plan = plan_layout(source["width"], source["height"], mode, facecam,
-                       layout.split_gameplay_share, layout.gameplay_focus_x, layout.foreground_center,
-                       layout.split_facecam_position == "top")
+    if framing is not None and framing.get("plan") is not None:
+        plan = framing["plan"]
+    else:
+        plan = plan_layout(source["width"], source["height"], mode, facecam,
+                           layout.split_gameplay_share, layout.gameplay_focus_x, layout.foreground_center,
+                           layout.split_facecam_position == "top")
     frame_rate = output_frame_rate(source.get("fps", 0), settings.encoding)
     video_filter = build_video_filter(plan, frame_rate, layout.background_blur, layout.background_darken)
     return plan, video_filter, frame_rate
@@ -698,7 +855,8 @@ def is_upscaled(plan):
 
 
 def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
-                      facecam, settings, output_path, layout_mode=None, bleep_spans=None):
+                      facecam, settings, output_path, layout_mode=None, bleep_spans=None, framing=None,
+                      sound_labels=None, punch=None):
     """
     Make the finished vertical video for one clip.
 
@@ -715,6 +873,10 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
         output_path (str): Where to save the MP4.
         layout_mode (str or None): A per-streamer layout; None uses layout.mode.
         bleep_spans (list[dict] or None): Time ranges (from the moment's start) to bleep.
+        framing (dict or None): Face-aware plan and text positions (src/clips/framing.py).
+        sound_labels (list[dict] or None): {"start", "end", "text"} shown where captions go
+                                           while nobody is speaking.
+        punch (dict or None): Payoff zoom settings for punch_in().
 
     Returns:
         dict: What was done, for the quality report: {"path", "frame_rate",
@@ -731,7 +893,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
     if resolution_warning:
         warnings.append(resolution_warning)
     duration = round(end - start, 3)
-    plan, video_filter, frame_rate = layout_for_source(source, facecam, settings, layout_mode)
+    plan, video_filter, frame_rate = layout_for_source(source, facecam, settings, layout_mode, framing)
     if plan.get("note"):
         warnings.append(plan["note"])
 
@@ -747,15 +909,30 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
 
     # Layers that never change are drawn once.
     positions = text_positions(plan)
+    if framing is not None and framing.get("positions"):
+        positions = framing["positions"]
     caption_y = positions["caption_y"]
     if settings.captions.center_y is not None:
         caption_y = settings.captions.center_y
-    hook_layer = make_layer(draw_hook_title, hook_title, positions["hook_y"], settings.hook_title)
+    hook_layer = None
+    if hook_title:
+        hook_layer = make_layer(draw_hook_title, hook_title, positions["hook_y"], settings.hook_title)
     credit_layer = make_layer(draw_credit, credit_text, settings.credit)
     credit_seconds = settings.credit.seconds
     if credit_seconds <= 0:
         credit_seconds = duration   # 0 means "show it for the whole video"
     groups = group_caption_words(words_in_moment(words, start, end), settings.captions.words_per_caption)
+    hook_seconds = settings.hook_title.seconds
+    if hook_seconds <= 0:
+        hook_seconds = duration   # 0 = keep the context line up the whole clip
+    label_layers = []
+    for label in sound_labels or []:
+        label_layers.append((label["start"], label["end"],
+                             make_layer(draw_sound_label, label["text"], caption_y, settings.captions)))
+    if getattr(settings.captions, "style", "") == "quote":
+        # "quote" style: the hook line stays up the whole clip and there are no word captions.
+        groups = []
+        hook_seconds = duration
 
     log_path = work_base + "_ffmpeg.log"
     log_file = open(log_path, "w", encoding="utf-8")
@@ -792,10 +969,16 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
                                                settings.captions, caption_y)
                 last_caption_key = caption_key
 
+            punch_in(frame, punch, now)
             paste_layer(frame, caption_layer)
+            if caption_layer is None:
+                for label_start, label_end, label_layer in label_layers:
+                    if label_start <= now < label_end:
+                        paste_layer(frame, label_layer)
+                        break
             if now < credit_seconds:
                 paste_layer(frame, credit_layer)
-            if now < settings.hook_title.seconds:
+            if now < hook_seconds and hook_title:
                 paste_layer(frame, hook_layer)
 
             encoder.stdin.write(frame.tobytes())
@@ -830,6 +1013,7 @@ def render_clip_video(clip_path, start, end, words, hook_title, credit_text,
         raise RuntimeError(f"FFmpeg could not render the clip. See {log_path}")
     os.remove(log_path)
     return {"path": output_path, "frame_rate": frame_rate, "layout": plan["mode"],
+            "positions": positions, "caption_groups": len(groups),
             "source": f"{source['width']}x{source['height']} @ {source['fps']:.2f} fps",
             "upscaled": is_upscaled(plan), "loudness": audio["loudness"],
             "beep_levels_db": audio["beep_levels_db"], "warnings": warnings}

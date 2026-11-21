@@ -129,9 +129,30 @@ streamers:
     platform: "twitch"                     # source platform
     permission_note: "Project owner confirmed creator consent in chat on 2026-11-17; original agreement date and method not supplied." # owner's report
     permission_date: "2026-11-17"           # date the owner confirmed consent here
-    enabled: true                          # allow authorized ingestion; automation remains paused below
+    enabled: false                         # not on the owner's 2026-11-20 focus list: not recorded (set true to resume)
     recording_directory: "recordings/twitch/silky" # completed recordings from this creator only
     display_name: "Silky"                          # name used in every hook title
+  - username: "ishowspeed"                  # IShowSpeed's YouTube @handle (youtube.com/@IShowSpeed)
+    platform: "youtube"                    # streams on YouTube: recorded live with Streamlink (no clip API)
+    permission_note: "Owner added to the focus list on 2026-11-20 under the project's standing statement of streamer permission (CLAUDE.md, Content permissions)." # owner's report
+    permission_date: "2026-11-20"           # date the owner added him
+    enabled: true                          # record whenever live
+    recording_directory: "recordings/youtube/ishowspeed" # completed recordings from this creator only
+    display_name: "Speed"                          # name clipping channels use in titles
+  - username: "ddg"                         # DDG's Twitch login (verified partner account)
+    platform: "twitch"                     # source platform
+    permission_note: "Owner added to the focus list on 2026-11-20 under the project's standing statement of streamer permission (CLAUDE.md, Content permissions)." # owner's report
+    permission_date: "2026-11-20"           # date the owner added him
+    enabled: true                          # record whenever live
+    recording_directory: "recordings/twitch/ddg" # completed recordings from this creator only
+    display_name: "DDG"                            # name used in every hook title
+  - username: "notquitelikedub"             # DUB's Twitch login (verified partner: NotQuiteLikeDuB)
+    platform: "twitch"                     # source platform
+    permission_note: "Owner added to the focus list on 2026-11-20 under the project's standing statement of streamer permission (CLAUDE.md, Content permissions)." # owner's report
+    permission_date: "2026-11-20"           # date the owner added him
+    enabled: true                          # record whenever live
+    recording_directory: "recordings/twitch/notquitelikedub" # completed recordings from this creator only
+    display_name: "DUB"                            # name used in every hook title
 
 # Which clips to look at and how long the finished videos may be.
 clips:
@@ -139,7 +160,7 @@ clips:
   clips_per_streamer: 5             # most-viewed clips to check per streamer per run
   min_views: 0                      # skip clips with fewer views than this
   skip_shorter_than_seconds: 8      # clips shorter than this are too short to post
-  moment_min_seconds: 20            # the chosen moment is at least this long (shorter clips are kept whole)
+  moment_min_seconds: 18            # shortest clip (owner 2026-11-20: ~10 s one-liners are far too short; hits median 26-33 s)
   moment_max_seconds: 60            # and at most this long
 
 # Speech-to-text, run locally with whisper.cpp (free; brew install whisper-cpp).
@@ -195,7 +216,7 @@ bleep:
 
 # Burned-in word-by-word captions from the transcript.
 captions:
-  words_per_caption: 3        # words on screen at once
+  words_per_caption: 2        # words on screen at once (top clippers show 1-2 big words)
   font_size: 84               # text height in pixels
   text_color: "#FFFFFF"       # colour of the words
   highlight_color: "#FFE14D"  # colour of the word being spoken right now
@@ -205,6 +226,11 @@ captions:
   outline_width: 6           # outline thickness in output pixels
   streamer_voice_only: true  # captions show only the streamer's voice (game characters, other players and music are left out)
   voice_match_min: 0.6       # how similar (0-1) a voice must be to the streamer's to be captioned; higher = stricter
+  style: punch               # punch = 1-2 big capital words, spoken word coloured (what top clippers use); clean; bold; boxed; quote
+  other_voices: exchange     # exchange = keep another person's words when they talk WITH the streamer (not over game music); none; all
+  check_accuracy: true       # remove Whisper mistakes: "thanks for watching" over silence, repetition loops, words where nobody speaks
+  other_speaker_color: "#7FE7FF"  # words from another person (friend, guest) in this colour, so viewers see who talks
+  sound_labels: true         # show *LAUGHING* / *SCREAMING* when those are heard and nobody is talking
 
 # Optional editing of genuine audio silence. Reactions/game sounds stay intact.
 editing:
@@ -219,14 +245,15 @@ editing:
 
 # The hook title shown at the start of the video.
 hook_title:
-  seconds: 8.0                # readable opening hook; stays below the facecam for the first eight seconds
+  seconds: 0                  # 0 = the context line stays up the whole clip (as top clippers do)
+  style: outline              # outline = white text with a black outline (like top clips); box = dark text on a white box
   font_size: 80               # text height in pixels
-  max_words: 8                # hook titles are cut to this many words
+  max_words: 11               # the context line is cut to this many words
   use_llm: true               # use the existing cached/metered clip_pick model for contextual titles; scoring stays local
 
 # Tone for model-written hooks and post descriptions; claims must come from the selected moment.
 metadata:
-  style: "Dramatic, high-energy streamer hooks. Describe the specific setup or trigger and tease the reaction. Use one or two uppercase emphasis words when helpful. Make viewers curious without inventing events, thoughts, stakes, or outcomes; avoid generic clickbait." # grounded drama, not fabricated claims
+  style: "Natural, specific titles a Twitch viewer would write: who did what, from the payoff. At most one capitalised word and one emoji. No generic hype, no invented events." # used only by the older per-clip title path; the editor model (ranking section) writes titles now
 
 # Small streamer credit tag in the top-left corner. Post captions always credit the streamer too.
 credit:
@@ -242,7 +269,7 @@ platforms: [tiktok, youtube]
 # YouTube: it becomes the description (with #Shorts added).
 publishing:
   use_legacy_env_tokens: false     # use this channel's own connections, never the news accounts
-  hashtags: ["#twitch", "#kick", "#streamer", "#gaming", "#clips"]   # added after the streamer credit
+  hashtags: ["#twitch", "#kick"]   # added after the streamer credit (generic tags like #streamer #fyp were more common on flops)
 
 # YouTube upload settings.
 youtube:
@@ -283,29 +310,97 @@ analysis:
     visual: 0.07              # sampled frame changes; does not recognize game events
   excitement_terms: [wow, what, wait, unbelievable, "no way", amazing, why]  # speech cues to look for
 
+# Moment ranking (src/clips/ranking.py, src/clips/editor.py; research: docs/VIRAL_CONTENT_RESEARCH.md).
+# Seven categories (humor, surprise, hook, clarity, pacing, conversation, quality) with versioned
+# weights; weak, confusing or duplicate moments are rejected, so a dull hour gives fewer or no clips.
+ranking:
+  enabled: true               # false = the older analysis.weights scoring below
+  profile: "config/clip_ranking/v2.yaml"  # v2 = stricter (requires an unexpected event); point back at v1.yaml to roll back
+  ab_profile: ""              # optional A/B test: a second profile file used for every other recording ("" = off)
+  use_editor_model: true      # the clip_pick model reads each shortlisted moment and judges the joke (~1-2 cents per recorded hour)
+  shortlist_size: 6           # moments per recording the model reviews (more = slightly higher cost)
+  context_seconds: 20         # transcript shown before each moment so the model can find where the setup starts
+
+# Face-aware framing (src/clips/framing.py): finds the streamer's face in each clip, never cuts the head.
+framing:
+  enabled: true               # false = the fixed layout settings above
+  sample_frames: 12           # frames checked for faces per clip
+  full_camera_face_height: 0.2   # a face this tall (share of the picture) = IRL/full camera: tall crop around the person
+  gameplay_share: 0.55        # stacked layout: gameplay's share of the screen (face gets the rest, on top)
+  reaction_gameplay_share: 0.5   # same for reaction/conversation moments (bigger face)
+  face_share: 0.34            # how much of the face panel's height the face fills (0.3 = head and shoulders, like clipping channels)
+  max_zoom: 4.0               # never enlarge the webcam more than this; beyond it the whole picture is used
+
+# Smart trimming (src/clips/trimming.py): tight start/end, dead air cut, comedic pauses kept.
+trimming:
+  enabled: true               # false = keep the chosen start/end exactly
+  lead_seconds: 0.25          # sound kept before the first line
+  max_dead_air_seconds: 1.4   # silent gaps longer than this may be shortened...
+  keep_gap_seconds: 0.5       # ...down to this
+  comedic_pause_seconds: 2.5  # the pause right before the payoff may stay this long
+  reaction_tail_seconds: 1.0  # kept after the payoff line
+  max_tail_seconds: 3.0       # longest tail while people are still laughing
+  max_cuts: 3                 # most jump cuts per clip (no over-editing)
+
+# Title rules (src/clips/titles.py): separate hook text, YouTube title, TikTok description, hashtags.
+titles:
+  hook_max_words: 11          # on-screen context line (5-11 words explaining the situation)
+  youtube_max_words: 12       # YouTube Shorts title (research median: 9 words)
+  max_emoji: 1                # most emoji in a title
+  max_hashtags: 4             # streamer, platform, game, one channel tag
+  minimum_score: 55           # title ideas scoring below this (0-100) are replaced by a quote from the clip
+
+# Final quality control (src/clips/qa.py).
+qa:
+  minimum_score: 60           # clips below this QA score (0-100) are rejected (skipped, never regenerated in a loop)
+  flag_below: 75              # clips below this are kept but flagged for your review
+  max_repairs: 1              # automatic re-renders with the whole picture for a framing problem
+  min_caption_confidence: 0.6 # captions below this confidence fail the caption check
+
+# Small edits seen in top clips (src/clips/production.py).
+effects:
+  payoff_zoom: 1.1            # push in 10% on the reaction after the payoff (1.0 = off)
+  payoff_black_white: false   # true = reaction turns black-and-white (some top clippers do this)
+
+# Packaging experiments (src/clips/packaging.py): every clip gets a different mix of title
+# emoji/casing, hashtags, caption style, context-line time and post-caption style. Results from
+# published posts (YouTube statistics) steer later choices until a clear winner appears.
+# See progress: python -m src.clips --channel twitch_clips feedback
+packaging:
+  enabled: true               # false = always use the fixed settings above
+  explore_min_tries: 3        # each option is tried at least 3 times before results steer the choice
+  winner_confidence: 0.95     # an option is called the winner once it is 95% likely to be the best
+  dimensions:                 # options being tested (remove one to stop testing it)
+    title_emoji: [none, one]            # no emoji vs one at the end (😭 is the most common in hits)
+    title_case: [natural, lowercase]    # "Jason Got Banned" vs "jason got banned"
+    hashtags: [minimal, game, broad]    # streamer+platform / +game / +#funny #fyp
+    caption_style: [punch, clean]       # big 1-2 capital words vs sentence case
+    context_line: [whole, opening]      # context line the whole clip vs the first 8 seconds
+    description: [summary, question]    # post caption describes the moment vs asks viewers a question
+
 # Start from /clips/twitch_clips, or use the CLI watch command.
 automation:
   enabled: false              # initial Start/Stop state; dashboard choice is persisted in SQLite
-  poll_seconds: 300           # seconds between monitoring/ingestion cycles
+  poll_seconds: 120           # seconds between processing cycles (shorter so finished chunks from many streams do not queue up)
   stable_file_seconds: 60     # ignore recently modified inbox files; use completed recordings only
   max_recordings_per_run: 1   # bound expensive local work in each cycle
   max_attempts: 3             # stop automatic retries after this many analysis/render failures
   retry_seconds: 300          # initial retry delay; doubles after subsequent failures
   require_approval: true      # owner approves every clip before it can be posted (owner choice 2026-11-19)
   publish_dry_run: true       # scheduled publishing logs a plan and sends nothing until false
-  max_uploads_per_day: 3      # distinct videos attempted per local day; both destinations share the reservation
+  max_uploads_per_day: 100    # effectively unlimited (owner 2026-11-20; the highest value the settings allow). The owner posts about 5 a day by hand; YouTube's default API quota still stops at ~6 uploads a day
 
 # Rolling live recorder: records approved streamers' public live streams in
 # chunks, turns each finished chunk into clips, then deletes the chunk so the
 # disk is reused. Run by the clips supervisor; follows the Start/Stop button.
 # Needs acquisition.only: false (otherwise chunks would never be clipped and deleted).
 live_recording:
-  enabled: false              # true = record streamers while they are live
+  enabled: true               # true = record streamers while they are live
   quality: "1080p60,1080p,best"   # Streamlink qualities to try, best first (720p60 halves disk use)
   chunk_minutes: 60           # length of each saved piece; clips come out after each piece ends
   overlap_seconds: 120        # last 2 minutes of the previous piece are added to the next, so a moment on the boundary is not split
-  max_concurrent: 2           # most streams recorded at the same time (most-watched live streamers first)
-  max_hours_per_streamer_per_day: 6   # daily recording limit for each streamer
+  max_concurrent: 10          # record every focus streamer who is live (owner 2026-11-20: always record them); disk limits below still apply
+  max_hours_per_streamer_per_day: 24  # no daily cap: record the whole stream (owner 2026-11-20)
   check_seconds: 60           # how often to check who is live (one Twitch API call for everyone)
   min_free_gb_to_start: 20    # free disk needed before a new recording starts
   stop_below_free_gb: 10      # running recordings stop if free disk drops below this

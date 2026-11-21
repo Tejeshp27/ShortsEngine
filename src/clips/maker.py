@@ -398,6 +398,12 @@ def render_and_save(config, settings, clip, moment, words, video_path, notes_pat
         video_path (str): Where to save the MP4.
         notes_path (str): Where to save the notes file.
     """
+    if settings.framing.enabled or settings.trimming.enabled:
+        # The new editing path: smart trimming, caption checks, face-aware
+        # framing, quality control and a decision log (src/clips/production.py).
+        from src.clips.production import produce_clip
+        produce_clip(config, settings, clip, moment, words, video_path, notes_path)
+        return
     # Imported here so finding clips never loads the video code.
     from src.clips.editing import remove_long_silence, trim_quiet_end, trim_quiet_start
     from src.clips.quality import check_export

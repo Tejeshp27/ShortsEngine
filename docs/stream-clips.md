@@ -21,6 +21,78 @@ recordings (both sites)                        │
           YouTube upload / TikTok inbox or manual MP4 export
 ```
 
+## How moments are chosen and edited (overhaul, 2026-11-20)
+
+Research behind every rule: [VIRAL_CONTENT_RESEARCH.md](VIRAL_CONTENT_RESEARCH.md)
+(130 real Shorts measured with the YouTube API, 5 watched frame by frame,
+~25 GitHub projects inspected). Switched on in `channels/twitch_clips.yaml`
+(`ranking`, `framing`, `trimming`, `titles`, `qa`, `captions.style/other_voices`);
+channels without those sections keep the older path.
+
+```text
+recorded hour ─► Whisper words + sound labels (laughter, scream, cheer, speech, music;
+                 CED-tiny via sherpa-onnx, ~20 s per hour) + chat counts + motion
+              ─► ranking.py: propose windows around possible payoffs, score 7 categories
+                 locally (humor 25 · surprise 20 · hook 15 · clarity 15 · pacing 10 ·
+                 conversation 10 · quality 5; config/clip_ranking/v1.yaml)
+              ─► editor.py: ONE Haiku call reads the 6 best windows (transcript + LAUGH/
+                 SCREAM/CHAT marks), explains the joke, sets setup-start/payoff-end,
+                 scores, rejects weak ones, writes title ideas  (~1–2 cents per hour)
+              ─► decide: blend (75% model / 25% evidence), reject no-payoff / unclear /
+                 duplicate / below 60; at most N per recording — zero is allowed
+              ─► titles.py: hook text, YouTube title, TikTok description, ≤4 hashtags;
+                 banned clickbait phrases, ≤1 caps word, ≤1 emoji, names/numbers must be
+                 in the clip, no repeated formula; fallback = a real quote from the clip
+per clip      ─► trimming.py: start at the first line (skip a lone "okay"), cut dead air
+                 (≤3 cuts), keep the pause before the payoff, end ~1 s after it (longer
+                 while people laugh)
+              ─► caption_check.py: drop Whisper stock phrases over silence, repetition
+                 loops, unheard words; shorten stretched words; other voices kept only in
+                 a back-and-forth with the streamer and not over game music
+              ─► framing.py: YuNet faces on 12 frames → the steady face is the streamer
+                 (NPCs move/come and go) → stacked face-on-top / tall face crop (IRL) /
+                 square close-up / whole picture; head-safety + text-on-face checks with
+                 automatic fallback
+              ─► render (existing renderer; caption styles clean/bold/boxed/quote,
+                 captions on the face/gameplay seam)
+              ─► qa.py: video/audio/caption/content checks → score; one automatic repair
+                 (whole picture) for framing problems; failing clips are skipped, never
+                 regenerated in a loop
+              ─► decisions.py: everything above saved per clip (database + <video>.decision.json)
+                 and per recording (output/clip_decisions/twitch_clips.jsonl)
+```
+
+Commands:
+
+```bash
+python -m src.clips --channel twitch_clips decisions         # chosen and skipped moments, with reasons
+python -m src.clips --channel twitch_clips feedback          # performance by length/layout/title style
+python -m src.clips --channel twitch_clips feedback --write  # save a suggested v2 profile (never auto-active)
+python -m src.clips.research --channel twitch_clips          # refresh the YouTube research data (free quota)
+```
+
+Improvement loop: `feedback` normalises views by age (per day) and by the channel's
+median per platform, compares groups only with ≥5 clips, and suggests weight
+changes of at most ±15% only after ≥20 published clips with decision records. Try a
+suggestion with `ranking.ab_profile` (every other recording uses it), compare, then
+switch `ranking.profile`; roll back by pointing it at the old file.
+
+Measured on real footage (12 sources, 6 streamers; details in the 2026-11-20 entry of
+CLAUDE.md): the old pipeline turned every source into 1–3 clips scored 82–97 and
+mostly 50–60 s long (14 clips); the new one kept 6 moments from 12 sources (19–55 s;
+a second run kept 7), skipped the rest with written reasons, found every webcam
+automatically (including Jason's moved camera), and cost $0.07 for all 12 editor calls.
+Samples: `output/overhaul_test/clips/`.
+
+Known limits: the editor model's judgement varies between runs (two runs on the same
+hour kept 0 and 2 moments); vocal/game audio is not separated (no GPU), so NPC lines
+over no music can still be captioned in an exchange; moving IRL cameras fall back to
+the whole picture; TikTok/retention analytics are not available to the feedback loop.
+
+## Packaging experiments (titles, hashtags, caption looks)
+
+`src/clips/packaging.py` gives every new clip a different combination of title emoji and casing, hashtags, caption style, context-line time and post-caption style. Each option is tried at least 3 times. After that, a standard bandit method (Thompson sampling) picks options in proportion to how likely they are to be best. A post counts as a success when its YouTube views per day are at or above the channel median; posts younger than 48 h are not judged. Weak options become rare but never disappear, so the system notices if tastes change. See the progress and any winner with `python -m src.clips --channel twitch_clips feedback`. Configure or narrow the options in the `packaging:` section of `channels/twitch_clips.yaml`.
+
 ## Run on your Mac
 
 Use the existing environment if it is installed. For a fresh installation:
@@ -396,7 +468,7 @@ Verified locally on November 17, 2026: **460 tests passed**, the separate worker
 completed a CLI dry run, and the real Whisper demo produced a technically checked
 captioned clip. Latest report: `output/clips_finish_verification_2026_11_17/report.json`.
 Live account OAuth/posting and the Docker build were not tested.
-[Review handoff and complete changed-file list](clips-handoff.md).
+The 2026-11-17 handoff file was removed on 2026-11-20; its content is in Git history and in this guide.
 
 ```bash
 python -m pytest tests/test_clip_automation.py tests/test_clips.py -q

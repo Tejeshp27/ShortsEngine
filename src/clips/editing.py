@@ -56,8 +56,11 @@ def remap_words(words, start, ranges):
             relative_end = word["end"] - start
             if relative_end <= begin or relative_start >= end:
                 continue
-            kept.append({"word": word["word"], "start": offset + max(begin, relative_start) - begin,
-                         "end": offset + min(end, relative_end) - begin})
+            # Copy every mark (speaker, bleep...) and move only the times.
+            moved = dict(word)
+            moved["start"] = offset + max(begin, relative_start) - begin
+            moved["end"] = offset + min(end, relative_end) - begin
+            kept.append(moved)
         offset += end - begin
     return kept
 
@@ -101,6 +104,26 @@ def remove_long_silence(source, start, end, words, destination, settings):
     ranges = keep_ranges(duration, silent, gap)
     if ranges == [(0, duration)]:
         return source, start, end, words, None
+    return cut_and_join(source, start, end, ranges, words, destination)
+
+
+def cut_and_join(source, start, end, ranges, words, destination):
+    """
+    Keep only some parts of a moment and join them into one new video.
+
+    Args:
+        source: The original video file.
+        start: The moment's start in the source, in seconds.
+        end: The moment's end.
+        ranges: Kept (begin, finish) pairs, counted from the moment's start.
+        words: Timed words in source time.
+        destination: Where the joined video is written (a temporary file).
+
+    Returns:
+        The edited video's path, its start (0) and end (total kept length),
+        the captions moved to the new timeline, and the temporary path to delete.
+    """
+    duration = end - start
     filters = []
     streams = []
     for index, (begin, finish) in enumerate(ranges):

@@ -295,9 +295,38 @@ def collect_account(account):
         finally:
             connection.close()
 
+    if account["platform"] == "tiktok":
+        link_hand_posted_tiktoks(account, token)
+
     for post in posts_missing_today(account):
         metrics = fetch_post_metrics(account["platform"], post["post_id"], token)
         save_metrics(post["video_id"], account["platform"], platform_post_id=post["post_id"], **metrics)
+
+
+def link_hand_posted_tiktoks(account, token):
+    """
+    For a clips channel, find which posted TikToks are which clips (src/clips/tiktok_posts.py).
+
+    TikTok clips are posted by hand from the inbox, so their public IDs must be
+    found by matching captions before their statistics can be collected.
+    A failure here never stops the rest of the collection.
+
+    Args:
+        account (dict): The TikTok account row.
+        token (str): Its access token.
+
+    Returns:
+        Nothing.
+    """
+    from src.dashboard.settings import channel_config
+    try:
+        if channel_config(account["channel"]).get("type") != "clips":
+            return
+        from src.clips.tiktok_posts import link_tiktok_posts
+        link_tiktok_posts(account["channel"], token)
+    except Exception:
+        # Matching is a helper for learning; statistics collection carries on.
+        pass
 
 
 def sync_channel(channel=None, dry_run=False):

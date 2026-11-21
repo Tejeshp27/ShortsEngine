@@ -159,7 +159,9 @@ def test_real_channel_file_is_valid():
     with open("channels/twitch_clips.yaml", encoding="utf-8") as file:
         config = yaml.safe_load(file)
     settings = load_clip_settings(config)
-    assert settings.clips.moment_min_seconds == 20
+    # 10 s since the 2026-11-20 overhaul: quick reactions work at 10-20 s
+    # (docs/VIRAL_CONTENT_RESEARCH.md); the editor model picks the real length.
+    assert settings.clips.moment_min_seconds == 18   # owner 2026-11-20: ~10 s is far too short
     assert settings.clips.moment_max_seconds == 60
 
 
@@ -777,7 +779,9 @@ def test_clips_channel_cannot_start_article_jobs(clip_portal):
     with pytest.raises(ValueError, match="python -m src.clips"):
         jobs.enqueue_job("twitch_clips", "discover", {}, True, "s3")
     client, _, _ = clip_portal
-    assert "twitch_clips" not in client.get("/new").text
+    # The sidebar links to the clips pages; the article form must not offer the channel.
+    page = client.get("/new").text
+    assert 'value="twitch_clips"' not in page and "?channel=twitch_clips" not in page
 
 
 def test_keeping_the_whole_clip_keeps_the_last_word():

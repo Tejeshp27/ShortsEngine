@@ -1,0 +1,39 @@
+# =============================================================
+# config/clip_ranking/v1.yaml — ranking profile version 1
+#
+# Used by src/clips/ranking.py (chosen with ranking.profile in the
+# channel YAML). To try new weights, COPY this file to v2.yaml, change
+# the copy, and point the channel at it; to roll back, point it here
+# again. Every clip's decision log records which profile chose it.
+# `python -m src.clips --channel twitch_clips feedback` can suggest a
+# new version from real results; it never switches automatically.
+# =============================================================
+
+version: v1                 # name stored with every clip decision
+created: "2026-11-20"       # when this profile was written
+note: "Initial weights from the overhaul brief; not yet validated by performance data."
+
+# Relative importance of each category (any positive numbers; they are scaled to 100).
+weights:
+  humor: 25                 # genuinely funny: jokes, banter, irony, embarrassing admissions
+  surprise: 20              # unexpected turn and a memorable payoff
+  hook: 15                  # the first seconds make you want to keep watching
+  clarity: 15               # understandable without having watched the stream
+  pacing: 10                # little dead air, comfortable talking speed
+  conversation: 10          # likely to make people comment or tag a friend
+  quality: 5                # sound present and not distorted, picture not frozen
+
+minimum_score: 60           # final score (0-100) a moment needs to become a clip
+payoff_floor: 0.45          # humor OR surprise must reach this (0-1), otherwise "no payoff"
+clarity_floor: 0.35         # clarity below this (0-1) = too confusing to post
+model_share: 0.75           # how much the editor model's reading counts vs. local evidence (0-1)
+
+# Preferred length range (seconds) by moment type; research median was 27.5 s,
+# but the most-viewed quarter were longer (median 44 s): length follows content.
+lengths:
+  reaction: [8, 25]
+  gameplay: [10, 35]
+  awkward: [10, 35]
+  conversation: [15, 45]
+  argument: [15, 50]
+  story: [25, 60]

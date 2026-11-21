@@ -207,9 +207,9 @@ def find_and_download(channel_key, config, only_streamer=None, dry_run=False):
     totals = {"new": 0, "already_saved": 0, "skipped": 0, "downloaded": 0}
     app_token = None
     for streamer in streamers:
-        if streamer.platform == "kick":
-            print(f"  {streamer.username} (Kick): Kick has no official clip API — add their clips with "
-                  f"'upload FILE --streamer {streamer.username} --i-own-this'.")
+        if streamer.platform in ("kick", "youtube"):
+            print(f"  {streamer.username} ({streamer.platform.title()}): no clip download API — recorded live only, "
+                  f"or add clips with 'upload FILE --streamer {streamer.username} --i-own-this'.")
             continue
         # Asked for once, and only when there is a Twitch streamer to look up.
         if app_token is None:

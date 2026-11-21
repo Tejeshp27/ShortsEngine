@@ -1,81 +1,43 @@
 # ShortsEngine
 
-**Local live-footage pilot passed (2026-11-18):** Streamlink captured a real
-46-second JasonTheWeen stream segment; the existing importer stored it in the
-private site without duplication, and the local clipping pipeline produced a
-checked 32.24-second vertical draft plus an MP4/caption export. No paid AI calls
-or uploads. [Watch draft 8](http://localhost:8000/video/8), or read
-[pilot evidence and remaining automation work](docs/local-recording-pilot.md).
-The owner selected a $25/month future cloud budget, with local testing first.
-Continuous recording/recovery integration and the Linux container build remain
-unverified; the installed supervisor is still in acquisition-only mode.
+A multi-channel content automation app. Its main channel records approved
+Twitch/Kick streamers live, finds the genuinely funny or surprising moments, edits
+them into vertical clips with the streamer's face kept whole, accurate captions and
+natural titles, checks every clip automatically, and sends it to a human review
+queue before anything is posted.
 
-**Rolling live recorder (2026-11-19):** records approved streamers' public live
-streams in hour-long chunks (most-watched first, capped at a set number at once),
-counts live Twitch chat and viewer-made clips to find the moments people reacted
-to, turns each chunk into scored clips, then deletes the chunk and keeps only a
-short excerpt per clip, so disk use stays roughly fixed. A bounded real test
-recorded two live streams, produced seven clips that passed the technical gate and
-freed every chunk. Switched on 2026-11-19; see [docs/live-recording.md](docs/live-recording.md).
+**How a stream becomes a clip (2026-11-20 overhaul):**
 
-**Stream clip quality pipeline (2026-11-18):** every clip goes through one
-decode → draw → encode pass. Layouts are configurable: **fit-blur** (default: the
-whole uncropped 16:9 picture over a blurred, darkened copy), **split** (gameplay on
-top ~60%, the streamer's facecam below; per-streamer camera box in YAML) and
-**center-crop**. Output is 1080x1920 H.264 High (`-preset slow -crf 18`, yuv420p),
-the source's own frame rate (60 stays 60), AAC 192k, `+faststart`, Lanczos scaling,
-and a light sharpen only on panels that are enlarged. Sound is cleaned in one pass
-(80 Hz high-pass, optional dialogue emphasis, light `afftdn` noise reduction, gentle
-compressor) and levelled with **two-pass loudnorm** to -14 LUFS / -1 dBTP inside
-the final encode. Swear words from the editable `config/profanity.yaml` are muted
-and replaced by a matching-volume 1 kHz beep, masked in captions and post text, and
-logged next to each video (`.transcript.json`, `.bleeps.json`). Clips start just
-before the first word and end shortly after the last one. A small `twitch.tv/name`
-tag shows top-left for the first seconds; post captions credit the streamer and
-the clipper when known. Sources below 720p are flagged. Draft 8 was re-rendered
-with all of this: [watch it](http://localhost:8000/video/8). Settings:
-[stream clips guide](docs/stream-clips.md#editing-captions-and-review).
+1. **Record** — the [rolling live recorder](docs/live-recording.md) captures approved
+   public streams in hour-long chunks and counts live chat reactions.
+2. **Find moments** — Whisper words, sound labels (laughter, screams, cheering,
+   music; local model), chat bursts and motion propose possible payoffs. Seven
+   weighted categories (humor, surprise, hook, clarity, pacing, conversation,
+   quality) rank them — loudness alone never wins.
+3. **Judge like an editor** — one cheap Claude Haiku call per recorded hour reads the
+   best few moments, explains the joke, picks setup-start and payoff-end, and
+   rejects anything without a payoff. Fewer clips (or none) is a valid result.
+4. **Edit** — tight start/end, dead air cut but comedic pauses kept; Whisper
+   mistakes (stock phrases over silence, loops) removed from captions; other voices
+   captioned only when they talk with the streamer.
+5. **Frame** — face detection finds the streamer's webcam in every clip and stacks
+   it on top of the gameplay with the whole head visible (or a tall/square crop for
+   IRL); unsafe crops fall back to the full picture.
+6. **Title** — specific, natural titles from what actually happened; clickbait
+   phrases, shouting and invented names are rejected.
+7. **Check and record** — automated QA (picture, sound, captions, content) and a
+   decision log of every choice, which feeds a performance feedback loop.
 
-**Current focus: acquire source footage first.** Open the private
-[source-video library](http://localhost:8000/clips/twitch_clips/sources) to distinguish
-discovered Twitch links from stored original files, upload an authorized recording
-from Twitch/Kick, and play stored footage. No manual path entry or file movement
-is needed for browser uploads. This upload fallback is not unattended remote
-acquisition. The configured channel now uses `acquisition.only: true`, which pauses
-automatic transcription, editing and scheduled posting while source collection runs.
-See [the staged acquisition plan](docs/video-acquisition-plan.md).
+Research behind these rules: [docs/VIRAL_CONTENT_RESEARCH.md](docs/VIRAL_CONTENT_RESEARCH.md)
+(130 real Shorts measured through the YouTube API). Operating guide:
+[docs/stream-clips.md](docs/stream-clips.md). Current status and owner steps:
+[AUTOMATION_STATUS.md](AUTOMATION_STATUS.md), [HUMAN_SETUP_GUIDE.md](HUMAN_SETUP_GUIDE.md).
+Twitch metadata discovery and manual imports: [docs/source-discovery.md](docs/source-discovery.md).
+The supervisor runs under launchd on a Mac that stays awake, online and logged in.
 
-**Twitch discovery is metadata-only:** public clips and archived VODs are saved in
-the existing source library with credit, provenance and unconfirmed permission.
-Automatic checks default to every six hours when clip automation is started.
-Use **Check for new sources** on the source page, or:
-
-```bash
-python -m src.clips --channel twitch_clips discover
-python -m src.clips --channel twitch_clips discover --streamer jasontheween
-python -m src.clips --channel twitch_clips discover --dry-run
-```
-
-Set `TWITCH_CLIENT_ID` and `TWITCH_CLIENT_SECRET` in `.env`; no creator login is
-needed for discovery. For real footage, use Twitch's available official **Download
-Landscape Version** control, then select the matching **Existing discovery** in
-the library's upload form. The same entry becomes acquired after a confirmed,
-validated upload. See [discovery setup and manual imports](docs/source-discovery.md)
-for creator configuration, limits and what is needed for unattended media delivery.
-For the next development session, follow **Resume here** in [CLAUDE.md](CLAUDE.md)
-and the latest pilot entry: reuse the successful bounded Streamlink route in a
-supervised recorder, then prove interruption/restart recovery before unattended
-editing. Discovery alone does not acquire editable video.
-
-The independent Mac clips supervisor is now installed with launchd. See
-[automation status](AUTOMATION_STATUS.md) for measured capabilities, current
-source/account blockers and live counts, and [human setup](HUMAN_SETUP_GUIDE.md)
-for the first account-owner step. No daily Terminal or Codex session is needed
-for the installed services. A Mac must remain awake, powered, online and logged in.
-
-A multi-channel content automation app for news videos and authorized Twitch/Kick
-highlights. It finds stories or scores stream recordings, creates captioned vertical
-MP4s, and sends them through a human review queue. A private dashboard manages channels, accounts,
+The original news channel (AI-written, fact-checked explainer videos) still works:
+it finds stories, writes and renders captioned vertical MP4s, and sends them through
+the same review queue. A private dashboard manages channels, accounts,
 production, spending and performance. Approved videos post as Instagram and
 Facebook Page Reels and YouTube Shorts, and upload to TikTok drafts, from a
 "Post now" button or a schedule.
@@ -243,9 +205,8 @@ commercial use.
 
 ## Clips channel (Twitch + Kick highlights)
 
-For the November 18 launch status, verified counts and owner actions, see
-[TODAY_LAUNCH_CHECKLIST.md](TODAY_LAUNCH_CHECKLIST.md). No creator clips or public
-uploads should be inferred from synthetic demo outputs.
+Current status, counts and owner actions are in [AUTOMATION_STATUS.md](AUTOMATION_STATUS.md)
+and [HUMAN_SETUP_GUIDE.md](HUMAN_SETUP_GUIDE.md).
 
 The **Stream clips** dashboard now manages Twitch/Kick streamers, written
 permissions, live status, completed recordings, scored highlights and automation.
@@ -256,7 +217,15 @@ source .venv/bin/activate
 brew install ffmpeg whisper-cpp                 # if missing
 python -m src.clips.demo                        # original sample + real Whisper on macOS; never uploads
 python -m src.dashboard.app                     # open http://localhost:8000/clips/twitch_clips
+python -m src.clips --channel twitch_clips decisions          # why moments were kept or skipped
+python -m src.clips --channel twitch_clips feedback           # performance by length/layout/title style
+python -m src.clips.research --channel twitch_clips           # refresh the YouTube Shorts research data
 ```
+
+Editing rules (ranking weights, framing, trimming, caption style, titles, QA) are
+in the `ranking`, `framing`, `trimming`, `titles`, `qa` and `captions` sections of
+`channels/twitch_clips.yaml` and the versioned profile `config/clip_ranking/v1.yaml`;
+see [how moments are chosen and edited](docs/stream-clips.md#how-moments-are-chosen-and-edited-overhaul-2026-11-20).
 
 Add approved streamers in the dashboard or `channels/twitch_clips.yaml`. Public
 Twitch clip/VOD discovery uses app credentials and never calls Get Clips Download.

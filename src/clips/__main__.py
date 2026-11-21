@@ -57,7 +57,7 @@ def parse_arguments():
     add_dry_run_option(upload)
     upload.add_argument("file", help="The video file (.mp4, .mov, .mkv, .webm)")
     upload.add_argument("--streamer", required=True, help="The approved streamer the clip is from")
-    upload.add_argument("--platform", choices=["kick", "twitch"], default="kick",
+    upload.add_argument("--platform", choices=["kick", "twitch", "youtube"], default="kick",
                         help="Where that streamer streams (default: kick)")
     upload.add_argument("--i-own-this", action="store_true", dest="i_own_this",
                         help="Confirm the file came from the streamer (or you) and you may use it")
@@ -73,7 +73,7 @@ def parse_arguments():
     record = commands.add_parser("record", help="Import a full authorized recording and prepare multiple highlights")
     record.add_argument("file", help="Path to a completed local recording")
     record.add_argument("--streamer", required=True, help="An approved streamer")
-    record.add_argument("--platform", choices=["twitch", "kick"], required=True)
+    record.add_argument("--platform", choices=["twitch", "kick", "youtube"], required=True)
     record.add_argument("--i-own-this", action="store_true", dest="i_own_this")
     add_dry_run_option(record)
     watch = commands.add_parser("watch", help="Keep checking this channel until Ctrl-C")
@@ -81,7 +81,7 @@ def parse_arguments():
     cut = commands.add_parser("cut", help="Render a 15–60 second timestamp selection without paid AI")
     cut.add_argument("file", help="A completed authorized recording")
     cut.add_argument("--streamer", required=True)
-    cut.add_argument("--platform", choices=["twitch", "kick"], required=True)
+    cut.add_argument("--platform", choices=["twitch", "kick", "youtube"], required=True)
     cut.add_argument("--start", type=float, required=True, help="Start seconds in the source")
     cut.add_argument("--end", type=float, required=True, help="End seconds in the source")
     cut.add_argument("--title", required=True, help="A truthful hook title")
@@ -93,6 +93,12 @@ def parse_arguments():
     export.add_argument("--platform", choices=["both", "youtube", "tiktok"], default="both",
                         help="Manual destinations; choose one when the other already has the video")
     add_dry_run_option(export)
+    decisions = commands.add_parser("decisions", help="Show recent clip decisions: chosen and rejected moments, with reasons")
+    decisions.add_argument("--limit", type=int, default=10, help="How many recent recordings to show")
+    add_dry_run_option(decisions)
+    feedback = commands.add_parser("feedback", help="Compare published clips' performance and suggest ranking changes")
+    feedback.add_argument("--write", action="store_true", help="Save a suggested profile file (never activated automatically)")
+    add_dry_run_option(feedback)
     return parser.parse_args()
 
 
@@ -252,11 +258,85 @@ def main():
             run_watch(args)
         elif args.command in ("cut", "export"):
             run_launch(args, config)
+        elif args.command == "decisions":
+            run_decisions(args)
+        elif args.command == "feedback":
+            run_feedback(args, config)
         else:
             run_list(args)
     except (StreamerNotApproved, TwitchError, ValueError) as error:
         print(f"ERROR: {error}")
         raise SystemExit(1)
+
+
+def run_decisions(args):
+    """
+    Print the newest ranking decisions from output/clip_decisions/<channel>.jsonl.
+
+    Args:
+        args: Parsed options (channel, limit).
+    """
+    from src.clips.decisions import read_log
+
+    records = []
+    for record in read_log(args.channel, 500):
+        if record.get("kind") == "recording_ranked":
+            records.append(record)
+    if not records:
+        print("No ranking decisions logged yet.")
+        return
+    for record in records[-args.limit:]:
+        reviewed = "editor model + local evidence" if record.get("editor_reviewed") else "local evidence only"
+        print(f"\nRecording {record['recording_id']} · {record['streamer']} · {record['duration']:.0f}s · "
+              f"profile {record.get('profile')} · {reviewed}")
+        for chosen in record.get("chosen", []):
+            print(f"  CHOSEN  {chosen['start']:.1f}-{chosen['end']:.1f}s score {chosen['score']} "
+                  f"[{chosen.get('category')}] {chosen.get('title')}")
+            print(f"          why: {chosen.get('reason')}")
+        for rejected in record.get("rejected", []):
+            print(f"  skipped {rejected['start']:.1f}-{rejected['end']:.1f}s score {rejected.get('score')}: "
+                  f"{rejected.get('reason')}")
+
+
+def run_feedback(args, config):
+    """
+    Print the performance comparison and any suggested ranking profile.
+
+    Args:
+        args: Parsed options (channel, write).
+        config: The channel YAML.
+    """
+    from src.clips.feedback import feedback_report
+    from src.clips.ranking import load_profile
+    from src.clips.settings import load_clip_settings
+
+    settings = load_clip_settings(config)
+    report = feedback_report(args.channel, load_profile(settings.ranking.profile), write=args.write)
+    print(f"Published clips with statistics: {report['published']}")
+    for name, groups in report["comparisons"].items():
+        print(f"\nBy {name}:")
+        for group in groups:
+            flag = "" if group["enough_data"] else "  (too few to judge)"
+            print(f"  {group['group']:<22} {group['clips']:>3} clips · median {group['median_relative_views']}x "
+                  f"normal views/day{flag}")
+    if settings.packaging.enabled:
+        from src.clips.packaging import packaging_report
+        lab = packaging_report(args.channel, settings)
+        print(f"\nPackaging experiments ({lab['published']} published clips with statistics):")
+        for dimension, info in lab["dimensions"].items():
+            parts = []
+            for option, numbers in info["stats"].items():
+                parts.append(f"{option} {numbers['successes']}/{numbers['tries']} ({info['chance_best'][option]:.0%} best)")
+            verdict = f"WINNER: {info['winner']}" if info["winner"] else "still testing"
+            print(f"  {dimension:<14} " + " · ".join(parts) + f"  → {verdict}")
+    print("\nSuggestion:")
+    for reason in report["reasons"]:
+        print("  - " + reason)
+    if report["proposal_path"]:
+        print(f"Saved (not active): {report['proposal_path']}")
+    print("\nLimits:")
+    for limit in report["limits"]:
+        print("  - " + limit)
 
 
 def run_launch(args, config):

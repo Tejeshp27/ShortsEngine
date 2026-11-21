@@ -47,12 +47,15 @@ def stream_url(platform, username):
     Build the public web address of a streamer's channel.
 
     Args:
-        platform (str): "twitch" or "kick".
-        username (str): The streamer's login name.
+        platform (str): "twitch", "kick" or "youtube".
+        username (str): The streamer's login name (the @handle on YouTube).
 
     Returns:
-        str: For example "https://twitch.tv/jasontheween".
+        str: For example "https://twitch.tv/jasontheween" or
+             "https://www.youtube.com/@ishowspeed/live" (YouTube's live page for a channel).
     """
+    if platform == "youtube":
+        return f"https://www.youtube.com/@{username.lower()}/live"
     return f"https://{STREAM_PLATFORM_ADDRESSES[platform]}/{username.lower()}"
 
 

@@ -1,0 +1,38 @@
+# =============================================================
+# config/clip_ranking/v2.yaml — ranking profile version 2 (stricter)
+#
+# Why: the owner rejected most v1 clips as "not funny". A within-channel
+# study of 10,263 streamer Shorts (docs/VIRAL_CONTENT_RESEARCH.md, section 9)
+# found hits and flops share the same packaging; hits always contain one
+# clear unexpected event, flops are calm talk/gameplay. v2 therefore
+# requires that event, raises the bars and trusts the model's reading more.
+# Roll back by pointing ranking.profile at v1.yaml.
+# =============================================================
+
+version: v2                 # name stored with every clip decision
+created: "2026-11-20"       # when this profile was written
+based_on: v1                # previous version
+note: "Stricter after owner feedback (clips not funny) and the within-channel hit/flop study."
+
+weights:
+  humor: 25                 # genuinely funny
+  surprise: 25              # the unexpected event and its payoff (raised from 20: the study's main finding)
+  hook: 15                  # something happens in the first seconds
+  clarity: 15               # a stranger understands it
+  pacing: 5                 # less important than the moment itself (lowered from 10)
+  conversation: 10          # real people reacting to each other
+  quality: 5                # sound and picture fine
+
+minimum_score: 62           # final score needed (v1: 60; 66 dropped a moment the owner liked, while a 73 one was disliked: the score alone does not capture taste)
+payoff_floor: 0.55          # humor OR surprise must reach this (v1: 0.45)
+clarity_floor: 0.4          # (v1: 0.35)
+model_share: 0.85           # the model's reading counts more than loudness/laughter hints (v1: 0.75)
+require_event: true         # reject when the editor cannot name an unexpected event
+
+lengths:                    # preferred seconds by moment type (hit median 26-33 s; owner: ~10 s is far too short)
+  reaction: [18, 35]
+  gameplay: [18, 35]
+  awkward: [18, 45]
+  conversation: [15, 45]
+  argument: [15, 50]
+  story: [25, 60]

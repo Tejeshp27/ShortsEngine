@@ -206,6 +206,61 @@ def claim_delivery(video_id, platform):
         conn.close()
 
 
+def delivery_block_reason(video_id, platform):
+    """
+    Explain in plain words why claim_delivery() refused an upload.
+
+    claim_delivery() only answers yes/no (so its safety logic stays in one
+    place); this reads the same facts again to tell the owner what to do.
+
+    Args:
+        video_id (int): The video.
+        platform (str): "tiktok", "youtube", ...
+
+    Returns:
+        str: The reason, e.g. "daily upload limit reached (3 of 3 today) ...".
+    """
+    conn = get_connection()
+    try:
+        delivery = conn.execute("SELECT status FROM publishing_deliveries WHERE video_id=? AND platform=?",
+                                (video_id, platform)).fetchone()
+        if delivery is not None:
+            return f"already {delivery['status']} on this platform (never sent twice)"
+        if conn.execute("SELECT 1 FROM platform_posts WHERE video_id=? AND platform=?",
+                        (video_id, platform)).fetchone():
+            return "already posted on this platform"
+        video = conn.execute("SELECT status FROM videos WHERE id=?", (video_id,)).fetchone()
+        if video is None:
+            return "the video no longer exists"
+        if video["status"] != "approved":
+            return f"the video is '{video['status']}', not approved"
+        if conn.execute("SELECT 1 FROM jobs WHERE video_id=? AND status IN ('queued', 'running')",
+                        (video_id,)).fetchone():
+            return "another job is still working on this video; try again when it finishes"
+        clip = conn.execute("SELECT * FROM clips WHERE video_id=?", (video_id,)).fetchone()
+        if clip:
+            from src.clips.settings import load_clip_settings
+            from src.dashboard.settings import channel_config
+            config = channel_config(clip["channel"])
+            if not config.get("enabled", True):
+                return "the clips channel is disabled in its YAML"
+            quality = json.loads(clip["quality_json"] or "{}")
+            if quality and not quality.get("passed"):
+                return "the clip failed its quality check"
+            settings = load_clip_settings(config)
+            timezone_name = config.get("schedule", {}).get("timezone", "UTC")
+            day = datetime.now(ZoneInfo(timezone_name)).date().isoformat()
+            count = conn.execute("SELECT COUNT(*) FROM clip_publish_limits WHERE channel=? AND day=?",
+                                 (clip["channel"], day)).fetchone()[0]
+            limit = settings.automation.max_uploads_per_day
+            if count >= limit:
+                return (f"daily upload limit reached ({count} of {limit} videos today, {timezone_name}). "
+                        "It resets at midnight, or raise 'Daily upload limit' in the clips page settings")
+        return "not ready to send"
+    finally:
+        conn.close()
+
+
 def finish_delivery(video_id, platform, status, post_id=None):
     """Save an upload outcome and optional returned ID; return nothing.
 
@@ -427,7 +482,7 @@ def publish_to_platform(channel_key, config, video, platform):
         return f"{name}: {safe_error(error)} Video left approved."
 
     if not claim_delivery(video["id"], platform):
-        return f"{name}: already sent or not ready; skipped."
+        return f"{name}: not sent: {delivery_block_reason(video['id'], platform)}."
 
     try:
         result = send_to_platform(platform, video, config, credentials)

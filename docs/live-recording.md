@@ -92,6 +92,14 @@ than failing when there is not enough space to join it.
 Watch `output/runtime/events.jsonl` for `live_recording` events and
 `output/runtime/health.json` → `live_recording`.
 
+Status (2026-11-20): paused by the owner in the morning, **resumed at 18:16** the same
+day. If the supervisor reports a YAML error that the file no longer has (for example
+`bleep → volume`), it is running old code: restart it with the `launchctl kickstart`
+line above. Each finished chunk is now analysed by the new ranking/editor pipeline
+(see [stream-clips.md](stream-clips.md#how-moments-are-chosen-and-edited-overhaul-2026-11-20)),
+so an hour with nothing worth posting produces no clips; the reasons are in
+`python -m src.clips --channel twitch_clips decisions`.
+
 ## Measured test (2026-11-19, local Mac)
 
 A bounded real run used a copy of the database, 2-minute chunks, 30-second

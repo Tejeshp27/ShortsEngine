@@ -72,9 +72,10 @@ def test_split_can_put_the_facecam_on_top():
     assert text.startswith("[0:v]fps=60,split=2[cam][game];[cam]crop=")
     assert text.endswith("[top][bottom]vstack=inputs=2,format=rgb24[out]")
     positions = text_positions(plan)
-    # The hook sits at the bottom edge of the face panel; captions are in the gameplay.
-    assert 768 <= positions["hook_y"] <= 900
-    assert 768 + 200 < positions["caption_y"] <= clip_layout.TEXT_BOTTOM_LIMIT
+    # Research (docs/VIRAL_CONTENT_RESEARCH.md): captions sit on the seam between
+    # face and gameplay; the hook sits just below them in the gameplay.
+    assert 768 < positions["hook_y"] < positions["caption_y"] <= clip_layout.TEXT_BOTTOM_LIMIT
+    assert positions["hook_y"] - 768 < 150   # the context line sits just under the face
 
 
 def test_facecam_position_setting_is_checked():
