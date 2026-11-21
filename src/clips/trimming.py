@@ -55,7 +55,7 @@ def words_inside(words, start, end):
     return inside
 
 
-def something_happens(sounds, motion, gap_start, gap_end):
+def something_happens(sounds, motion, gap_start, gap_end, volume=None, talk_level=None):
     """
     Check whether a gap without speech still contains a laugh, scream or big action.
 
@@ -64,10 +64,20 @@ def something_happens(sounds, motion, gap_start, gap_end):
         motion (list[float]): Per-second picture change (may be empty).
         gap_start (float): Gap start, in source seconds.
         gap_end (float): Gap end.
+        volume (list[float]): Per-second loudness in dB (may be empty or None).
+        talk_level (float or None): Typical loudness while people talk in this clip.
 
     Returns:
         bool: True when the gap should be kept.
     """
+    from src.clips.ranking import gap_is_reaction
+
+    # A gap about as loud as the talking is a reaction (laughing, screaming,
+    # a crowd) even when the sound model misses it. The TikTok study found
+    # the model rarely hears laughter under game sound, and that breakout
+    # clips have MORE of these loud wordless beats (TIKTOK_CONTENT_RESEARCH.md 2.2).
+    if volume and talk_level is not None and gap_is_reaction(gap_start, gap_end, volume, talk_level, []):
+        return True
     for second in range(int(gap_start), int(gap_end) + 1):
         if second < len(sounds):
             chances = sounds[second]
@@ -140,7 +150,7 @@ def ending_end(start, end, spoken, sounds, payoff_time, tail_seconds, max_tail_s
     return round(new_end, 2), f"Ending trimmed {end - new_end:.1f}s after the payoff"
 
 
-def plan_trim(start, end, words, sounds, motion, payoff_time, trim_settings, minimum_length):
+def plan_trim(start, end, words, sounds, motion, payoff_time, trim_settings, minimum_length, volume=None):
     """
     Work out the tightened clip: new start/end and which parts to keep.
 
@@ -153,6 +163,7 @@ def plan_trim(start, end, words, sounds, motion, payoff_time, trim_settings, min
         payoff_time (float or None): When the payoff happens (from laughter or the editor).
         trim_settings (TrimSettings): Limits from the channel YAML.
         minimum_length (float): Never make the clip shorter than this.
+        volume (list[float]): Per-second loudness in dB (optional); loud gaps are kept.
 
     Returns:
         dict: {"start", "end", "ranges" (kept parts from the new start; one part
@@ -175,6 +186,18 @@ def plan_trim(start, end, words, sounds, motion, payoff_time, trim_settings, min
         notes = ["Kept as chosen (trimming would make it too short)"]
     spoken = words_inside(words, new_start, new_end)
 
+    # The typical loudness while people talk, to recognise loud reaction gaps.
+    talk_level = None
+    if volume and spoken:
+        talk_levels = []
+        for word in spoken:
+            second = int(word["start"])
+            if second < len(volume):
+                talk_levels.append(volume[second])
+        if talk_levels:
+            talk_levels.sort()
+            talk_level = talk_levels[len(talk_levels) // 2]
+
     # Find gaps between lines that are only dead air.
     gaps = []
     for index in range(len(spoken) - 1):
@@ -183,7 +206,7 @@ def plan_trim(start, end, words, sounds, motion, payoff_time, trim_settings, min
         length = gap_end - gap_start
         if length <= trim_settings.max_dead_air_seconds:
             continue
-        if something_happens(sounds, motion, gap_start, gap_end):
+        if something_happens(sounds, motion, gap_start, gap_end, volume, talk_level):
             continue
         keep = trim_settings.keep_gap_seconds
         # The pause just before the payoff is part of the joke.

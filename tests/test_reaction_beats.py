@@ -66,3 +66,22 @@ def test_editor_message_without_volume_has_no_beats():
     words = make_words([(0, 1), (5, 6)])
     message = editor.build_user_message([{"start": 0, "end": 6}], words, [], [], 0, 6)
     assert "no words for" not in message
+
+
+def test_trimming_keeps_a_loud_gap_and_cuts_a_quiet_one():
+    from types import SimpleNamespace
+
+    from src.clips.trimming import plan_trim
+
+    settings = SimpleNamespace(lead_seconds=0.25, max_dead_air_seconds=1.4, keep_gap_seconds=0.5,
+                               comedic_pause_seconds=2.5, reaction_tail_seconds=1.0, max_tail_seconds=3.0,
+                               max_cuts=3)
+    # Talking 0-6 s, 10-16 s and 20-26 s; gaps at 6-10 s (loud) and 16-20 s (quiet).
+    words = make_words([(second, second + 0.9) for second in range(0, 6)] +
+                       [(second, second + 0.9) for second in range(10, 16)] +
+                       [(second, second + 0.9) for second in range(20, 26)])
+    volume = [-20] * 6 + [-17] * 4 + [-20] * 6 + [-60] * 4 + [-20] * 6
+    trim = plan_trim(0, 26, words, [], [], None, settings, 10, volume=volume)
+    assert trim["cuts"] == 1                       # only the quiet gap was shortened
+    without_volume = plan_trim(0, 26, words, [], [], None, settings, 10)
+    assert without_volume["cuts"] == 2             # old behaviour: both gaps cut

@@ -47,6 +47,25 @@ def motion_for(source):
         return []
 
 
+def volume_for(source):
+    """
+    Read the per-second loudness list saved during analysis, if any.
+
+    Args:
+        source (str): The video file (its <name>.signals.json sits next to it).
+
+    Returns:
+        list[float]: Loudness in dB per second (empty when not measured).
+    """
+    path = Path(source).with_suffix(".signals.json")
+    if not path.is_file():
+        return []
+    try:
+        return json.loads(path.read_text()).get("volume_db", [])
+    except ValueError:
+        return []
+
+
 def sounds_for(source):
     """
     Get per-second sound labels (laughter, speech, music...) for a video, never failing.
@@ -326,7 +345,7 @@ def produce_clip(config, settings, clip, moment, words, video_path, notes_path):
     payoff = payoff_time_for(signals, start, end)
     if settings.trimming.enabled:
         trim = plan_trim(start, end, words, sounds, motion, payoff, settings.trimming,
-                         settings.clips.moment_min_seconds)
+                         settings.clips.moment_min_seconds, volume=volume_for(source))
     else:
         trim = {"start": start, "end": end, "ranges": [(0.0, round(end - start, 3))], "removed_seconds": 0.0,
                 "cuts": 0, "notes": []}
