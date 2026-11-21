@@ -140,7 +140,7 @@ By length, across all videos with 10K+ views: shares per view are highest at
 
 For each account, its videos with the highest comment / share / save rate
 were compared with its own lowest (2,190 videos in each group, accounts with
-30+ settled videos). Words are from captions and used by 5+ accounts:
+30+ settled videos; computed before the last 13 profiles were added). Words are from captions and used by 5+ accounts:
 
 | Number | Those videos' views | Length | Words most typical of the high group |
 |---|---|---|---|
@@ -173,8 +173,9 @@ caption feature was close to 1.00x:
 | Original sound (not a song) | 1.00x | 0.97x |
 | Caption 6-12 words | 1.01x | 0.99x |
 
-For streamer clips alone, a SHOUTED word did a bit better (1.18x vs 0.97x,
-breakouts 42% vs 32%). That is a small, possibly style-of-account effect.
+In an early cut with 12 streamer-clip accounts, a SHOUTED word did a bit
+better (1.18x vs 0.97x). With 28 accounts the hits and flops used it equally
+(24% vs 23%, section 2.7), so it is not a reliable effect.
 Posting time (4-hour blocks, US Central) ranged only 0.97x-1.03x.
 
 **Hashtags:** between accounts, 6+ hashtags looked terrible (4% hits), but
@@ -239,10 +240,10 @@ Nothing was changed in the pipeline; these are proposals.
    specific hashtags. Skip hype words ("insane", "speechless"). Caption tricks
    (questions, emoji, capitals) showed no reliable effect, so the packaging
    experiments should not expect big wins from them.
-5. **Pick moments by who and what.** Recognisable people doing something
+4. **Pick moments by who and what.** Recognisable people doing something
    specific, and moments tied to that week's events (awards, a new game, a
    feud), beat generic gameplay.
-4. **GTA 6:** clip it only when something actually happens. The topic is
+5. **GTA 6:** clip it only when something actually happens. The topic is
    saturated.
 
 ## 4. Limits (read before trusting the numbers)
@@ -250,7 +251,7 @@ Nothing was changed in the pipeline; these are proposals.
 - **Search results and profiles are not random.** Search shows popular videos
   first. Profiles show the latest ~235 videos of accounts that were chosen
   *because* they appeared in searches.
-- **The For You sample is small** (287 videos) and is one person's feed.
+- **The For You sample is small** (744 videos) and is one person's feed.
 - **Views are cumulative.** Age is controlled for by leaving out videos under
   7 days old and, in 2.1, by comparing within ±10 days. Older videos may have
   had a different algorithm.
