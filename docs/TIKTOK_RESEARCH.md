@@ -134,7 +134,29 @@ people who are not fans; those people share but rarely comment.
 By length, across all videos with 10K+ views: shares per view are highest at
 20-45 s and lowest at 3 min+; comments and saves per view rise with length.
 
-### 2.4 Captions barely matter (same result as YouTube)
+### 2.4 What drives each number (within each account)
+
+For each account, its videos with the highest comment / share / save rate
+were compared with its own lowest (2,190 videos in each group, accounts with
+30+ settled videos). Words are from captions and used by 5+ accounts:
+
+| Number | Those videos' views | Length | Words most typical of the high group |
+|---|---|---|---|
+| **Comments** per view | *fewer* (109K vs 170K) | longer (38 s vs 31 s) | record, award, wins, retirement, legend, "wrong", "believes", "y'all", "what's", community, conversation |
+| **Shares** per view | **2.5x more** (226K vs 89K) | same (34 s vs 33 s) | dub, song, music, dance, crashed (out), Drake, Cuffem, parents, child, comedy, retirement, announced, 😭🥀, 😭💀 |
+| **Saves** per view | more (228K vs 82K) | longer (40 s vs 29 s) | learn, learning, inspiration, parents, kids, mom, dad, court, full (clip), movie |
+
+- **Comments** come from milestones people react to (records, awards,
+  retirements) and opinions people want to argue with. They do not bring
+  views: high-comment videos had fewer.
+- **Shares** come from music and dance moments, crash-outs, family moments
+  and funny-sad reactions. These are things you send to a friend. They go
+  with much bigger reach. ("dub" is the owner's streamer DUB: the strongest
+  share word in the whole set.)
+- **Saves** come from things worth rewatching or learning from: full
+  stories, advice and family moments. They also go with longer clips.
+
+### 2.5 Captions barely matter (same result as YouTube)
 
 Compared with each account's own usual views, almost every caption feature
 was close to 1.00x:
@@ -162,7 +184,7 @@ The YouTube study (section 9 of VIRAL_CONTENT_RESEARCH.md) found the same
 thing: within a channel, hits and flops have the same title and caption
 style. **The moment is what matters.**
 
-### 2.5 The owner's For You feed
+### 2.6 The owner's For You feed
 
 - 744 videos. 86% came from accounts with **under 100K followers**
   (53% under 10K; median 8.3K followers, median 337K views). TikTok readily
@@ -172,7 +194,7 @@ style. **The moment is what matters.**
   videos, so a good clip can keep earning views for weeks.
 - Many were streamer/podcast clips, street interviews, skits and GTA 6.
 
-### 2.6 Inside streamer-clip accounts: who is in the clip, not how it is captioned
+### 2.7 Inside streamer-clip accounts: who is in the clip, not how it is captioned
 
 28 streamer-clip accounts, each account's best quarter against its own worst
 quarter (1,227 clips each): the same caption length (8 words), the same
@@ -187,7 +209,7 @@ StableRonaldo, QTCinderella, Fousey, "Streamer Awards", "realized", "sad",
 person does something specific, ideally tied to an event people are
 following that week. Hype words cannot make up for a weak moment.
 
-### 2.7 GTA 6 right now
+### 2.8 GTA 6 right now
 
 GTA 6 is the topic of the week. The fastest videos seen were 1-day-old GTA 6
 clips with 14-22M views. But it is crowded: among recent videos (under 7 days,
