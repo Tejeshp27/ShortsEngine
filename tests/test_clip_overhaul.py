@@ -958,3 +958,19 @@ def test_link_tiktok_posts_saves_clear_matches_only(tmp_path, monkeypatch):
     links = tiktok_posts.link_tiktok_posts("demo", "token")
     assert [(video, post) for video, post, score in links] == [(first, "900")]
     assert tiktok_posts.link_tiktok_posts("demo", "token") == []   # already linked
+
+
+def test_keep_awake_follows_the_process(monkeypatch):
+    """caffeinate is started with -w <pid> so it stops by itself; without it nothing happens."""
+    from src.clips import keep_awake
+    started = []
+
+    class FakeProcess:
+        pass
+
+    monkeypatch.setattr(keep_awake.shutil, "which", lambda name: "/usr/bin/caffeinate")
+    monkeypatch.setattr(keep_awake.subprocess, "Popen", lambda command, **options: started.append(command) or FakeProcess())
+    assert keep_awake.keep_awake_while_running(1234) is not None
+    assert started[0] == ["/usr/bin/caffeinate", "-i", "-s", "-w", "1234"]
+    monkeypatch.setattr(keep_awake.shutil, "which", lambda name: None)
+    assert keep_awake.keep_awake_while_running(1234) is None

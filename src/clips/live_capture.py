@@ -196,6 +196,9 @@ def record(platform, username, folder, quality, chunk_seconds, max_seconds, chat
     signal.signal(signal.SIGINT, request_stop)
 
     started = time.time()
+    # Keep the Mac awake while this recording runs (ends with this process).
+    from src.clips.keep_awake import keep_awake_while_running
+    keep_awake_while_running()
     log(f"recording {stream_url(platform, username)} quality={quality} chunk={chunk_seconds}s max={max_seconds}s")
     streamlink = subprocess.Popen(streamlink_command(platform, username, quality),
                                   stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=log_file)

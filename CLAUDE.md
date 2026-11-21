@@ -278,6 +278,8 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**Keep the Mac awake while working (2026-11-20 night, Claude Code):** the Mac sleeps after 1 minute idle, which stops recording. `src/clips/keep_awake.py` starts the built-in `caffeinate -i -s -w <pid>` for every live capture (`live_capture.record`) and every non-dry clip pipeline job (`automation.run_pipeline`). It ends with that process, and no system setting is changed. A closed lid still sleeps the Mac unless it is plugged in with an external display. After a reboot the launchd agents (RunAtLoad + KeepAlive) restart the supervisor and dashboard at login. **759 tests pass.**
+
 **TikTok results feed the learning (2026-11-20 night, Claude Code):** the existing TikTok connection (newssimplified60, scope video.list already granted) can list the account's own posts. `src/clips/tiktok_posts.py` matches hand-posted TikToks to clips by caption (the pasted Final caption starts with the title) and timing, then saves them in `platform_posts`. Unclear or ambiguous posts are skipped, not guessed. The daily collector (`analytics/accounts.collect_account` → `link_hand_posted_tiktoks`) runs this before reading statistics, so TikTok views now count in `packaging`/`feedback`, compared with each platform's own median. First run: video 8 (Roblox, 2 views) and video 124 (roast) were linked. Two older posts with owner-written captions could not be matched. **758 tests pass.**
 
 **Packaging experiments (2026-11-20 night, Claude Code):** the owner wants packaging to keep varying and learn from past posts until a successful combination is found.

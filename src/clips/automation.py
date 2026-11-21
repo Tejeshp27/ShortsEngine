@@ -90,6 +90,10 @@ def run_pipeline(channel, config, llm, dry_run=False, recording=None):
     from src.dashboard.accounts import safe_error
 
     settings = load_clip_settings(config)
+    if not dry_run:
+        # Finish turning recorded hours into clips even if nobody touches the Mac.
+        from src.clips.keep_awake import keep_awake_while_running
+        keep_awake_while_running()
     if dry_run:
         return {"message": "Dry run: would monitor sources, scan completed recordings, score and render drafts. "
                 "No network calls, model downloads, paid calls, ingestion or publishing performed."}
