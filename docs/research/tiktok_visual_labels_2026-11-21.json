@@ -1,0 +1,422 @@
+{
+ "7697423295808802080": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "event (fight)",
+  "visible_action": "yes",
+  "blind_code": "V01"
+ },
+ "7705954721915260191": {
+  "layout": "horizontal with black bars",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "screen-share mishap",
+  "visible_action": "no",
+  "blind_code": "V02"
+ },
+ "7704432489518943501": {
+  "layout": "full-frame meme edit",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "heavy",
+  "people": "one person",
+  "content": "meme edit",
+  "visible_action": "no",
+  "blind_code": "V03"
+ },
+ "7685848614048042242": {
+  "layout": "full-frame vertical",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "celebrity meet-up",
+  "visible_action": "no",
+  "blind_code": "V04"
+ },
+ "7688565460492668182": {
+  "layout": "split: face top",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "one person",
+  "content": "talk/rant",
+  "visible_action": "no",
+  "blind_code": "V05"
+ },
+ "7705939863337454879": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "family/home",
+  "visible_action": "no",
+  "blind_code": "V06"
+ },
+ "7694797984927616270": {
+  "layout": "split: face top",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "one person",
+  "content": "watch-along reaction",
+  "visible_action": "no",
+  "blind_code": "V07"
+ },
+ "7699276453065542934": {
+  "layout": "full-frame vertical",
+  "captions": "word-by-word",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "IRL with strangers",
+  "visible_action": "no",
+  "blind_code": "V08"
+ },
+ "7696646774114536717": {
+  "layout": "split: face top",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "gameplay, nothing visible",
+  "visible_action": "no",
+  "blind_code": "V09"
+ },
+ "7685871161527291158": {
+  "layout": "split: face top",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "one person",
+  "content": "talk/rant",
+  "visible_action": "no",
+  "blind_code": "V10"
+ },
+ "7678933373175237902": {
+  "layout": "split: face top",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "big reaction to news",
+  "visible_action": "yes",
+  "blind_code": "V11"
+ },
+ "7697425144922295585": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "event (fight)",
+  "visible_action": "yes",
+  "blind_code": "V12"
+ },
+ "7697478412750916897": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "event (post-fight drama)",
+  "visible_action": "yes",
+  "blind_code": "V13"
+ },
+ "7697414308715679006": {
+  "layout": "split: face top",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "talk with cutaways",
+  "visible_action": "no",
+  "blind_code": "V14"
+ },
+ "7705539805286796557": {
+  "layout": "horizontal with black bars",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "near-miss gameplay",
+  "visible_action": "yes",
+  "blind_code": "V15"
+ },
+ "7694106442885909774": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "talk/response",
+  "visible_action": "no",
+  "blind_code": "V16"
+ },
+ "7698599014924619022": {
+  "layout": "split: face top",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "still image + sitting",
+  "visible_action": "no",
+  "blind_code": "V17"
+ },
+ "7707812477072837918": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "gameplay + quote",
+  "visible_action": "no",
+  "blind_code": "V18"
+ },
+ "7685424407069658399": {
+  "layout": "full-frame vertical",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "IRL with strangers",
+  "visible_action": "yes",
+  "blind_code": "V19"
+ },
+ "7702617147062750494": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "emotional talk",
+  "visible_action": "no",
+  "blind_code": "V20"
+ },
+ "7707411674352880927": {
+  "layout": "full-frame vertical",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "event (awards night), dark",
+  "visible_action": "no",
+  "blind_code": "V21"
+ },
+ "7685872285428845854": {
+  "layout": "full-frame vertical",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "IRL group laughing",
+  "visible_action": "yes",
+  "blind_code": "V22"
+ },
+ "7680311569347005709": {
+  "layout": "split: face top",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "still image + reading",
+  "visible_action": "no",
+  "blind_code": "V23"
+ },
+ "7678927017311538445": {
+  "layout": "split: face top",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "big reaction to news",
+  "visible_action": "yes",
+  "blind_code": "V24"
+ },
+ "7683777982502079757": {
+  "layout": "full-frame vertical",
+  "captions": "word-by-word",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "interview/podcast",
+  "visible_action": "no",
+  "blind_code": "V25"
+ },
+ "7700705486584270110": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "one person",
+  "content": "walking, nothing visible",
+  "visible_action": "no",
+  "blind_code": "V26"
+ },
+ "7690377861596826902": {
+  "layout": "full-frame vertical",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "interview/podcast",
+  "visible_action": "no",
+  "blind_code": "V27"
+ },
+ "7704542147038547213": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "sitting, nothing visible",
+  "visible_action": "no",
+  "blind_code": "V28"
+ },
+ "7689627102165110018": {
+  "layout": "split: face top",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "awkward gift moment",
+  "visible_action": "yes",
+  "blind_code": "V29"
+ },
+ "7634775773328674050": {
+  "layout": "full-frame vertical",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "family surprise reaction",
+  "visible_action": "yes",
+  "blind_code": "V30"
+ },
+ "7699230716348861709": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "sitting, nothing visible",
+  "visible_action": "no",
+  "blind_code": "V31"
+ },
+ "7706385195829611807": {
+  "layout": "stacked two cams",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "call/argument",
+  "visible_action": "no",
+  "blind_code": "V32"
+ },
+ "7672506445530746134": {
+  "layout": "full-frame vertical",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "montage/aura edit",
+  "visible_action": "no",
+  "blind_code": "V33"
+ },
+ "7698487496094584078": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "family/home",
+  "visible_action": "no",
+  "blind_code": "V34"
+ },
+ "7689165474117979422": {
+  "layout": "full-frame vertical",
+  "captions": "word-by-word",
+  "banner": "no",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "IRL group laughing",
+  "visible_action": "yes",
+  "blind_code": "V35"
+ },
+ "7676627290855345421": {
+  "layout": "full-frame vertical",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "heavy",
+  "people": "two+ people",
+  "content": "story compilation",
+  "visible_action": "no",
+  "blind_code": "V36"
+ },
+ "7705695766815313183": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "sitting in car, dark",
+  "visible_action": "no",
+  "blind_code": "V37"
+ },
+ "7694355028043255053": {
+  "layout": "full-frame meme edit",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "heavy",
+  "people": "one person",
+  "content": "meme edit/story",
+  "visible_action": "no",
+  "blind_code": "V38"
+ },
+ "7706753096763854111": {
+  "layout": "horizontal on blurred fill",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "two+ people",
+  "content": "cooking, nothing visible",
+  "visible_action": "no",
+  "blind_code": "V39"
+ },
+ "7705561711817788686": {
+  "layout": "horizontal with black bars",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "raw",
+  "people": "one person",
+  "content": "near-miss gameplay",
+  "visible_action": "yes",
+  "blind_code": "V40"
+ },
+ "7686340748391894294": {
+  "layout": "full-frame meme edit",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "heavy",
+  "people": "no streamer",
+  "content": "meme edit (GTA karma)",
+  "visible_action": "yes",
+  "blind_code": "V41"
+ },
+ "7707499397998775565": {
+  "layout": "split: face top",
+  "captions": "none",
+  "banner": "yes",
+  "edit": "light",
+  "people": "two+ people",
+  "content": "reaction to award win",
+  "visible_action": "yes",
+  "blind_code": "V42"
+ }
+}
