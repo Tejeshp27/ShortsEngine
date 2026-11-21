@@ -23,11 +23,11 @@ This adds TikTok evidence to the YouTube work in
 
 | Source | Videos | What it gives |
 |---|---|---|
-| Owner's For You feed | 287 | What TikTok chooses to show the owner |
-| 20 searches (funny, streamer clips, podcast clips, street interview, Kai Cenat, IShowSpeed, prank, comedy skit, fails, storytime, NBA, football skills, Fortnite, Roblox funny, GTA 6, Minecraft, movie clips, reaction, debate, satisfying) | 3,081 | A broad cross-section of genres |
-| 41 creator profiles (~235 of each account's own videos) | 10,609 | Lets each account be compared **with itself** |
+| Owner's For You feed | 744 | What TikTok chooses to show the owner |
+| 25 searches (funny, streamer clips, podcast clips, street interview, Kai Cenat, IShowSpeed, prank, comedy skit, fails, storytime, NBA, football skills, Fortnite, Roblox funny, GTA 6, Minecraft, movie clips, reaction, debate, satisfying, JasonTheWeen, StableRonaldo, Lacy, Adin Ross, Jynxzi) | 3,727 | A broad cross-section of genres |
+| 66 creator profiles (~235 of each account's own videos) | 16,855 | Lets each account be compared **with itself** |
 
-Total: **13,977 videos** (13,667 after removing 310 adverts) from **2,973 creators**.
+Total: **21,326 videos** (20,862 after removing 464 adverts) from **4,014 creators**.
 
 ### Why "compared with itself" matters
 
@@ -149,13 +149,30 @@ style. **The moment is what matters.**
 
 ### 2.5 The owner's For You feed
 
-- 89% of the videos TikTok showed the owner came from accounts with **under
-  100K followers** (median 6.5K followers, median 338K views). TikTok readily
+- 744 videos. 86% came from accounts with **under 100K followers**
+  (53% under 10K; median 8.3K followers, median 337K views). TikTok readily
   pushes small accounts, which is good news for a new channel.
-- Median length 43 s.
+- Lengths split in two: 31% under 10 s and 18% over 3 minutes (median 25 s).
+- 34% of what the feed showed was 1-6 months old: TikTok keeps serving older
+  videos, so a good clip can keep earning views for weeks.
 - Many were streamer/podcast clips, street interviews, skits and GTA 6.
 
-### 2.6 GTA 6 right now
+### 2.6 Inside streamer-clip accounts: who is in the clip, not how it is captioned
+
+28 streamer-clip accounts, each account's best quarter against its own worst
+quarter (1,227 clips each): the same caption length (8 words), the same
+emoji (73% vs 71%), the same 😭 (28% vs 29%), the same SHOUTED word (24% vs 23%)
+and the same hashtags (4). Hits had more likes (68 vs 44 per 1,000 views) and
+shares (1.26 vs 0.92).
+
+Words most typical of hits were **people and events**: Wendy Ortiz, Agent00,
+StableRonaldo, QTCinderella, Fousey, "Streamer Awards", "realized", "sad",
+"almost". Words most typical of flops were **generic hype**: "insane",
+"speechless", "explains", "watch", ❤️. A clip pays off when a recognisable
+person does something specific, ideally tied to an event people are
+following that week. Hype words cannot make up for a weak moment.
+
+### 2.7 GTA 6 right now
 
 GTA 6 is the topic of the week. The fastest videos seen were 1-day-old GTA 6
 clips with 14-22M views. But it is crowded: among recent videos (under 7 days,
