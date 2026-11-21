@@ -23,6 +23,14 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
    Post it fast: the first clip of a moment tends to beat later copies
    (61 of 102 same-moment pairs).
 
+6. **Romance, crushes and wholesome moments.** A streamer clearly into
+   someone (N3on with Alabama Barker), a crush being turned down, a kind
+   gesture (inviting a shy kid for a photo, doing something for mom).
+   These were common among the biggest breakouts (20x-2,800x usual).
+7. **A running bit with a big reaction.** Jynxzi's "almost almost" near-miss
+   clips broke out again and again (381x, 343x, 138x). An in-game moment can
+   work when the exaggerated reaction is a recurring bit fans know.
+
 ## Skip these
 
 - **In-game hype on its own:** a win, a kill, a near-miss, a buzzer-beater.

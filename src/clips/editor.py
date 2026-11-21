@@ -51,7 +51,9 @@ What TikTok data adds (624 streamer clips; each account's breakouts vs. its own 
   In-game hype (a win, a near-miss, a kill) was mostly in flops (33% vs. 5%).
 - Do not open on someone explaining what is about to happen; open inside the situation (talking set-ups
   were 45% of flop openings vs. 17% of breakout openings).
-- Moments tied to this week's story (awards, a new game, a feud, a famous guest) do best.
+- Moments tied to this week's story (awards, a new game, a feud, a famous guest) do best. Among the biggest
+  breakouts: awards-night moments, romance/crush moments, wholesome kindness, physical fails, and a running bit
+  with an exaggerated reaction (the only kind of in-game moment that reliably broke out).
 
 How to judge (streamer culture):
 - Loud is not funny. Deadpan remarks, sarcasm, irony, awkward silences, someone admitting something
