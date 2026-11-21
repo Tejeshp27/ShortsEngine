@@ -40,6 +40,9 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
   set-ups were 45% of flop openings vs 17% of breakout openings.
 - **Keep the reaction seconds.** Do not trim a loud gap without words; that
   is the laugh or the scream (`trimming.py` now keeps them).
+- **Leave pauses in.** Breakouts had more quiet pauses as well as loud ones
+  (0.41 vs 0.29 per 30 s; 18 of 24 accounts). Proposal for the owner: only cut
+  really long dead air (`trimming.max_dead_air_seconds` 1.4 → ~2.5).
 - **End about 1 second after the last word**, longer while people are still
   laughing (hits 1.0 s vs flops 0.5 s; `trimming.reaction_tail_seconds`).
 - **Length follows the moment:** a single instant can be short; a story needs
