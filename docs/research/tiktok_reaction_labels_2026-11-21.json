@@ -1,0 +1,386 @@
+{
+ "7698869362744118558": {
+  "blind_code": "G01",
+  "loud_gap_moment": "speech missed",
+  "loud_gap_group": "speech (transcript missed it)",
+  "gap_start": 21.58,
+  "gap_end": 23.34,
+  "vs_talk_db": -3
+ },
+ "7707822476201331999": {
+  "blind_code": "G02",
+  "loud_gap_moment": "screaming",
+  "loud_gap_group": "reaction",
+  "gap_start": 29.14,
+  "gap_end": 31.04,
+  "vs_talk_db": 3
+ },
+ "7702645251239988511": {
+  "blind_code": "G03",
+  "loud_gap_moment": "music/dance",
+  "loud_gap_group": "physical action",
+  "gap_start": 21.22,
+  "gap_end": 42.14,
+  "vs_talk_db": 3
+ },
+ "7705225537794379022": {
+  "blind_code": "G04",
+  "loud_gap_moment": "tense near-miss",
+  "loud_gap_group": "game tension",
+  "gap_start": 7.36,
+  "gap_end": 10.86,
+  "vs_talk_db": 1
+ },
+ "7707532474997280031": {
+  "blind_code": "G05",
+  "loud_gap_moment": "shocked",
+  "loud_gap_group": "reaction",
+  "gap_start": 58.16,
+  "gap_end": 60.3,
+  "vs_talk_db": 0
+ },
+ "7696222675496144159": {
+  "blind_code": "G06",
+  "loud_gap_moment": "physical action",
+  "loud_gap_group": "physical action",
+  "gap_start": 37.24,
+  "gap_end": 39.06,
+  "vs_talk_db": 6
+ },
+ "7702011842872266014": {
+  "blind_code": "G07",
+  "loud_gap_moment": "action/entrance",
+  "loud_gap_group": "physical action",
+  "gap_start": 0,
+  "gap_end": 4.3,
+  "vs_talk_db": 1
+ },
+ "7697414437732486431": {
+  "blind_code": "G08",
+  "loud_gap_moment": "laughing",
+  "loud_gap_group": "reaction",
+  "gap_start": 3.76,
+  "gap_end": 6.5,
+  "vs_talk_db": 4
+ },
+ "7684417639950683422": {
+  "blind_code": "G09",
+  "loud_gap_moment": "laughing",
+  "loud_gap_group": "reaction",
+  "gap_start": 35.24,
+  "gap_end": 37,
+  "vs_talk_db": 1
+ },
+ "7695915420708097311": {
+  "blind_code": "G10",
+  "loud_gap_moment": "physical stunt",
+  "loud_gap_group": "physical action",
+  "gap_start": 4.08,
+  "gap_end": 6.98,
+  "vs_talk_db": 7
+ },
+ "7698546759773080863": {
+  "blind_code": "G11",
+  "loud_gap_moment": "engine/action",
+  "loud_gap_group": "physical action",
+  "gap_start": 28.48,
+  "gap_end": 36.58,
+  "vs_talk_db": 3
+ },
+ "7696703234840284429": {
+  "blind_code": "G12",
+  "loud_gap_moment": "shocked",
+  "loud_gap_group": "reaction",
+  "gap_start": 11.24,
+  "gap_end": 18.42,
+  "vs_talk_db": 2
+ },
+ "7695954944163171614": {
+  "blind_code": "G13",
+  "loud_gap_moment": "crowd/event",
+  "loud_gap_group": "crowd/event",
+  "gap_start": 4.8,
+  "gap_end": 6.3,
+  "vs_talk_db": 1
+ },
+ "7682433062650596639": {
+  "blind_code": "G14",
+  "loud_gap_moment": "speech missed",
+  "loud_gap_group": "speech (transcript missed it)",
+  "gap_start": 7.56,
+  "gap_end": 9.42,
+  "vs_talk_db": -3
+ },
+ "7705473066729606431": {
+  "blind_code": "G15",
+  "loud_gap_moment": "laughing",
+  "loud_gap_group": "reaction",
+  "gap_start": 8.94,
+  "gap_end": 21,
+  "vs_talk_db": 0
+ },
+ "7693571606639152414": {
+  "blind_code": "G16",
+  "loud_gap_moment": "nothing",
+  "loud_gap_group": "nothing happening",
+  "gap_start": 17.16,
+  "gap_end": 20,
+  "vs_talk_db": -2
+ },
+ "7707526020756262157": {
+  "blind_code": "G17",
+  "loud_gap_moment": "laughing",
+  "loud_gap_group": "reaction",
+  "gap_start": 14.74,
+  "gap_end": 16.58,
+  "vs_talk_db": 4
+ },
+ "7705534443343154446": {
+  "blind_code": "G18",
+  "loud_gap_moment": "tense near-miss",
+  "loud_gap_group": "game tension",
+  "gap_start": 0,
+  "gap_end": 4.26,
+  "vs_talk_db": 0
+ },
+ "7686698500553198879": {
+  "blind_code": "G19",
+  "loud_gap_moment": "speech missed",
+  "loud_gap_group": "speech (transcript missed it)",
+  "gap_start": 15.88,
+  "gap_end": 18.86,
+  "vs_talk_db": 0
+ },
+ "7707545099101621517": {
+  "blind_code": "G20",
+  "loud_gap_moment": "nothing",
+  "loud_gap_group": "nothing happening",
+  "gap_start": 0,
+  "gap_end": 1.94,
+  "vs_talk_db": -2
+ },
+ "7707808362062187790": {
+  "blind_code": "G21",
+  "loud_gap_moment": "gameplay noise",
+  "loud_gap_group": "game tension",
+  "gap_start": 3.24,
+  "gap_end": 4.82,
+  "vs_talk_db": -1
+ },
+ "7697343421207399711": {
+  "blind_code": "G22",
+  "loud_gap_moment": "shocked",
+  "loud_gap_group": "reaction",
+  "gap_start": 5.44,
+  "gap_end": 17.18,
+  "vs_talk_db": 14
+ },
+ "7703741722630655263": {
+  "blind_code": "G23",
+  "loud_gap_moment": "physical action",
+  "loud_gap_group": "physical action",
+  "gap_start": 39.92,
+  "gap_end": 43.78,
+  "vs_talk_db": 10
+ },
+ "7707449079671917854": {
+  "blind_code": "G24",
+  "loud_gap_moment": "nothing",
+  "loud_gap_group": "nothing happening",
+  "gap_start": 0,
+  "gap_end": 1.54,
+  "vs_talk_db": -3
+ },
+ "7646220663732276503": {
+  "blind_code": "G25",
+  "loud_gap_moment": "speech missed",
+  "loud_gap_group": "speech (transcript missed it)",
+  "gap_start": 11.2,
+  "gap_end": 14.78,
+  "vs_talk_db": -2
+ },
+ "7705578862909918494": {
+  "blind_code": "G26",
+  "loud_gap_moment": "crowd/event",
+  "loud_gap_group": "crowd/event",
+  "gap_start": 5.96,
+  "gap_end": 8,
+  "vs_talk_db": 0
+ },
+ "7694460956486733070": {
+  "blind_code": "G27",
+  "loud_gap_moment": "reaction to video",
+  "loud_gap_group": "reaction",
+  "gap_start": 71.56,
+  "gap_end": 77.62,
+  "vs_talk_db": 3
+ },
+ "7707443454137077006": {
+  "blind_code": "G28",
+  "loud_gap_moment": "music/dance",
+  "loud_gap_group": "physical action",
+  "gap_start": 2.16,
+  "gap_end": 6.94,
+  "vs_talk_db": 1
+ },
+ "7702676369901210893": {
+  "blind_code": "G29",
+  "loud_gap_moment": "physical action",
+  "loud_gap_group": "physical action",
+  "gap_start": 34.16,
+  "gap_end": 37.14,
+  "vs_talk_db": 3
+ },
+ "7707468476838858014": {
+  "blind_code": "G30",
+  "loud_gap_moment": "speech missed",
+  "loud_gap_group": "speech (transcript missed it)",
+  "gap_start": 10.84,
+  "gap_end": 17.3,
+  "vs_talk_db": 0
+ },
+ "7702688010864725279": {
+  "blind_code": "G31",
+  "loud_gap_moment": "crying",
+  "loud_gap_group": "reaction",
+  "gap_start": 12.48,
+  "gap_end": 19,
+  "vs_talk_db": -1
+ },
+ "7697666044000881950": {
+  "blind_code": "G32",
+  "loud_gap_moment": "laughing",
+  "loud_gap_group": "reaction",
+  "gap_start": 6.64,
+  "gap_end": 9.14,
+  "vs_talk_db": 0
+ },
+ "7705530094386695437": {
+  "blind_code": "G33",
+  "loud_gap_moment": "tense near-miss",
+  "loud_gap_group": "game tension",
+  "gap_start": 4.72,
+  "gap_end": 7.22,
+  "vs_talk_db": -3
+ },
+ "7686535116662902029": {
+  "blind_code": "G34",
+  "loud_gap_moment": "speech missed",
+  "loud_gap_group": "speech (transcript missed it)",
+  "gap_start": 10.84,
+  "gap_end": 14.18,
+  "vs_talk_db": -3
+ },
+ "7699586831368736030": {
+  "blind_code": "G35",
+  "loud_gap_moment": "physical action",
+  "loud_gap_group": "physical action",
+  "gap_start": 33.72,
+  "gap_end": 36,
+  "vs_talk_db": 4
+ },
+ "7698883526430690574": {
+  "blind_code": "G36",
+  "loud_gap_moment": "physical stunt",
+  "loud_gap_group": "physical action",
+  "gap_start": 1.08,
+  "gap_end": 4.42,
+  "vs_talk_db": 1
+ },
+ "7705552254631251231": {
+  "blind_code": "G37",
+  "loud_gap_moment": "screaming",
+  "loud_gap_group": "reaction",
+  "gap_start": 4.02,
+  "gap_end": 8.34,
+  "vs_talk_db": 7
+ },
+ "7703104563393367327": {
+  "blind_code": "G38",
+  "loud_gap_moment": "crowd/event",
+  "loud_gap_group": "crowd/event",
+  "gap_start": 7.72,
+  "gap_end": 10.94,
+  "vs_talk_db": 0
+ },
+ "7697039406301023501": {
+  "blind_code": "G39",
+  "loud_gap_moment": "nothing",
+  "loud_gap_group": "nothing happening",
+  "gap_start": 0,
+  "gap_end": 1.66,
+  "vs_talk_db": 0
+ },
+ "7648024456291552525": {
+  "blind_code": "G40",
+  "loud_gap_moment": "awkward",
+  "loud_gap_group": "reaction",
+  "gap_start": 13.16,
+  "gap_end": 15.26,
+  "vs_talk_db": 2
+ },
+ "7694830220544642318": {
+  "blind_code": "G41",
+  "loud_gap_moment": "shocked",
+  "loud_gap_group": "reaction",
+  "gap_start": 26.36,
+  "gap_end": 27.94,
+  "vs_talk_db": 13
+ },
+ "7694394829702237471": {
+  "blind_code": "G42",
+  "loud_gap_moment": "physical stunt",
+  "loud_gap_group": "physical action",
+  "gap_start": 6.5,
+  "gap_end": 8,
+  "vs_talk_db": 2
+ },
+ "7683979439696252174": {
+  "blind_code": "G43",
+  "loud_gap_moment": "physical stunt",
+  "loud_gap_group": "physical action",
+  "gap_start": 13.04,
+  "gap_end": 19,
+  "vs_talk_db": -2
+ },
+ "7704766236936375554": {
+  "blind_code": "G44",
+  "loud_gap_moment": "nothing",
+  "loud_gap_group": "nothing happening",
+  "gap_start": 0,
+  "gap_end": 10.14,
+  "vs_talk_db": -1
+ },
+ "7686993730850655519": {
+  "blind_code": "G45",
+  "loud_gap_moment": "reveal/surprise",
+  "loud_gap_group": "reaction",
+  "gap_start": 2.84,
+  "gap_end": 5.46,
+  "vs_talk_db": 5
+ },
+ "7699285129293860109": {
+  "blind_code": "G46",
+  "loud_gap_moment": "emotional meeting",
+  "loud_gap_group": "reaction",
+  "gap_start": 4.78,
+  "gap_end": 6.98,
+  "vs_talk_db": 3
+ },
+ "7699163102725688607": {
+  "blind_code": "G47",
+  "loud_gap_moment": "reaction to video",
+  "loud_gap_group": "reaction",
+  "gap_start": 7.36,
+  "gap_end": 14.42,
+  "vs_talk_db": 1
+ },
+ "7687306557771599117": {
+  "blind_code": "G48",
+  "loud_gap_moment": "shocked",
+  "loud_gap_group": "reaction",
+  "gap_start": 21.8,
+  "gap_end": 24.06,
+  "vs_talk_db": -2
+ }
+}
