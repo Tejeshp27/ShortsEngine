@@ -279,6 +279,19 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**TikTok watching, round 3 (2026-11-21, Claude Code; ongoing until the owner says stop):** the owner asked Claude to keep watching streamer clips to learn what to clip (dying laughing, super shocked...). The watcher tab reads each clip's transcript and sound in memory. Our sound model (`audio_events`) tags each second, and faces are read twice a second with the new free FER+ model. Only numbers are kept: `cache/tiktok_watch_raw.jsonl`, `tiktok_faces.jsonl` and `tiktok_sound_tags.jsonl`, with gz copies in `docs/research/`. Rules are summarised in **`docs/CLIP_PLAYBOOK.md`**. Findings:
+- On 1,209 fresh clips, "less talking" replicated (flops talked more in 20 of 24 accounts); "loud" gaps were weaker evidence than the first sample showed.
+- A laughing face alone does not predict a hit. A real-life shock does (42% vs 10% of shocked moments); in-game hype was mostly in flops (33% vs 5%).
+- CED-tiny misses most laughs under game sound.
+
+Code changes:
+- `ranking.py`: loud/laughing gaps are reaction beats, not dead air.
+- `trimming.py`: keeps loud gaps (`production.volume_for`).
+- `editor.py`: marks "(no words for N s, loud: a reaction)" and adds the TikTok lessons to its prompt.
+- New `src/clips/expressions.py` (FER+, sha256-pinned, `models/expression/`); it is not yet used in scoring (face evidence alone was weak).
+
+**799 tests pass.**
+
 **TikTok research part 2: inside the videos (2026-11-21, Claude Code):** the owner asked what the best videos actually *contain* (not titles/captions), focused on streamer clips. Each account's own hits (2x+ usual), flops (≤0.6x) and typical videos were measured in the owner's Chrome. The data is TikTok auto-transcripts, file facts, 4 frames/s shrunk to numbers and the sound level every 0.1 s. Only numbers were kept, no video files. Claude also coded labels blind. Sample: 1,280 videos, 624 from 33 streamer-clip accounts. Report: **`docs/TIKTOK_CONTENT_RESEARCH.md`**. Script: `python -m src.clips.tiktok_content_research --labels docs/research/tiktok_visual_labels_2026-11-21.json` (`tests/test_tiktok_content_research.py`). Transcripts are in git-ignored `cache/tiktok_content_raw.jsonl`, with a copy in `cache/backups/`. Findings:
 - Each account's hits and flops share the same format (layout, captions, banner, editing, cuts, loudness).
 - Hits have more **loud wordless stretches** (laughing/screaming/noise): 0.64 vs 0.35 per 30 s, higher in 22 of 25 accounts. They also talk less (70% vs 82% of the clip).
