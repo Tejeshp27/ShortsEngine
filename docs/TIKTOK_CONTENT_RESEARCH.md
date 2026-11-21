@@ -88,6 +88,21 @@ Flops are wall-to-wall talking.
 The quiet stretches also lean towards hits (17 / 7). A beat of silence
 before a reaction or answer seems to be part of the moment, not a fault.
 
+**Replication on 1,209 fresh clips (same 26 accounts, not used above).**
+Hits and flops here were all clips at 2x+ or 0.6x- usual views, not each
+account's 10 most extreme. The result was weaker, and only part of it held:
+
+| Fresh clips | Hits | Flops | Hits higher / flops higher |
+|---|---|---|---|
+| Share of the clip with talking (5x+ vs 0.3x-) | 77% | 83% | **4 / 20** |
+| Share of the clip with no words (5x+ vs 0.3x-) | 14% | 8% | **17 / 6** |
+| Loud wordless stretches per 30 s (2x+ vs 0.6x-) | 0.50 | 0.36 | 13 / 12 |
+| Loud wordless stretches per 30 s (5x+ vs 0.3x-) | 0.53 | 0.32 | 14 / 9 |
+
+So the robust lesson is **less talking, more room for the reaction**.
+Whether that wordless time is *loud* is weaker evidence than the first
+sample suggested (the 22 / 3 above was partly luck in a small sample).
+
 ### 2.3 Hits do not open on someone explaining
 
 | First 3 seconds (blind, 60 clips) | Hits | Flops |
