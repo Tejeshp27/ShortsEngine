@@ -279,6 +279,14 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**TikTok research part 2: inside the videos (2026-11-21, Claude Code):** the owner asked what the best videos actually *contain* (not titles/captions), focused on streamer clips. Each account's own hits (2x+ usual), flops (≤0.6x) and typical videos were measured in the owner's Chrome. The data is TikTok auto-transcripts, file facts, 4 frames/s shrunk to numbers and the sound level every 0.1 s. Only numbers were kept, no video files. Claude also coded labels blind. Sample: 1,280 videos, 624 from 33 streamer-clip accounts. Report: **`docs/TIKTOK_CONTENT_RESEARCH.md`**. Script: `python -m src.clips.tiktok_content_research --labels docs/research/tiktok_visual_labels_2026-11-21.json` (`tests/test_tiktok_content_research.py`). Transcripts are in git-ignored `cache/tiktok_content_raw.jsonl`, with a copy in `cache/backups/`. Findings:
+- Each account's hits and flops share the same format (layout, captions, banner, editing, cuts, loudness).
+- Hits have more **loud wordless stretches** (laughing/screaming/noise): 0.64 vs 0.35 per 30 s, higher in 22 of 25 accounts. They also talk less (70% vs 82% of the clip).
+- Talking openings are about 3x more common in flops.
+- From the words alone hits and flops were hard to tell apart; they differed by being tied to the week's story.
+- Posting the same moment first leaned towards winning: 61 of 102 pairs within 6 h.
+- `ranking.py` pacing currently penalises all gaps >1.5 s as dead air, including the loud reaction gaps hits have more of. The proposals in section 3 are for the owner to decide; nothing in the pipeline was changed.
+
 **TikTok research (2026-11-21 overnight, Claude Code):** the owner asked for research on what gets the most views, comments and shares on TikTok (all genres, not only streamers), using their logged-in personal account in Chrome. Read-only browsing; public numbers TikTok sends to the page were saved (no video files, no likes/follows). Data: `docs/research/tiktok_videos_2026-11-21.jsonl` (~21K videos: For You feed, 25 searches, 66 creator profiles). Script: `python -m src.clips.tiktok_research <jsonl>` (`src/clips/tiktok_research.py`, `tests/test_tiktok_research.py`), tables in `docs/research/tiktok_analysis.md`. Report: **`docs/TIKTOK_RESEARCH.md`**. Main findings:
 - For streamer clips (34 accounts, each compared with itself within ±10 days), 10-30 s is the weakest length and 90-180 s the strongest (1.73x). Long breakouts are complete stories, short ones single instants.
 - Shares, not comments, go with bigger reach.
