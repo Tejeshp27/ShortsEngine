@@ -55,6 +55,11 @@ CUT_SPIKE_FACTOR = 2.0
 # Sound quieter than (loudest moment - this many dB) counts as quiet.
 QUIET_BELOW_PEAK_DB = 30
 
+# A wordless stretch counts as "loud" (laughing, screaming, a crowd, game
+# noise) when its typical level is no more than this many dB below the
+# video's normal talking level.
+LOUD_GAP_MARGIN_DB = 3
+
 # Accounts need at least this many hits AND this many flops with a value
 # before their comparison is counted.
 MIN_VIDEOS_PER_GROUP = 3
@@ -217,7 +222,10 @@ def wordless_measures(cues, duration, levels):
         wordless_share (share of the video inside those gaps) and
         wordless_loudness_vs_talk (dB: how much louder the gaps are than the
         talking; above 0 means laughing/shouting/noise, well below 0 means
-        quiet). None when there is too little speech to tell.
+        quiet), loud_wordless_per_30s (gaps about as loud as the talking or
+        louder: laughing, screaming, a crowd, game noise) and
+        quiet_wordless_per_30s (gaps clearly quieter than the talking: dead
+        air). None when there is too little speech (or no sound) to tell.
 
     Example:
         wordless_measures(cues, 30, levels)["wordless_beats_per_30s"]   # 2.0
@@ -225,17 +233,22 @@ def wordless_measures(cues, duration, levels):
     words = 0
     for start, end, text in cues:
         words += count_words(text)
+    result = {"wordless_beats_per_30s": None, "wordless_share": None,
+              "wordless_loudness_vs_talk": None, "loud_wordless_per_30s": None,
+              "quiet_wordless_per_30s": None}
     if words < 8 or not duration:
-        return {"wordless_beats_per_30s": None, "wordless_share": None,
-                "wordless_loudness_vs_talk": None}
+        return result
     stretches = wordless_stretches(cues, duration)
     gap_seconds = 0.0
     for start, end in stretches:
         gap_seconds += end - start
-    result = {"wordless_beats_per_30s": round(len(stretches) / duration * 30, 2),
-              "wordless_share": round(gap_seconds / duration, 3),
-              "wordless_loudness_vs_talk": None}
-    if not levels or not stretches:
+    result["wordless_beats_per_30s"] = round(len(stretches) / duration * 30, 2)
+    result["wordless_share"] = round(gap_seconds / duration, 3)
+    if not levels:
+        return result
+    if not stretches:
+        result["loud_wordless_per_30s"] = 0.0
+        result["quiet_wordless_per_30s"] = 0.0
         return result
 
     gap_levels = []
@@ -251,8 +264,25 @@ def wordless_measures(cues, duration, levels):
             gap_levels.append(level)
         else:
             talk_levels.append(level)
-    if gap_levels and talk_levels:
-        result["wordless_loudness_vs_talk"] = statistics.median(gap_levels) - statistics.median(talk_levels)
+    if not gap_levels or not talk_levels:
+        return result
+    talk_level = statistics.median(talk_levels)
+    result["wordless_loudness_vs_talk"] = statistics.median(gap_levels) - talk_level
+
+    # Sort each gap: "loud" if it is no more than LOUD_GAP_MARGIN_DB quieter
+    # than normal talking, otherwise "quiet".
+    loud = 0
+    quiet = 0
+    for start, end in stretches:
+        stretch_levels = levels[int(start * 10):int(end * 10)]
+        if not stretch_levels:
+            continue
+        if statistics.median(stretch_levels) >= talk_level - LOUD_GAP_MARGIN_DB:
+            loud += 1
+        else:
+            quiet += 1
+    result["loud_wordless_per_30s"] = round(loud / duration * 30, 2)
+    result["quiet_wordless_per_30s"] = round(quiet / duration * 30, 2)
     return result
 
 
@@ -632,6 +662,8 @@ MEASURES = [
     ("wordless_beats_per_30s", "Wordless stretches of 2 s+ per 30 s", "{:.2f}"),
     ("wordless_share", "Share of video in those stretches", "{:.0%}"),
     ("wordless_loudness_vs_talk", "Wordless stretches vs talking (dB)", "{:+.1f}"),
+    ("loud_wordless_per_30s", "LOUD wordless stretches per 30 s (laughing, screaming, noise)", "{:.2f}"),
+    ("quiet_wordless_per_30s", "Quiet wordless stretches per 30 s (dead air)", "{:.2f}"),
     ("quiet_end_seconds", "Time after the last words (s)", "{:.1f}"),
     ("ends_mid_sentence", "Ends mid-sentence", "{:.0%}"),
     ("hook_question", "Opens with a question", "{:.0%}"),

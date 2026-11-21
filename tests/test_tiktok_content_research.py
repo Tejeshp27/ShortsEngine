@@ -48,6 +48,30 @@ def test_transcript_measures_without_speech():
     assert measures["hook_text"] is None
 
 
+def test_wordless_stretches_include_start_and_end():
+    cues = [[3.0, 4.0, "hello there"], [4.5, 5.0, "ok"], [8.0, 9.0, "bye"]]
+    assert content.wordless_stretches(cues, 12) == [(0.0, 3.0), (5.0, 8.0), (9.0, 12)]
+
+
+def test_wordless_measures_sorts_loud_and_quiet_gaps():
+    cues = [[0.0, 4.0, "one two three four five"], [6.0, 10.0, "six seven eight nine ten"],
+            [13.0, 15.0, "eleven twelve"]]
+    # Talking at -20 dB; the 4-6 s gap is a scream (-15), the 10-13 s gap is silence (-60).
+    levels = [-20] * 40 + [-15] * 20 + [-20] * 40 + [-60] * 30 + [-20] * 20
+    measures = content.wordless_measures(cues, 15, levels)
+    assert measures["wordless_beats_per_30s"] == 4.0          # 2 gaps in 15 s
+    assert measures["loud_wordless_per_30s"] == 2.0
+    assert measures["quiet_wordless_per_30s"] == 2.0
+    assert measures["wordless_share"] == round(5 / 15, 3)
+
+
+def test_wordless_measures_without_sound_levels():
+    cues = [[0.0, 4.0, "one two three four five six seven eight"]]
+    measures = content.wordless_measures(cues, 10, [])
+    assert measures["wordless_beats_per_30s"] == 3.0
+    assert measures["loud_wordless_per_30s"] is None
+
+
 def test_find_cuts_needs_a_sudden_jump():
     # A camera pan changes every picture a lot: no single spike, so no cut.
     pan_colour = [0.5] * 8

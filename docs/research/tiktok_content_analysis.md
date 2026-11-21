@@ -14,22 +14,22 @@ Each account's hits compared with **its own** flops. Values are the median over 
 | Measure | Hits | Typical | Flops | Accounts | Hits higher | Flops higher |
 |---|---|---|---|---|---|---|
 | Length (s) | 29 | 25 | 23 | 26 | 16 | 10 |
-| Cuts per 10 s | 0.9 | 1.1 | 1.0 | 16 | 10 | 6 |
-| Cut in the first 2 s | 20% | 0% | 10% | 16 | 6 | 4 |
-| Movement between pictures (0-255) | 11.9 | 13.5 | 12.6 | 16 | 7 | 9 |
-| Brightness (0-255) | 96 | 93 | 91 | 16 | 9 | 7 |
-| Colourfulness (0-1) | 0.30 | 0.28 | 0.30 | 16 | 6 | 10 |
-| Still strips of screen (of 16) | 1.3 | 1.0 | 2.2 | 16 | 5 | 9 |
-| Share of screen that is sharp | 22% | 17% | 24% | 16 | 9 | 7 |
+| Cuts per 10 s | 1.0 | 1.1 | 1.0 | 26 | 16 | 10 |
+| Cut in the first 2 s | 20% | 25% | 10% | 26 | 13 | 5 |
+| Movement between pictures (0-255) | 13.1 | 13.7 | 12.6 | 26 | 14 | 12 |
+| Brightness (0-255) | 97 | 91 | 91 | 26 | 17 | 9 |
+| Colourfulness (0-1) | 0.29 | 0.31 | 0.30 | 26 | 9 | 17 |
+| Still strips of screen (of 16) | 1.3 | 1.5 | 2.4 | 26 | 5 | 17 |
+| Share of screen that is sharp | 22% | 17% | 23% | 26 | 12 | 14 |
 | Loudness (LUFS, TikTok's reading) | -20.3 | -20.0 | -20.1 | 26 | 12 | 13 |
 | TikTok picture quality score | 66.0 | 65.6 | 63.9 | 25 | 16 | 9 |
 | Resolution (long side, px) | 1254 | 1176 | 1226 | 26 | 5 | 4 |
 | Original sound (not a song) | 95% | 100% | 90% | 26 | 11 | 4 |
-| Silence before first sound (s) | 0.0 | 0.0 | 0.0 | 16 | 6 | 5 |
-| Where the loudest second falls (0=start, 1=end) | 0.55 | 0.41 | 0.52 | 16 | 9 | 7 |
-| Loudest second in the last third | 40% | 12% | 30% | 16 | 8 | 3 |
-| Loud parts above normal (dB) | 8 | 8 | 7 | 16 | 10 | 6 |
-| Loud bursts per 10 s | 2.1 | 2.4 | 2.4 | 16 | 9 | 7 |
+| Silence before first sound (s) | 0.0 | 0.0 | 0.0 | 26 | 10 | 11 |
+| Where the loudest second falls (0=start, 1=end) | 0.55 | 0.51 | 0.53 | 26 | 12 | 14 |
+| Loudest second in the last third | 40% | 25% | 30% | 26 | 12 | 8 |
+| Loud parts above normal (dB) | 8 | 7 | 8 | 26 | 17 | 9 |
+| Loud bursts per 10 s | 2.2 | 2.1 | 2.5 | 26 | 16 | 10 |
 | Has speech | 80% | 75% | 80% | 26 | 9 | 11 |
 | Words per second while talking | 3.42 | 3.44 | 3.58 | 25 | 6 | 19 |
 | First words at (s) | 0.8 | 0.2 | 0.5 | 25 | 16 | 9 |
@@ -38,7 +38,9 @@ Each account's hits compared with **its own** flops. Values are the median over 
 | Longest pause in talking (s) | 3.2 | 1.7 | 1.8 | 25 | 16 | 9 |
 | Wordless stretches of 2 s+ per 30 s | 1.39 | 0.62 | 0.65 | 25 | 20 | 5 |
 | Share of video in those stretches | 18% | 6% | 10% | 25 | 19 | 6 |
-| Wordless stretches vs talking (dB) | -4.2 | -0.5 | -6.9 | 9 | 5 | 4 |
+| Wordless stretches vs talking (dB) | -2.5 | -1.0 | -6.8 | 15 | 9 | 6 |
+| LOUD wordless stretches per 30 s (laughing, screaming, noise) | 0.64 | 0.27 | 0.35 | 25 | 22 | 3 |
+| Quiet wordless stretches per 30 s (dead air) | 0.40 | 0.00 | 0.29 | 25 | 17 | 7 |
 | Time after the last words (s) | 0.6 | 0.2 | 0.3 | 25 | 17 | 8 |
 | Ends mid-sentence | 25% | 0% | 25% | 25 | 11 | 12 |
 | Opens with a question | 33% | 33% | 33% | 25 | 11 | 10 |
