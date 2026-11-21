@@ -144,6 +144,26 @@ against 0.91x for the later one. This is suggestive (caption matching is
 loose), but it fits the live recorder's advantage: we can post a moment
 within the hour.
 
+### 2.4a All watched clips together (3,636 streamer clips, 25-26 accounts)
+
+`python -m src.clips.tiktok_watch_research` → `docs/research/tiktok_watch_analysis.md`.
+Big breakouts (5x+ usual) against real flops (0.3x or less), each account
+against itself:
+
+| Measure | Breakouts | Flops | Accounts (hits higher / flops higher) |
+|---|---|---|---|
+| Share of the clip with talking | 76% | 83% | 5 / **20** |
+| Share with no words (2 s+ gaps) | 14% | 11% | **21** / 4 |
+| Loud wordless stretches per 30 s | 0.58 | 0.34 | **18** / 7 |
+| Quiet wordless stretches per 30 s | 0.41 | 0.29 | **18** / 6 |
+| Words in the first 3 s | 11.0 | 12.3 | 6 / **19** |
+| Time after the last words | 0.7 s | 0.4 s | **19** / 6 |
+| Highest surprise on a face | 0.35 | 0.31 | 18 / 7 |
+| Highest happiness on a face | 0.90 | 0.87 | 17 / 8 |
+| Laughing-face moments per 30 s | 1.34 | 1.41 | 13 / 12 |
+
+At the looser 2x / 0.6x split the same directions hold, but more weakly.
+
 ### 2.4b Watching for laughing and shocked faces (2,000+ more clips)
 
 The watcher also read every face twice a second with the FER+ expression
