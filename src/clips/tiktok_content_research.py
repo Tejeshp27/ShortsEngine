@@ -776,7 +776,8 @@ def build_report(videos):
                            ("label_captions", "On-screen captions (blind visual label)"),
                            ("label_banner", "Fixed title/text banner (blind visual label)"),
                            ("label_people", "Who is on screen (blind visual label)"),
-                           ("label_content", "What happens (blind visual label)")):
+                           ("label_content", "What happens (blind visual label)"),
+                           ("label_opening", "First 3 seconds (blind visual label)")):
         for genre, genre_title in (("streamer_clips", "streamer clips"), ("other", "other accounts")):
             parts.append(label_table(videos, measure, genre, f"{title}: {genre_title}"))
     return "\n".join(parts)

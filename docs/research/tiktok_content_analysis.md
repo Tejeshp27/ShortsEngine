@@ -186,3 +186,14 @@ Videos labelled: 22 hits, 20 flops.
 | cooking, nothing visible | 0% (0) | 5% (1) | 0.17x |
 | call/argument | 0% (0) | 5% (1) | 0.17x |
 
+
+#### First 3 seconds (blind visual label): streamer clips
+
+Videos labelled: 29 hits, 31 flops.
+
+| Label | Hits | Flops | Hits ÷ flops |
+|---|---|---|---|
+| already happening (action/reaction) | 45% (13) | 32% (10) | 1.38x |
+| talking setup | 17% (5) | 45% (14) | 0.40x |
+| static, nothing happening yet | 38% (11) | 23% (7) | 1.65x |
+

@@ -418,5 +418,245 @@
   "content": "reaction to award win",
   "visible_action": "yes",
   "blind_code": "V42"
+ },
+ "7693313848589274398": {
+  "blind_code": "O01",
+  "opening": "static, nothing happening yet"
+ },
+ "7695204913256713503": {
+  "blind_code": "O02",
+  "opening": "static, nothing happening yet"
+ },
+ "7679864210792189197": {
+  "blind_code": "O03",
+  "opening": "static, nothing happening yet"
+ },
+ "7690386222476184854": {
+  "blind_code": "O04",
+  "opening": "talking setup"
+ },
+ "7706996714984557855": {
+  "blind_code": "O05",
+  "opening": "talking setup"
+ },
+ "7684686942893542669": {
+  "blind_code": "O06",
+  "opening": "talking setup"
+ },
+ "7551574567299386638": {
+  "blind_code": "O07",
+  "opening": "already happening (action/reaction)"
+ },
+ "7687041997714050337": {
+  "blind_code": "O08",
+  "opening": "already happening (action/reaction)"
+ },
+ "7706785979230637342": {
+  "blind_code": "O09",
+  "opening": "already happening (action/reaction)"
+ },
+ "7695440056374299937": {
+  "blind_code": "O10",
+  "opening": "already happening (action/reaction)"
+ },
+ "7704869563740998943": {
+  "blind_code": "O11",
+  "opening": "already happening (action/reaction)"
+ },
+ "7523238480328068365": {
+  "blind_code": "O12",
+  "opening": "already happening (action/reaction)"
+ },
+ "7707481664531844366": {
+  "blind_code": "O13",
+  "opening": "already happening (action/reaction)"
+ },
+ "7707508138970336525": {
+  "blind_code": "O14",
+  "opening": "static, nothing happening yet"
+ },
+ "7685872415347461407": {
+  "blind_code": "O15",
+  "opening": "talking setup"
+ },
+ "7707071405610863885": {
+  "blind_code": "O16",
+  "opening": "talking setup"
+ },
+ "7677362808698326303": {
+  "blind_code": "O17",
+  "opening": "already happening (action/reaction)"
+ },
+ "7684799882850241823": {
+  "blind_code": "O18",
+  "opening": "already happening (action/reaction)"
+ },
+ "7700009954261978390": {
+  "blind_code": "O19",
+  "opening": "already happening (action/reaction)"
+ },
+ "7697420500858965280": {
+  "blind_code": "O20",
+  "opening": "talking setup"
+ },
+ "7684828926862052622": {
+  "blind_code": "O21",
+  "opening": "talking setup"
+ },
+ "7693427922945772814": {
+  "blind_code": "O22",
+  "opening": "talking setup"
+ },
+ "7707478099167874317": {
+  "blind_code": "O23",
+  "opening": "already happening (action/reaction)"
+ },
+ "7701174455531343134": {
+  "blind_code": "O24",
+  "opening": "static, nothing happening yet"
+ },
+ "7697073599257038093": {
+  "blind_code": "O25",
+  "opening": "already happening (action/reaction)"
+ },
+ "7686638166580727072": {
+  "blind_code": "O26",
+  "opening": "already happening (action/reaction)"
+ },
+ "7700726656708726038": {
+  "blind_code": "O27",
+  "opening": "static, nothing happening yet"
+ },
+ "7707778097206152470": {
+  "blind_code": "O28",
+  "opening": "static, nothing happening yet"
+ },
+ "7704516913912696094": {
+  "blind_code": "O29",
+  "opening": "static, nothing happening yet"
+ },
+ "7698474079187111198": {
+  "blind_code": "O30",
+  "opening": "talking setup"
+ },
+ "7705521093246831903": {
+  "blind_code": "O31",
+  "opening": "already happening (action/reaction)"
+ },
+ "7704768292069690654": {
+  "blind_code": "O32",
+  "opening": "static, nothing happening yet"
+ },
+ "7629582532501196054": {
+  "blind_code": "O33",
+  "opening": "talking setup"
+ },
+ "7705974039533194518": {
+  "blind_code": "O34",
+  "opening": "talking setup"
+ },
+ "7692832926798482702": {
+  "blind_code": "O35",
+  "opening": "talking setup"
+ },
+ "7634771428809657622": {
+  "blind_code": "O36",
+  "opening": "already happening (action/reaction)"
+ },
+ "7704850310623137055": {
+  "blind_code": "O37",
+  "opening": "talking setup"
+ },
+ "7707418468001369374": {
+  "blind_code": "O38",
+  "opening": "talking setup"
+ },
+ "7701416302258195725": {
+  "blind_code": "O39",
+  "opening": "talking setup"
+ },
+ "7682590141801712909": {
+  "blind_code": "O40",
+  "opening": "already happening (action/reaction)"
+ },
+ "7704861698607402262": {
+  "blind_code": "O41",
+  "opening": "static, nothing happening yet"
+ },
+ "7705950891894983949": {
+  "blind_code": "O42",
+  "opening": "static, nothing happening yet"
+ },
+ "7679170295093071117": {
+  "blind_code": "O43",
+  "opening": "already happening (action/reaction)"
+ },
+ "7707466587950894366": {
+  "blind_code": "O44",
+  "opening": "static, nothing happening yet"
+ },
+ "7707388953036377374": {
+  "blind_code": "O45",
+  "opening": "already happening (action/reaction)"
+ },
+ "7706734321356279071": {
+  "blind_code": "O46",
+  "opening": "talking setup"
+ },
+ "7678221744657681695": {
+  "blind_code": "O47",
+  "opening": "already happening (action/reaction)"
+ },
+ "7704105200922955041": {
+  "blind_code": "O48",
+  "opening": "talking setup"
+ },
+ "7679498937656446221": {
+  "blind_code": "O49",
+  "opening": "static, nothing happening yet"
+ },
+ "7704580339900976398": {
+  "blind_code": "O50",
+  "opening": "already happening (action/reaction)"
+ },
+ "7704770713999166723": {
+  "blind_code": "O51",
+  "opening": "already happening (action/reaction)"
+ },
+ "7678143940226288909": {
+  "blind_code": "O52",
+  "opening": "static, nothing happening yet"
+ },
+ "7684097987466775821": {
+  "blind_code": "O53",
+  "opening": "talking setup"
+ },
+ "7700003955438374174": {
+  "blind_code": "O54",
+  "opening": "already happening (action/reaction)"
+ },
+ "7705244797350448414": {
+  "blind_code": "O55",
+  "opening": "static, nothing happening yet"
+ },
+ "7706486719800970526": {
+  "blind_code": "O56",
+  "opening": "static, nothing happening yet"
+ },
+ "7697344192799984926": {
+  "blind_code": "O57",
+  "opening": "static, nothing happening yet"
+ },
+ "7698489334877474081": {
+  "blind_code": "O58",
+  "opening": "already happening (action/reaction)"
+ },
+ "7704547463146835213": {
+  "blind_code": "O59",
+  "opening": "static, nothing happening yet"
+ },
+ "7703362333485174029": {
+  "blind_code": "O60",
+  "opening": "talking setup"
  }
 }
