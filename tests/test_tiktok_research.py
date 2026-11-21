@@ -13,9 +13,9 @@ NOW = 1_800_000_000   # a fixed "current time" so ages never change
 
 
 def make_video(video_id, views, duration=25, hashtags=None, desc="caption", followers=1000,
-               age_days=2, comments=10, shares=5, saves=3, likes=100, is_ad=False):
-    """Build one fake saved video with sensible defaults."""
-    return {"id": video_id, "views": views, "duration": duration, "hashtags": hashtags or [],
+               age_days=2, comments=10, shares=5, saves=3, likes=100, is_ad=False, author=None):
+    """Build one fake saved video with sensible defaults (each video gets its own creator)."""
+    return {"id": video_id, "views": views, "author": author or "creator" + str(video_id), "duration": duration, "hashtags": hashtags or [],
             "desc": desc, "followers": followers, "created": NOW - age_days * 86400,
             "comments": comments, "shares": shares, "saves": saves, "likes": likes,
             "is_ad": is_ad, "source": "foryou"}
@@ -65,7 +65,7 @@ def test_hashtag_lift_finds_tag_common_among_hits():
             videos.append(make_video(str(number), 1_000, hashtags=["fyp"]))
     for video in videos:
         research.add_measures(video, now=NOW)
-    rows = research.hashtag_lift(videos, minimum_uses=2)
+    rows = research.hashtag_lift(videos, minimum_uses=2, minimum_creators=2)
     assert rows[0]["hashtag"] == "funny"
     assert rows[0]["lift"] > 1
     assert rows[-1]["hashtag"] == "fyp"
@@ -96,3 +96,26 @@ def test_build_report_runs_on_small_set():
     report = research.build_report(videos)
     assert "Most views" in report
     assert "Length" in report
+
+
+def test_within_creator_groups_compares_each_creator_with_themselves():
+    videos = []
+    for number in range(40):
+        videos.append(make_video(f"a{number}", 1000 + number, author="big", age_days=10))
+        videos.append(make_video(f"b{number}", 10 + number, author="small", age_days=10))
+    videos.append(make_video("young", 99_999_999, author="big", age_days=1))   # too new: ignored
+    for video in videos:
+        research.add_measures(video, now=NOW)
+    top, bottom, creators = research.within_creator_groups(videos)
+    assert sorted(creators) == ["big", "small"]
+    assert len(top) == 20 and len(bottom) == 20
+    assert all(video["id"] != "young" for video in top)
+    # the small creator's best videos count as hits even though they have few views
+    assert any(video["author"] == "small" for video in top)
+
+
+def test_caption_features_detects_shouting_but_not_hashtags():
+    video = research.add_measures(make_video("1", 100, desc="Kai Cenat got EXCITED #GTA6"), now=NOW)
+    assert research.caption_features(video)["shouted_word"] is True
+    video = research.add_measures(make_video("2", 100, desc="calm caption #GTA6 @BOB"), now=NOW)
+    assert research.caption_features(video)["shouted_word"] is False

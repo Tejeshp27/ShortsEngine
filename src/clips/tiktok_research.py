@@ -284,7 +284,7 @@ def top_quarter_line(videos):
     return speeds[position]
 
 
-def hashtag_lift(videos, minimum_uses=5):
+def hashtag_lift(videos, minimum_uses=5, minimum_creators=3):
     """
     Compare how often each hashtag appears among hits versus the rest.
 
@@ -294,6 +294,8 @@ def hashtag_lift(videos, minimum_uses=5):
     Args:
         videos (list[dict]): Videos with measures added.
         minimum_uses (int): Ignore hashtags used fewer times than this.
+        minimum_creators (int): Ignore hashtags used by fewer different creators
+                                (so one account's personal tag is not a "rule").
 
     Returns:
         list[dict]: Hashtag, total uses, uses among hits, and lift,
@@ -314,7 +316,8 @@ def hashtag_lift(videos, minimum_uses=5):
         # set() so a hashtag typed twice in one caption counts once
         for tag in set(t.lower() for t in (video.get("hashtags") or [])):
             if tag not in counts:
-                counts[tag] = {"hits": 0, "others": 0}
+                counts[tag] = {"hits": 0, "others": 0, "creators": set()}
+            counts[tag]["creators"].add(video.get("author"))
             if video["views_per_day"] >= hit_line:
                 counts[tag]["hits"] += 1
             else:
@@ -322,7 +325,7 @@ def hashtag_lift(videos, minimum_uses=5):
     rows = []
     for tag, count in counts.items():
         total = count["hits"] + count["others"]
-        if total < minimum_uses:
+        if total < minimum_uses or len(count["creators"]) < minimum_creators:
             continue
         hit_rate = count["hits"] / len(hits)
         other_rate = count["others"] / len(others)
@@ -471,6 +474,204 @@ def video_table(title, videos):
     return "\n".join(lines) + "\n"
 
 
+def caption_features(video):
+    """
+    Describe a caption with simple yes/no and count features.
+
+    Args:
+        video (dict): One video with measures added.
+
+    Returns:
+        dict: words, hashtags, question, emoji, crying-laughing emoji,
+              a SHOUTED (all-capital) word, an @mention and a GTA mention.
+
+    Example:
+        caption_features({"desc": "Kai Cenat got EXCITED 😭 #gta6", ...})["shouted_word"]  ->  True
+    """
+    description = video.get("desc") or ""
+    shouted = False
+    for word in description.split():
+        letters = re.sub(r"[^A-Za-z]", "", word)
+        # 3+ letters, all capitals, and not a hashtag/@name (those are often written in capitals)
+        if len(letters) >= 3 and letters.isupper() and not word.startswith(("#", "@")):
+            shouted = True
+            break
+    return {
+        "caption_words": video["caption_words"],
+        "hashtag_count": video["hashtag_count"],
+        "has_question": video["has_question"],
+        "has_emoji": video["has_emoji"],
+        "crying_emoji": "😭" in description,
+        "shouted_word": shouted,
+        "mentions_someone": "@" in description,
+        "mentions_gta": "gta" in description.lower(),
+    }
+
+
+def within_creator_groups(videos, minimum_videos=30, minimum_age_days=7):
+    """
+    Split each creator's own videos into their best and worst quarter.
+
+    Comparing a creator only with themselves removes the biggest reason
+    for differences in views (how many followers they have), so what is
+    left is closer to "what about the video itself worked".
+
+    Videos younger than minimum_age_days are left out because their
+    views are still climbing.
+
+    Args:
+        videos (list[dict]): Videos with measures added.
+        minimum_videos (int): Creators need at least this many settled videos.
+        minimum_age_days (float): Ignore videos younger than this.
+
+    Returns:
+        tuple: (top, bottom, creators) — two lists of videos and the list
+               of creator names used.
+    """
+    by_creator = {}
+    for video in videos:
+        if video["age_days"] < minimum_age_days or not video.get("author"):
+            continue
+        by_creator.setdefault(video["author"], []).append(video)
+    top = []
+    bottom = []
+    creators = []
+    for creator, own_videos in by_creator.items():
+        if len(own_videos) < minimum_videos:
+            continue
+        creators.append(creator)
+        own_videos.sort(key=lambda video: video["views"])   # lambda: "sort by this video's views"
+        quarter = len(own_videos) // 4
+        bottom.extend(own_videos[:quarter])
+        top.extend(own_videos[-quarter:])
+    return top, bottom, creators
+
+
+def compare_groups_table(top, bottom):
+    """
+    Compare a creator's hits and flops feature by feature, as Markdown.
+
+    Args:
+        top (list[dict]): Each creator's best quarter.
+        bottom (list[dict]): Each creator's worst quarter.
+
+    Returns:
+        str: A Markdown table of medians (numbers) and shares (yes/no features).
+    """
+    lines = ["| Feature | Hits (best quarter) | Flops (worst quarter) |", "|---|---|---|"]
+    lines.append(f"| Videos | {len(top)} | {len(bottom)} |")
+    lines.append(f"| Median views | {format_number(median_or_none([v['views'] for v in top]))} | "
+                 f"{format_number(median_or_none([v['views'] for v in bottom]))} |")
+    lines.append(f"| Median length (s) | {median_or_none([v.get('duration') for v in top])} | "
+                 f"{median_or_none([v.get('duration') for v in bottom])} |")
+    for name in ["comments_per_1k", "shares_per_1k", "saves_per_1k", "likes_per_1k"]:
+        lines.append(f"| Median {name.replace('_per_1k', '')} per 1k views | "
+                     f"{format_number(median_or_none([v[name] for v in top]))} | "
+                     f"{format_number(median_or_none([v[name] for v in bottom]))} |")
+    top_features = [caption_features(v) for v in top]
+    bottom_features = [caption_features(v) for v in bottom]
+    for name in ["caption_words", "hashtag_count"]:
+        lines.append(f"| Median {name.replace('_', ' ')} | {median_or_none([f[name] for f in top_features])} | "
+                     f"{median_or_none([f[name] for f in bottom_features])} |")
+    for name in ["has_question", "has_emoji", "crying_emoji", "shouted_word", "mentions_someone", "mentions_gta"]:
+        lines.append(f"| Share with {name.replace('_', ' ')} | {share_true(top_features, name):.0%} | "
+                     f"{share_true(bottom_features, name):.0%} |")
+    original_top = share_true(top, "music_original")
+    original_bottom = share_true(bottom, "music_original")
+    lines.append(f"| Share with original sound | {original_top:.0%} | {original_bottom:.0%} |")
+    return "\n".join(lines) + "\n"
+
+
+def share_true(rows, key):
+    """
+    Return the fraction of rows where a yes/no value is yes.
+
+    Args:
+        rows (list[dict]): Rows to check.
+        key (str): The yes/no key.
+
+    Returns:
+        float: Between 0 and 1 (0 when there are no rows).
+    """
+    if not rows:
+        return 0.0
+    count = 0
+    for row in rows:
+        if row.get(key):
+            count += 1
+    return count / len(rows)
+
+
+def caption_word_lift(top, bottom, minimum_creators=3):
+    """
+    Find caption words that appear more often in hits than in flops.
+
+    Words count once per video, are lower-cased, and must be used by at
+    least minimum_creators different creators (so one account's habit
+    does not look like a rule). Hashtags are included without the "#".
+
+    Args:
+        top (list[dict]): Hit videos.
+        bottom (list[dict]): Flop videos.
+        minimum_creators (int): Least number of different creators per word.
+
+    Returns:
+        list[dict]: word, uses among hits, uses among flops, creators, lift;
+                    sorted from highest lift to lowest.
+    """
+    counts = {}
+    for label, group in [("top", top), ("bottom", bottom)]:
+        for video in group:
+            words = set()
+            for raw in (video.get("desc") or "").lower().split():
+                word = raw.strip(".,!?\"'()[]:;").lstrip("#")
+                if len(word) >= 2 and not word.startswith("@"):
+                    words.add(word)
+            for word in words:
+                entry = counts.setdefault(word, {"top": 0, "bottom": 0, "creators": set()})
+                entry[label] += 1
+                entry["creators"].add(video.get("author"))
+    rows = []
+    for word, entry in counts.items():
+        if len(entry["creators"]) < minimum_creators or entry["top"] + entry["bottom"] < 8:
+            continue
+        # +0.5 smoothing so a word never seen in one group does not divide by zero
+        lift = ((entry["top"] + 0.5) / max(len(top), 1)) / ((entry["bottom"] + 0.5) / max(len(bottom), 1))
+        rows.append({"word": word, "top": entry["top"], "bottom": entry["bottom"],
+                     "creators": len(entry["creators"]), "lift": lift})
+    rows.sort(key=sort_by_lift, reverse=True)
+    return rows
+
+
+def within_creator_section(videos):
+    """
+    Write the "each creator against themselves" part of the report.
+
+    Args:
+        videos (list[dict]): Videos with measures added.
+
+    Returns:
+        str: Markdown text (a short note when there is not enough data).
+    """
+    top, bottom, creators = within_creator_groups(videos)
+    if not creators:
+        return "### Within-creator comparison\n\nNot enough creators with 30+ settled videos yet.\n"
+    parts = [f"### Within-creator comparison ({len(creators)} creators with 30+ videos at least 7 days old)",
+             "", "Each creator's best quarter by views against their own worst quarter.", "",
+             compare_groups_table(top, bottom)]
+    rows = caption_word_lift(top, bottom)
+    lines = ["Caption words most typical of hits (used by 3+ creators):", "",
+             "| Word | In hits | In flops | Creators | Lift |", "|---|---|---|---|---|"]
+    for row in rows[:30]:
+        lines.append(f"| {row['word']} | {row['top']} | {row['bottom']} | {row['creators']} | {row['lift']:.1f}x |")
+    lines += ["", "Caption words most typical of flops:", "",
+              "| Word | In hits | In flops | Creators | Lift |", "|---|---|---|---|---|"]
+    for row in rows[-20:]:
+        lines.append(f"| {row['word']} | {row['top']} | {row['bottom']} | {row['creators']} | {row['lift']:.2f}x |")
+    parts.append("\n".join(lines) + "\n")
+    return "\n".join(parts)
+
+
 def source_group(video):
     """
     Name where a video was found ("foryou" or "search", "profile" and so on).
@@ -484,18 +685,19 @@ def source_group(video):
     return (video.get("source") or "unknown").split(":")[0]
 
 
-def build_report(videos):
+def feature_tables(videos):
     """
-    Write the full Markdown report for a set of videos.
+    Write the "group by one feature" tables for a set of videos.
 
     Args:
         videos (list[dict]): Videos with measures added.
 
     Returns:
-        str: The report text.
+        str: Markdown tables (length, creator size, age, caption, hashtags,
+             question, emoji, sound, slideshow) plus the hashtag lift lists.
     """
-    parts = [f"Videos analysed: **{len(videos)}** (adverts removed). "
-             f"Hit = top quarter by views per day (at least {format_number(top_quarter_line(videos))}/day).\n"]
+    parts = [f"Videos: **{len(videos)}**. Hit = top quarter by views per day "
+             f"(at least {format_number(top_quarter_line(videos))}/day).\n"]
     parts.append(group_table("Where the video was found", group_summary(videos, source_group)))
     parts.append(group_table("Length", group_summary(
         videos, lambda v: bucket_name(v.get("duration"), DURATION_BUCKETS)),
@@ -522,21 +724,57 @@ def build_report(videos):
         videos, lambda v: "slideshow" if v.get("is_slideshow") else "video")))
 
     lift_rows = hashtag_lift(videos)
-    lines = ["### Hashtags most over-represented among hits (used 5+ times)", "",
+    lines = ["### Hashtags most over-represented among hits (5+ uses, 3+ creators)", "",
              "| Hashtag | Uses | Among hits | Lift |", "|---|---|---|---|"]
     for row in lift_rows[:25]:
         lines.append(f"| #{row['hashtag']}{' (generic)' if row['generic'] else ''} | {row['uses']} | "
                      f"{row['among_hits']} | {row['lift']:.1f}x |")
-    lines.append("")
-    lines.append("Least common among hits:")
-    lines.append("")
-    lines.append("| Hashtag | Uses | Among hits | Lift |")
-    lines.append("|---|---|---|---|")
-    for row in lift_rows[-10:]:
+    lines += ["", "Least common among hits:", "", "| Hashtag | Uses | Among hits | Lift |", "|---|---|---|---|"]
+    for row in lift_rows[-12:]:
         lines.append(f"| #{row['hashtag']}{' (generic)' if row['generic'] else ''} | {row['uses']} | "
-                     f"{row['among_hits']} | {row['lift']:.1f}x |")
+                     f"{row['among_hits']} | {row['lift']:.2f}x |")
     parts.append("\n".join(lines) + "\n")
+    return "\n".join(parts)
 
+
+def is_fair_comparison(video):
+    """
+    Decide whether a video belongs in the "fair comparison" set.
+
+    Fair = 2 to 60 days old (views have mostly arrived but the video is
+    still recent) and from a creator with 10,000+ followers (tiny
+    accounts mostly get almost no views whatever they post).
+
+    Args:
+        video (dict): One video with measures added.
+
+    Returns:
+        bool: True when it should be included.
+    """
+    if not 2 <= video["age_days"] <= 60:
+        return False
+    return (video.get("followers") or 0) >= 10_000
+
+
+def build_report(videos):
+    """
+    Write the full Markdown report for a set of videos.
+
+    Args:
+        videos (list[dict]): Videos with measures added.
+
+    Returns:
+        str: The report text.
+    """
+    fair = []
+    for video in videos:
+        if is_fair_comparison(video):
+            fair.append(video)
+    parts = ["## A. Each creator against themselves (strongest evidence)\n", within_creator_section(videos),
+             "## B. Fair comparison: videos 2-60 days old from creators with 10k+ followers\n",
+             feature_tables(fair),
+             "## C. Every video collected\n", feature_tables(videos),
+             "## D. Top videos\n"]
     parts.append(video_table("Most views", top_videos(videos, "views")))
     parts.append(video_table("Fastest (views per day)", top_videos(videos, "views_per_day")))
     parts.append(video_table("Most comments", top_videos(videos, "comments")))
