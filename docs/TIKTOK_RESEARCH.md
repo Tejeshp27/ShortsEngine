@@ -41,32 +41,41 @@ left out of that comparison because their views are still climbing.
 
 ## 2. Findings
 
-### 2.1 For streamer clips, longer clips win (the most useful result for us)
+### 2.1 For streamer clips, 10-30 s is the weakest length and longer cuts often win
 
-Twelve streamer-clip accounts (Kai Cenat, Speed, Jynxzi, N3on, StableRonaldo,
-Lacy and others; ~1,900 settled videos). Each video is compared with the
-**same account's videos posted within ±10 days**, so an account simply
+34 streamer-clip accounts (clip pages for Kai Cenat, Speed, Jynxzi, N3on,
+Adin Ross, Lacy, Marlon, Jason, StableRonaldo and others, plus Jason's and
+StableRonaldo's own TikToks; ~4,800 settled clips). Each clip is compared with
+the **same account's clips posted within ±10 days**, so an account simply
 growing over time cannot explain it:
 
-| Length | Videos | x usual views | Breakouts (2x+) |
-|---|---|---|---|
-| under 10 s | 113 | 0.95x | 30% |
-| 10-20 s | 468 | 0.92x | 31% |
-| 20-30 s | 334 | 0.84x | 31% |
-| 30-45 s | 248 | 0.97x | 32% |
-| **45-60 s** | 119 | **1.43x** | 39% |
-| **60-90 s** | 244 | **1.22x** | 39% |
-| **90-180 s** | 76 | **1.61x** | 45% |
-| 3 min+ | 20 | 2.11x | 50% (only 4 accounts) |
+| Length | Clips | Accounts | x usual views | Breakouts (2x+) |
+|---|---|---|---|---|
+| under 10 s | 259 | 26 | 1.22x | 37% |
+| 10-20 s | 1,539 | 28 | **0.93x** | 31% |
+| 20-30 s | 1,150 | 28 | **0.96x** | 32% |
+| 30-45 s | 882 | 26 | 1.03x | 35% |
+| 45-60 s | 404 | 26 | 1.10x | 38% |
+| 60-90 s | 421 | 22 | 1.03x | 36% |
+| **90-180 s** | 129 | 18 | **1.73x** | **47%** |
+| 3 min+ | 22 | 6 | 1.61x | 45% (few clips) |
 
-Six of the eight accounts with enough of both kinds show it on their own
-(for example permheadtv: 60 s+ clips 1.53x vs under-30 s 0.85x; poggerclipz
-1.85x vs 0.86x; jynxzi_clipz.z 1.98x vs 0.92x). Two did not (prestigeclipn,
-baldnews_).
+In 14 of 21 accounts with enough of both, their 45 s+ clips beat their
+under-30 s clips (for example poggerclipz 1.79x vs 0.86x, jynxzi_clipz.z 1.75x
+vs 0.92x, mar3lglive (Marlon clips) 1.81x vs 0.85x, jasontheween_hub 3.81x vs
+0.59x, and StableRonaldo's own account 1.31x vs 0.81x). In 7 it was the other
+way round (including Jason's own account: 0.83x vs 1.01x).
 
-For all 36 profile accounts together (every genre) length makes little
-difference (about 1.0x from 10 s to 3 min). So this is specific to streamer
-clips: a longer clip has room for the setup, the moment and the reaction.
+An earlier cut of this data with only 12 accounts showed a bigger effect
+(45-60 s at 1.43x). With 34 accounts it is smaller, so treat it as "longer
+cuts often help", not a rule. The clearest signals are:
+- 10-30 s, the range most of our clips fall in, is the weakest.
+- 90-180 s clips double the account's usual views about half the time.
+- A very short single moment (under 10 s) also does well.
+
+For the 36 profile accounts of every genre (section A of the tables),
+length makes little difference. So this is specific to streamer clips: a
+longer clip has room for the setup, the moment and the reaction.
 
 **This disagrees with our current settings** (reaction/gameplay clips 18-35 s).
 It agrees with the owner's own notes on drafts 121-123 ("far too short", "missed
@@ -159,10 +168,12 @@ finding that "in GTA" titles were common among flops.
 
 Nothing was changed in the pipeline; these are proposals.
 
-1. **Allow longer streamer clips.** Let the editor keep 45-90 s (up to ~2 min)
-   when the moment has a build-up and a payoff, instead of 18-35 s. For
-   example: reaction/gameplay 25-90 s, awkward/story 30-120 s. Keep short cuts
-   only for a single instant moment (one jump-scare, one line).
+1. **Allow longer streamer clips and avoid the 10-30 s middle.** Let the
+   editor keep 45 s to ~2.5 min when the moment has a build-up and a payoff
+   (for example reaction/gameplay 30-120 s, awkward/story 45-150 s). Allow
+   under 10 s only for a single instant moment (one jump-scare, one line).
+   Then test it: add clip length as a packaging experiment so our own
+   numbers confirm or reject it.
 2. **Rank moments by "would someone send this to a friend?"** Shares are the
    number that goes with bigger reach. Comments do not. The editor prompt could
    ask for shareability (an instantly understood, surprising or relatable
