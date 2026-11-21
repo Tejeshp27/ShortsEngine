@@ -22,9 +22,10 @@ stays on. The dashboard navigation was regrouped (Clips / Results / Settings),
 the clips page redesigned (status cards, why each clip was kept or skipped) and
 video pages show a "Why this clip" panel. Stale files removed (see Current phase).
 
-**Live recording resumed 2026-11-20 18:16** at the owner's request
-(`live_recording.enabled: true`; it had been paused earlier that day). The
-supervisor had to be restarted because it was still running pre-silent-bleep code.
+**Live recording stopped 2026-11-21** at the owner's request
+(`live_recording.enabled: false`). The supervisor stopped the four running captures
+(Kai Cenat, Lacy, Jason, Marlon) within ~20 s; no restart was needed. Set it back to
+`true` to resume. (It had last been resumed 2026-11-20 18:16.)
 
 Earlier history (rolling recorder built 2026-11-19, local pilot and acquisition
 phase 2026-11-18) is in the Current phase entries below and in

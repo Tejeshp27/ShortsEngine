@@ -92,8 +92,8 @@ than failing when there is not enough space to join it.
 Watch `output/runtime/events.jsonl` for `live_recording` events and
 `output/runtime/health.json` → `live_recording`.
 
-Status (2026-11-20): paused by the owner in the morning, **resumed at 18:16** the same
-day. If the supervisor reports a YAML error that the file no longer has (for example
+Status (2026-11-21): **stopped by the owner** (`live_recording.enabled: false`).
+Earlier: paused 2026-11-20 morning, resumed at 18:16 the same day. If the supervisor reports a YAML error that the file no longer has (for example
 `bleep → volume`), it is running old code: restart it with the `launchctl kickstart`
 line above. Each finished chunk is now analysed by the new ranking/editor pipeline
 (see [stream-clips.md](stream-clips.md#how-moments-are-chosen-and-edited-overhaul-2026-11-20)),
