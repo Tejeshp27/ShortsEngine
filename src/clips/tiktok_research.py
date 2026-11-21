@@ -643,6 +643,130 @@ def caption_word_lift(top, bottom, minimum_creators=3):
     return rows
 
 
+def add_relative_views(videos, minimum_videos=30, minimum_age_days=7):
+    """
+    Give each settled video a "times its creator's typical video" number.
+
+    relative_views = this video's views / the creator's median views.
+    2.0 means twice as many views as the creator usually gets. Only
+    creators with enough settled videos get this number (others get None).
+
+    Args:
+        videos (list[dict]): Videos with measures added (changed in place).
+        minimum_videos (int): Creators need at least this many settled videos.
+        minimum_age_days (float): Videos younger than this are still growing.
+
+    Returns:
+        list[dict]: Only the videos that received a relative_views number.
+    """
+    by_creator = {}
+    for video in videos:
+        video["relative_views"] = None
+        if video["age_days"] < minimum_age_days or not video.get("author"):
+            continue
+        by_creator.setdefault(video["author"], []).append(video)
+    scored = []
+    for own_videos in by_creator.values():
+        if len(own_videos) < minimum_videos:
+            continue
+        typical = statistics.median(v["views"] for v in own_videos) or 1
+        for video in own_videos:
+            video["relative_views"] = video["views"] / typical
+            scored.append(video)
+    return scored
+
+
+def relative_table(title, videos, feature_of, order=None):
+    """
+    Show how each group of videos did compared with their own creator's usual.
+
+    Args:
+        title (str): Heading above the table.
+        videos (list[dict]): Videos with relative_views set.
+        feature_of (function): Takes a video and returns its group label.
+        order (list[str]): Group labels in display order (optional).
+
+    Returns:
+        str: Markdown table with the number of videos, number of creators,
+             median relative views, and the share that beat the creator's
+             usual by 2x or more ("breakouts").
+    """
+    groups = {}
+    for video in videos:
+        groups.setdefault(feature_of(video), []).append(video)
+    labels = list(groups.keys())
+    if order:
+        labels = [label for label in order if label in groups] + [l for l in labels if l not in order]
+    lines = [f"### {title}", "", "| Group | Videos | Creators | Median x usual views | Breakouts (2x+) |",
+             "|---|---|---|---|---|"]
+    for label in labels:
+        members = groups[label]
+        creators = set(video["author"] for video in members)
+        breakouts = 0
+        for video in members:
+            if video["relative_views"] >= 2:
+                breakouts += 1
+        lines.append(f"| {label} | {len(members)} | {len(creators)} | "
+                     f"{statistics.median(v['relative_views'] for v in members):.2f}x | "
+                     f"{breakouts / len(members):.0%} |")
+    return "\n".join(lines) + "\n"
+
+
+def posting_hour_label(video):
+    """
+    Name the 4-hour block (US Central time, UTC-6) a video was posted in.
+
+    Args:
+        video (dict): One video with a "created" time in seconds since 1970.
+
+    Returns:
+        str: For example "12-16 (CST)", or "unknown".
+    """
+    if not video.get("created"):
+        return "unknown"
+    hour = int(((video["created"] / 3600) - 6) % 24)   # -6 hours: UTC to US Central standard time
+    start = hour - hour % 4
+    return f"{start:02d}-{start + 4:02d} (CST)"
+
+
+def relative_section(videos):
+    """
+    Write the tables that compare each video with its own creator's usual views.
+
+    Args:
+        videos (list[dict]): Videos with measures added.
+
+    Returns:
+        str: Markdown text.
+    """
+    scored = add_relative_views(videos)
+    if not scored:
+        return ""
+    parts = ["Each video's views divided by its creator's median views (1.00x = a normal video for "
+             "that creator). This removes follower count from the comparison.\n"]
+    parts.append(relative_table("Length", scored,
+                                lambda v: bucket_name(v.get("duration"), DURATION_BUCKETS),
+                                [b[0] for b in DURATION_BUCKETS]))
+    parts.append(relative_table("Caption length", scored,
+                                lambda v: bucket_name(v["caption_words"], CAPTION_BUCKETS),
+                                [b[0] for b in CAPTION_BUCKETS]))
+    parts.append(relative_table("Hashtags", scored,
+                                lambda v: bucket_name(v["hashtag_count"], HASHTAG_BUCKETS),
+                                [b[0] for b in HASHTAG_BUCKETS]))
+    for name, yes, no in [("has_question", "question", "no question"),
+                          ("has_emoji", "emoji", "no emoji"),
+                          ("crying_emoji", "😭 in caption", "no 😭"),
+                          ("shouted_word", "SHOUTED word", "no shouted word"),
+                          ("mentions_someone", "@mention", "no @mention")]:
+        parts.append(relative_table(f"Caption: {yes}", scored,
+                                    lambda v, n=name, y=yes, o=no: y if caption_features(v)[n] else o))
+    parts.append(relative_table("Sound", scored,
+                                lambda v: "original sound" if v.get("music_original") else "existing song/sound"))
+    parts.append(relative_table("Posting time", scored, posting_hour_label,
+                                [f"{h:02d}-{h + 4:02d} (CST)" for h in range(0, 24, 4)]))
+    return "\n".join(parts)
+
+
 def within_creator_section(videos):
     """
     Write the "each creator against themselves" part of the report.
@@ -771,6 +895,7 @@ def build_report(videos):
         if is_fair_comparison(video):
             fair.append(video)
     parts = ["## A. Each creator against themselves (strongest evidence)\n", within_creator_section(videos),
+             relative_section(videos),
              "## B. Fair comparison: videos 2-60 days old from creators with 10k+ followers\n",
              feature_tables(fair),
              "## C. Every video collected\n", feature_tables(videos),
