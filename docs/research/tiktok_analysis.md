@@ -1,86 +1,86 @@
 ## A. Each creator against themselves (strongest evidence)
 
-### Within-creator comparison (59 creators with 30+ videos at least 7 days old)
+### Within-creator comparison (72 creators with 30+ videos at least 7 days old)
 
 Each creator's best quarter by views against their own worst quarter.
 
 | Feature | Hits (best quarter) | Flops (worst quarter) |
 |---|---|---|
-| Videos | 2844 | 2844 |
-| Median views | 430K | 11K |
-| Median length (s) | 33.0 | 29.0 |
-| Median comments per 1k views | 0.45 | 0.69 |
-| Median shares per 1k views | 1.89 | 1.62 |
-| Median saves per 1k views | 4.50 | 4.43 |
-| Median likes per 1k views | 73 | 63 |
-| Median caption words | 8.0 | 9.0 |
+| Videos | 3568 | 3568 |
+| Median views | 516K | 16K |
+| Median length (s) | 38.0 | 31.0 |
+| Median comments per 1k views | 0.49 | 0.72 |
+| Median shares per 1k views | 2.03 | 1.41 |
+| Median saves per 1k views | 4.53 | 4.07 |
+| Median likes per 1k views | 77 | 65 |
+| Median caption words | 8.0 | 8.0 |
 | Median hashtag count | 4.0 | 4.0 |
-| Share with has question | 9% | 8% |
-| Share with has emoji | 66% | 63% |
-| Share with crying emoji | 18% | 21% |
-| Share with shouted word | 27% | 25% |
-| Share with mentions someone | 14% | 13% |
+| Share with has question | 11% | 11% |
+| Share with has emoji | 62% | 59% |
+| Share with crying emoji | 15% | 17% |
+| Share with shouted word | 26% | 25% |
+| Share with mentions someone | 15% | 14% |
 | Share with mentions gta | 1% | 1% |
-| Share with original sound | 84% | 83% |
+| Share with original sound | 85% | 84% |
 
 Caption words most typical of hits (used by 3+ creators):
 
 | Word | In hits | In flops | Creators | Lift |
 |---|---|---|---|---|
-| instagram | 12 | 0 | 3 | 25.0x |
 | qtcinderella | 11 | 0 | 6 | 23.0x |
+| druski | 10 | 0 | 3 | 21.0x |
+| realised | 8 | 0 | 3 | 17.0x |
 | streamers | 49 | 3 | 8 | 14.1x |
 | treat | 46 | 4 | 4 | 10.3x |
+| stock | 12 | 1 | 4 | 8.3x |
+| order | 12 | 1 | 6 | 8.3x |
 | viewers | 45 | 5 | 9 | 8.3x |
+| jiang | 11 | 1 | 3 | 7.7x |
 | arman | 18 | 2 | 3 | 7.4x |
+| tattoo | 17 | 2 | 7 | 7.0x |
 | argument | 10 | 1 | 7 | 7.0x |
-| tattoo | 16 | 2 | 6 | 6.6x |
-| parents | 14 | 2 | 9 | 5.8x |
-| played | 8 | 1 | 9 | 5.7x |
-| ago | 8 | 1 | 8 | 5.7x |
+| professor | 9 | 1 | 5 | 6.3x |
+| names | 8 | 1 | 6 | 5.7x |
+| predictions | 8 | 1 | 4 | 5.7x |
 | ludwig | 8 | 1 | 4 | 5.7x |
+| onto | 8 | 1 | 6 | 5.7x |
+| crossed | 8 | 1 | 5 | 5.7x |
 | math | 8 | 1 | 3 | 5.7x |
 | fousey | 8 | 1 | 4 | 5.7x |
-| costume | 8 | 1 | 5 | 5.7x |
 | armantsarukyan | 19 | 3 | 3 | 5.6x |
-| cia | 7 | 1 | 3 | 5.0x |
-| crossed | 7 | 1 | 4 | 5.0x |
+| gamer | 22 | 4 | 6 | 5.0x |
+| strong | 7 | 1 | 5 | 5.0x |
+| canada | 7 | 1 | 3 | 5.0x |
 | kai’s | 7 | 1 | 3 | 5.0x |
-| gamer | 21 | 4 | 5 | 4.8x |
 | tries | 11 | 2 | 8 | 4.6x |
-| big | 47 | 10 | 12 | 4.5x |
-| pov | 52 | 12 | 5 | 4.2x |
+| pov | 69 | 15 | 7 | 4.5x |
+| prediction | 10 | 2 | 5 | 4.2x |
 | girlhefunny1x | 14 | 3 | 3 | 4.1x |
-| 2026 | 13 | 3 | 9 | 3.9x |
-| months | 13 | 3 | 9 | 3.9x |
-| chriseanrock | 13 | 3 | 4 | 3.9x |
-| response | 9 | 2 | 6 | 3.8x |
-| streamerawards | 58 | 16 | 18 | 3.5x |
-| whether | 8 | 2 | 6 | 3.4x |
+| cap | 29 | 7 | 3 | 3.9x |
 
 Caption words most typical of flops:
 
 | Word | In hits | In flops | Creators | Lift |
 |---|---|---|---|---|
-| united | 1 | 7 | 3 | 0.20x |
-| y’all | 1 | 7 | 5 | 0.20x |
-| f1ght | 1 | 7 | 4 | 0.20x |
-| moments | 1 | 7 | 6 | 0.20x |
-| cenat’s | 1 | 7 | 7 | 0.20x |
-| losing | 1 | 7 | 7 | 0.20x |
-| rather | 1 | 7 | 5 | 0.20x |
-| ❤️ | 3 | 18 | 12 | 0.19x |
 | minutes | 1 | 8 | 5 | 0.18x |
+| seconds | 1 | 8 | 8 | 0.18x |
+| teams | 1 | 8 | 6 | 0.18x |
 | manchesterunited | 1 | 8 | 3 | 0.18x |
-| makes | 2 | 14 | 11 | 0.17x |
+| opportunity | 1 | 8 | 5 | 0.18x |
+| talent | 1 | 8 | 6 | 0.18x |
+| mark | 2 | 14 | 8 | 0.17x |
 | onepiece | 1 | 9 | 3 | 0.16x |
-| hasn’t | 1 | 9 | 8 | 0.16x |
+| losing | 1 | 9 | 8 | 0.16x |
 | lameloball | 1 | 9 | 4 | 0.16x |
+| remain | 1 | 9 | 5 | 0.16x |
 | neon | 2 | 16 | 4 | 0.15x |
 | rising | 2 | 19 | 4 | 0.13x |
+| hasn’t | 1 | 14 | 9 | 0.10x |
+| question | 1 | 17 | 8 | 0.09x |
 | mod | 3 | 44 | 3 | 0.08x |
+| tools | 0 | 8 | 3 | 0.06x |
 | grab | 0 | 8 | 4 | 0.06x |
-| yet | 0 | 9 | 7 | 0.05x |
+| capable | 0 | 9 | 4 | 0.05x |
 | yugi2x | 0 | 10 | 3 | 0.05x |
 
 Each video's views divided by its creator's median views (1.00x = a normal video for that creator). This removes follower count from the comparison.
@@ -89,346 +89,346 @@ Each video's views divided by its creator's median views (1.00x = a normal video
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| under 10 s | 660 | 52 | 1.00x | 31% |
-| 10-20 s | 2801 | 58 | 0.95x | 30% |
-| 20-30 s | 2111 | 59 | 0.94x | 31% |
-| 30-45 s | 1642 | 57 | 0.95x | 32% |
-| 45-60 s | 1152 | 55 | 1.06x | 33% |
-| 60-90 s | 1729 | 53 | 1.04x | 31% |
-| 90-180 s | 1123 | 44 | 1.08x | 29% |
-| 3 min+ | 249 | 19 | 1.47x | 42% |
+| under 10 s | 858 | 62 | 0.98x | 29% |
+| 10-20 s | 3106 | 69 | 0.94x | 30% |
+| 20-30 s | 2429 | 71 | 0.91x | 29% |
+| 30-45 s | 2053 | 69 | 0.95x | 30% |
+| 45-60 s | 1446 | 68 | 1.03x | 32% |
+| 60-90 s | 2538 | 65 | 1.05x | 31% |
+| 90-180 s | 1546 | 56 | 1.06x | 29% |
+| 3 min+ | 404 | 26 | 1.60x | 43% |
 
 ### Caption length
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| no words | 1239 | 30 | 0.99x | 32% |
-| 1-5 words | 2283 | 53 | 0.99x | 29% |
-| 6-12 words | 4445 | 56 | 1.02x | 31% |
-| 13-25 words | 2859 | 50 | 1.00x | 32% |
-| 26+ words | 641 | 30 | 0.90x | 31% |
+| no words | 1440 | 37 | 0.97x | 30% |
+| 1-5 words | 3081 | 66 | 1.00x | 29% |
+| 6-12 words | 5439 | 69 | 1.01x | 30% |
+| 13-25 words | 3144 | 61 | 1.01x | 32% |
+| 26+ words | 1276 | 37 | 0.94x | 30% |
 
 ### Hashtags
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| 0 hashtags | 1641 | 30 | 0.93x | 24% |
-| 1-2 hashtags | 1665 | 44 | 0.98x | 32% |
-| 3-5 hashtags | 7670 | 58 | 1.00x | 32% |
-| 6+ hashtags | 491 | 18 | 1.71x | 46% |
+| 0 hashtags | 2418 | 40 | 0.92x | 25% |
+| 1-2 hashtags | 1910 | 55 | 0.97x | 31% |
+| 3-5 hashtags | 9298 | 70 | 1.00x | 31% |
+| 6+ hashtags | 754 | 24 | 1.60x | 44% |
 
 ### Caption: question
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| no question | 10457 | 59 | 1.00x | 31% |
-| question | 1010 | 38 | 1.01x | 30% |
+| no question | 12762 | 72 | 1.00x | 31% |
+| question | 1618 | 51 | 0.99x | 27% |
 
 ### Caption: emoji
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| no emoji | 4042 | 49 | 0.97x | 31% |
-| emoji | 7425 | 57 | 1.01x | 32% |
+| no emoji | 5635 | 62 | 0.97x | 30% |
+| emoji | 8745 | 70 | 1.01x | 31% |
 
 ### Caption: 😭 in caption
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| no 😭 | 9237 | 59 | 1.01x | 32% |
-| 😭 in caption | 2230 | 46 | 0.93x | 30% |
+| no 😭 | 12082 | 72 | 1.01x | 31% |
+| 😭 in caption | 2298 | 52 | 0.93x | 30% |
 
 ### Caption: SHOUTED word
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| no shouted word | 8445 | 58 | 1.00x | 30% |
-| SHOUTED word | 3022 | 54 | 1.01x | 34% |
+| no shouted word | 10677 | 71 | 1.00x | 30% |
+| SHOUTED word | 3703 | 67 | 1.01x | 33% |
 
 ### Caption: @mention
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| no @mention | 9945 | 58 | 1.00x | 31% |
-| @mention | 1522 | 38 | 1.03x | 35% |
+| no @mention | 12243 | 71 | 1.00x | 30% |
+| @mention | 2137 | 51 | 1.03x | 33% |
 
 ### Sound
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| original sound | 9595 | 59 | 1.00x | 31% |
-| existing song/sound | 1872 | 51 | 0.98x | 32% |
+| original sound | 12196 | 72 | 1.00x | 30% |
+| existing song/sound | 2184 | 63 | 0.97x | 31% |
 
 ### Posting time
 
 | Group | Videos | Creators | Median x usual views | Breakouts (2x+) |
 |---|---|---|---|---|
-| 00-04 (CST) | 649 | 46 | 0.99x | 33% |
-| 04-08 (CST) | 481 | 37 | 0.96x | 29% |
-| 08-12 (CST) | 1517 | 51 | 0.98x | 33% |
-| 12-16 (CST) | 2722 | 58 | 1.00x | 32% |
-| 16-20 (CST) | 3578 | 57 | 1.03x | 31% |
-| 20-24 (CST) | 2520 | 55 | 0.99x | 29% |
+| 00-04 (CST) | 855 | 54 | 0.98x | 30% |
+| 04-08 (CST) | 785 | 47 | 0.98x | 29% |
+| 08-12 (CST) | 2307 | 64 | 0.97x | 31% |
+| 12-16 (CST) | 3447 | 71 | 1.01x | 31% |
+| 16-20 (CST) | 4182 | 69 | 1.03x | 31% |
+| 20-24 (CST) | 2804 | 65 | 0.99x | 29% |
 
 ## B. Fair comparison: videos 2-60 days old from creators with 10k+ followers
 
-Videos: **10378**. Hit = top quarter by views per day (at least 12K/day).
+Videos: **11570**. Hit = top quarter by views per day (at least 13K/day).
 
 ### Where the video was found
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| profile | 9384 | 23K | 2K | 21% | 0.44 | 1.39 | 3.20 | 51 |
-| search | 736 | 316K | 24K | 63% | 0.62 | 3.81 | 6.88 | 96 |
-| foryou | 258 | 555K | 22K | 66% | 0.45 | 6.22 | 6.38 | 79 |
+| profile | 10576 | 28K | 2K | 22% | 0.51 | 1.45 | 3.33 | 55 |
+| search | 736 | 316K | 24K | 61% | 0.62 | 3.81 | 6.88 | 96 |
+| foryou | 258 | 555K | 22K | 62% | 0.45 | 6.22 | 6.38 | 79 |
 
 ### Length
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| under 10 s | 921 | 34K | 4K | 30% | 0.36 | 1.60 | 2.86 | 57 |
-| 10-20 s | 3015 | 16K | 2K | 21% | 0.38 | 1.35 | 2.67 | 46 |
-| 20-30 s | 2024 | 23K | 2K | 23% | 0.40 | 1.47 | 3.03 | 51 |
-| 30-45 s | 1630 | 20K | 2K | 23% | 0.41 | 1.69 | 3.48 | 54 |
-| 45-60 s | 809 | 33K | 2K | 23% | 0.48 | 1.63 | 3.80 | 58 |
-| 60-90 s | 1069 | 55K | 3K | 30% | 0.67 | 1.84 | 4.35 | 57 |
-| 90-180 s | 633 | 91K | 5K | 35% | 0.95 | 1.69 | 5.01 | 76 |
-| 3 min+ | 277 | 233K | 10K | 45% | 0.74 | 1.58 | 6.47 | 72 |
+| under 10 s | 1062 | 33K | 3K | 25% | 0.40 | 1.54 | 2.76 | 56 |
+| 10-20 s | 3144 | 18K | 2K | 20% | 0.39 | 1.42 | 2.71 | 49 |
+| 20-30 s | 2213 | 28K | 2K | 25% | 0.45 | 1.44 | 3.20 | 55 |
+| 30-45 s | 1874 | 31K | 3K | 27% | 0.52 | 1.66 | 3.80 | 64 |
+| 45-60 s | 934 | 42K | 3K | 22% | 0.57 | 1.73 | 3.82 | 60 |
+| 60-90 s | 1268 | 61K | 3K | 28% | 0.75 | 1.88 | 4.33 | 61 |
+| 90-180 s | 784 | 87K | 4K | 31% | 1.02 | 1.90 | 4.99 | 73 |
+| 3 min+ | 291 | 225K | 9K | 42% | 0.78 | 1.75 | 6.59 | 74 |
 
 ### Creator size (followers)
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| 10k-100k | 2577 | 10K | 1K | 21% | 0.37 | 1.33 | 3.50 | 49 |
-| 100k-1M | 5504 | 20K | 2K | 19% | 0.41 | 1.36 | 2.96 | 47 |
-| 1M-10M | 2233 | 149K | 8K | 42% | 0.59 | 2.00 | 4.30 | 76 |
-| 10M+ | 64 | 438K | 90K | 97% | 0.55 | 5.12 | 4.96 | 127 |
+| 10k-100k | 2585 | 10K | 1K | 20% | 0.38 | 1.33 | 3.52 | 49 |
+| 100k-1M | 5787 | 22K | 2K | 19% | 0.45 | 1.39 | 2.95 | 49 |
+| 1M-10M | 3130 | 145K | 7K | 39% | 0.67 | 1.97 | 4.45 | 79 |
+| 10M+ | 68 | 490K | 90K | 97% | 0.57 | 4.99 | 5.05 | 132 |
 
 ### Age when seen
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| 1-3 days | 1654 | 8K | 3K | 30% | 0.27 | 1.83 | 1.82 | 24 |
-| 3-7 days | 1430 | 17K | 4K | 34% | 0.52 | 1.67 | 3.35 | 54 |
-| 1-4 weeks | 4697 | 32K | 2K | 25% | 0.46 | 1.42 | 3.43 | 57 |
-| 1-6 months | 2597 | 61K | 2K | 18% | 0.53 | 1.66 | 4.29 | 63 |
+| 1-3 days | 1684 | 8K | 3K | 29% | 0.27 | 1.83 | 1.86 | 25 |
+| 3-7 days | 1508 | 19K | 4K | 34% | 0.55 | 1.71 | 3.40 | 57 |
+| 1-4 weeks | 5174 | 35K | 3K | 25% | 0.52 | 1.48 | 3.51 | 59 |
+| 1-6 months | 3204 | 77K | 2K | 19% | 0.61 | 1.71 | 4.31 | 69 |
 
 ### Caption length
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| no words | 1581 | 9K | 1K | 18% | 0.29 | 1.53 | 2.96 | 49 |
-| 1-5 words | 1697 | 60K | 4K | 33% | 0.54 | 2.82 | 4.60 | 75 |
-| 6-12 words | 3405 | 44K | 3K | 28% | 0.45 | 1.53 | 3.65 | 55 |
-| 13-25 words | 2986 | 18K | 2K | 21% | 0.44 | 1.07 | 2.79 | 45 |
-| 26+ words | 709 | 38K | 3K | 24% | 0.73 | 2.17 | 3.63 | 53 |
+| no words | 1610 | 9K | 1K | 17% | 0.30 | 1.60 | 3.07 | 50 |
+| 1-5 words | 1887 | 72K | 5K | 34% | 0.60 | 2.72 | 4.74 | 79 |
+| 6-12 words | 3982 | 55K | 3K | 29% | 0.52 | 1.50 | 3.65 | 61 |
+| 13-25 words | 3085 | 19K | 2K | 20% | 0.46 | 1.09 | 2.78 | 46 |
+| 26+ words | 1006 | 44K | 3K | 20% | 0.79 | 2.37 | 4.27 | 57 |
 
 ### Hashtags
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| 0 hashtags | 1044 | 63K | 5K | 31% | 0.87 | 2.52 | 4.12 | 62 |
-| 1-2 hashtags | 2409 | 11K | 2K | 21% | 0.33 | 1.16 | 2.31 | 38 |
-| 3-5 hashtags | 6842 | 31K | 2K | 25% | 0.45 | 1.54 | 3.69 | 58 |
-| 6+ hashtags | 83 | 130K | 5K | 33% | 0.39 | 1.57 | 3.60 | 40 |
+| 0 hashtags | 1276 | 62K | 4K | 27% | 0.86 | 2.39 | 4.17 | 62 |
+| 1-2 hashtags | 2503 | 12K | 2K | 21% | 0.36 | 1.14 | 2.40 | 42 |
+| 3-5 hashtags | 7675 | 39K | 2K | 26% | 0.51 | 1.59 | 3.81 | 63 |
+| 6+ hashtags | 116 | 128K | 6K | 32% | 0.60 | 1.54 | 3.25 | 50 |
 
 ### Caption asks a question
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| no question | 9742 | 26K | 2K | 24% | 0.45 | 1.60 | 3.46 | 55 |
-| question | 636 | 84K | 4K | 34% | 0.65 | 1.08 | 3.44 | 45 |
+| no question | 10641 | 30K | 2K | 24% | 0.49 | 1.66 | 3.58 | 59 |
+| question | 929 | 96K | 4K | 32% | 0.79 | 1.20 | 3.55 | 53 |
 
 ### Caption has an emoji
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| emoji | 6413 | 25K | 2K | 23% | 0.39 | 1.25 | 3.06 | 49 |
-| no emoji | 3965 | 34K | 3K | 28% | 0.58 | 2.23 | 4.26 | 63 |
+| emoji | 7063 | 28K | 2K | 22% | 0.44 | 1.36 | 3.16 | 53 |
+| no emoji | 4507 | 45K | 3K | 30% | 0.65 | 2.04 | 4.33 | 67 |
 
 ### Sound
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| original sound | 9011 | 28K | 2K | 25% | 0.47 | 1.59 | 3.47 | 54 |
-| existing song/sound | 1367 | 30K | 3K | 24% | 0.42 | 1.34 | 3.34 | 55 |
+| original sound | 9998 | 33K | 2K | 25% | 0.52 | 1.67 | 3.58 | 58 |
+| existing song/sound | 1572 | 37K | 3K | 26% | 0.50 | 1.24 | 3.56 | 60 |
 
 ### Photo slideshow or video
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| video | 10222 | 27K | 2K | 25% | 0.46 | 1.55 | 3.43 | 53 |
-| slideshow | 156 | 133K | 6K | 33% | 0.48 | 2.19 | 4.12 | 112 |
+| video | 11336 | 33K | 3K | 25% | 0.52 | 1.61 | 3.57 | 58 |
+| slideshow | 234 | 84K | 3K | 24% | 0.56 | 1.68 | 3.85 | 87 |
 
 ### Hashtags most over-represented among hits (5+ uses, 3+ creators)
 
 | Hashtag | Uses | Among hits | Lift |
 |---|---|---|---|
-| #token | 175 | 173 | 208.1x |
+| #token | 175 | 173 | 208.2x |
+| #tech | 176 | 172 | 115.0x |
 | #clips | 130 | 125 | 68.4x |
-| #update | 56 | 53 | 45.8x |
 | #footballedit | 7 | 7 | 45.0x |
 | #opinion | 6 | 6 | 39.0x |
-| #luka | 5 | 5 | 33.0x |
-| #ps5 | 5 | 5 | 33.0x |
-| #cia | 8 | 7 | 15.0x |
+| #update | 59 | 52 | 21.0x |
+| #ps5 | 10 | 9 | 19.0x |
+| #iphoneduo | 46 | 40 | 18.7x |
 | #soccerskills | 8 | 7 | 15.0x |
 | #sabiasque | 28 | 23 | 12.8x |
-| #fortnite | 327 | 254 | 10.4x |
-| #lakers | 10 | 8 | 10.2x |
-| #prank | 38 | 29 | 9.3x |
+| #luka | 6 | 5 | 11.0x |
+| #xbox | 6 | 5 | 11.0x |
+| #fortnite | 331 | 255 | 10.0x |
 | #marlonedit | 5 | 4 | 9.0x |
 | #blowthisup | 5 | 4 | 9.0x |
 | #standup | 5 | 4 | 9.0x |
 | #tiktokcampaign | 5 | 4 | 9.0x |
 | #bball | 33 | 25 | 9.0x |
-| #timberwolves | 5 | 4 | 9.0x |
+| #wemby | 5 | 4 | 9.0x |
+| #unitedstates | 5 | 4 | 9.0x |
 | #jason | 5 | 4 | 9.0x |
-| #neymar | 12 | 9 | 8.1x |
+| #tesla | 17 | 13 | 9.0x |
+| #iphone | 17 | 13 | 9.0x |
+| #prank | 39 | 29 | 8.4x |
 | #clip | 8 | 6 | 7.8x |
-| #giftok | 8 | 6 | 7.8x |
-| #streamerawards2026 | 8 | 6 | 7.8x |
-| #uncensoredamerica | 8 | 6 | 7.8x |
 
 Least common among hits:
 
 | Hashtag | Uses | Among hits | Lift |
 |---|---|---|---|
-| #fanum | 9 | 0 | 0.16x |
-| #miami | 9 | 0 | 0.16x |
-| #ye | 9 | 0 | 0.16x |
-| #pokimane | 9 | 0 | 0.16x |
 | #deshaefrost | 147 | 6 | 0.14x |
+| #braeden | 59 | 2 | 0.13x |
 | #faxuty | 11 | 0 | 0.13x |
-| #plaqueboymax | 158 | 6 | 0.13x |
-| #family | 12 | 0 | 0.12x |
+| #miami | 12 | 0 | 0.12x |
 | #arky | 13 | 0 | 0.11x |
+| #family | 13 | 0 | 0.11x |
 | #ashtrevino | 13 | 0 | 0.11x |
+| #plaqueboymax | 158 | 4 | 0.09x |
 | #camplooks | 18 | 0 | 0.08x |
 | #angryginge | 21 | 0 | 0.07x |
+| #rayasianboy | 25 | 0 | 0.06x |
+| #diaryofaceo | 31 | 0 | 0.05x |
 
 ## C. Every video collected
 
-Videos: **20862**. Hit = top quarter by views per day (at least 11K/day).
+Videos: **24104**. Hit = top quarter by views per day (at least 11K/day).
 
 ### Where the video was found
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| profile | 16437 | 39K | 2K | 20% | 0.50 | 1.67 | 3.89 | 60 |
-| search | 3687 | 62K | 6K | 41% | 0.56 | 3.48 | 5.93 | 80 |
+| profile | 19679 | 58K | 2K | 20% | 0.54 | 1.67 | 3.97 | 67 |
+| search | 3687 | 62K | 6K | 42% | 0.56 | 3.48 | 5.93 | 80 |
 | foryou | 738 | 337K | 25K | 64% | 0.48 | 9.64 | 7.39 | 94 |
 
 ### Length
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| under 10 s | 1797 | 37K | 4K | 32% | 0.39 | 2.07 | 3.18 | 65 |
-| 10-20 s | 5367 | 21K | 2K | 23% | 0.40 | 1.76 | 3.24 | 54 |
-| 20-30 s | 3617 | 30K | 2K | 24% | 0.43 | 1.82 | 3.80 | 57 |
-| 30-45 s | 2991 | 32K | 2K | 24% | 0.46 | 2.04 | 4.51 | 62 |
-| 45-60 s | 1811 | 62K | 2K | 23% | 0.57 | 1.85 | 4.90 | 69 |
-| 60-90 s | 2783 | 109K | 2K | 26% | 0.60 | 2.34 | 4.95 | 69 |
-| 90-180 s | 1735 | 171K | 2K | 23% | 0.87 | 1.83 | 5.20 | 89 |
-| 3 min+ | 761 | 150K | 3K | 34% | 0.78 | 1.57 | 6.08 | 71 |
+| under 10 s | 2035 | 40K | 3K | 30% | 0.41 | 1.94 | 3.15 | 64 |
+| 10-20 s | 5725 | 25K | 2K | 23% | 0.41 | 1.81 | 3.32 | 59 |
+| 20-30 s | 3981 | 40K | 2K | 26% | 0.46 | 1.80 | 3.86 | 62 |
+| 30-45 s | 3464 | 50K | 2K | 27% | 0.54 | 2.00 | 4.59 | 67 |
+| 45-60 s | 2132 | 80K | 2K | 23% | 0.62 | 1.86 | 4.86 | 70 |
+| 60-90 s | 3656 | 156K | 2K | 23% | 0.57 | 1.96 | 4.59 | 74 |
+| 90-180 s | 2190 | 152K | 2K | 21% | 0.88 | 2.00 | 5.42 | 89 |
+| 3 min+ | 921 | 208K | 2K | 29% | 0.90 | 1.54 | 5.66 | 84 |
 
 ### Creator size (followers)
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| under 10k | 2590 | 16K | 2K | 31% | 0.53 | 5.94 | 6.43 | 84 |
-| 10k-100k | 4109 | 15K | 1K | 23% | 0.38 | 1.46 | 4.00 | 54 |
-| 100k-1M | 8889 | 23K | 1K | 20% | 0.43 | 1.69 | 3.56 | 50 |
-| 1M-10M | 5124 | 284K | 4K | 30% | 0.66 | 2.11 | 4.78 | 87 |
-| 10M+ | 150 | 456K | 132K | 92% | 0.73 | 3.81 | 4.16 | 101 |
+| under 10k | 2678 | 16K | 2K | 31% | 0.53 | 6.18 | 6.51 | 85 |
+| 10k-100k | 4136 | 15K | 1K | 24% | 0.39 | 1.48 | 4.04 | 55 |
+| 100k-1M | 9456 | 26K | 2K | 20% | 0.43 | 1.59 | 3.44 | 53 |
+| 1M-10M | 7493 | 249K | 3K | 28% | 0.71 | 2.06 | 4.83 | 86 |
+| 10M+ | 341 | 2.6M | 19K | 61% | 0.69 | 1.91 | 3.60 | 83 |
 
 ### Age when seen
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| under 1 day | 1644 | 5K | 8K | 47% | 0.46 | 2.16 | 3.49 | 49 |
-| 1-3 days | 3047 | 8K | 4K | 35% | 0.33 | 1.98 | 2.46 | 34 |
-| 3-7 days | 1679 | 19K | 4K | 36% | 0.53 | 1.84 | 3.70 | 58 |
-| 1-4 weeks | 5068 | 35K | 3K | 27% | 0.47 | 1.55 | 3.60 | 59 |
-| 1-6 months | 6116 | 91K | 1K | 18% | 0.56 | 2.07 | 5.16 | 72 |
-| 6 months+ | 3308 | 289K | 610 | 9% | 0.55 | 2.33 | 5.74 | 85 |
+| under 1 day | 1668 | 5K | 9K | 48% | 0.47 | 2.16 | 3.48 | 51 |
+| 1-3 days | 3092 | 8K | 4K | 36% | 0.34 | 1.97 | 2.49 | 36 |
+| 3-7 days | 1759 | 21K | 4K | 38% | 0.55 | 1.84 | 3.71 | 59 |
+| 1-4 weeks | 5562 | 39K | 3K | 28% | 0.52 | 1.60 | 3.65 | 62 |
+| 1-6 months | 7383 | 108K | 2K | 20% | 0.58 | 2.09 | 5.07 | 73 |
+| 6 months+ | 4640 | 307K | 689 | 9% | 0.58 | 1.91 | 4.98 | 86 |
 
 ### Caption length
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| no words | 3074 | 13K | 2K | 23% | 0.38 | 2.20 | 4.39 | 67 |
-| 1-5 words | 4253 | 69K | 2K | 27% | 0.54 | 2.98 | 5.36 | 81 |
-| 6-12 words | 7147 | 74K | 2K | 27% | 0.50 | 1.87 | 4.34 | 65 |
-| 13-25 words | 5150 | 28K | 2K | 22% | 0.51 | 1.27 | 3.38 | 51 |
-| 26+ words | 1238 | 43K | 2K | 24% | 0.69 | 1.99 | 3.81 | 53 |
+| no words | 3306 | 18K | 2K | 24% | 0.38 | 2.25 | 4.41 | 71 |
+| 1-5 words | 5141 | 102K | 2K | 27% | 0.58 | 2.71 | 5.33 | 84 |
+| 6-12 words | 8255 | 94K | 2K | 28% | 0.53 | 1.73 | 4.11 | 68 |
+| 13-25 words | 5481 | 32K | 2K | 21% | 0.53 | 1.24 | 3.31 | 54 |
+| 26+ words | 1921 | 56K | 2K | 19% | 0.73 | 2.26 | 4.87 | 65 |
 
 ### Hashtags
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| 0 hashtags | 2512 | 90K | 3K | 24% | 0.72 | 2.67 | 5.11 | 79 |
-| 1-2 hashtags | 4046 | 13K | 2K | 25% | 0.34 | 1.37 | 2.80 | 42 |
-| 3-5 hashtags | 13375 | 51K | 2K | 26% | 0.51 | 2.05 | 4.53 | 70 |
-| 6+ hashtags | 929 | 128K | 423 | 9% | 0.46 | 1.37 | 4.64 | 63 |
+| 0 hashtags | 3367 | 100K | 3K | 22% | 0.70 | 2.53 | 5.07 | 81 |
+| 1-2 hashtags | 4321 | 16K | 2K | 26% | 0.36 | 1.36 | 2.85 | 45 |
+| 3-5 hashtags | 15179 | 66K | 2K | 27% | 0.55 | 1.97 | 4.52 | 72 |
+| 6+ hashtags | 1237 | 222K | 643 | 9% | 0.48 | 1.00 | 3.98 | 73 |
 
 ### Caption asks a question
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| no question | 19329 | 41K | 2K | 24% | 0.50 | 1.99 | 4.33 | 66 |
-| question | 1533 | 153K | 3K | 32% | 0.59 | 1.63 | 3.67 | 54 |
+| no question | 21924 | 55K | 2K | 25% | 0.53 | 1.95 | 4.37 | 71 |
+| question | 2180 | 174K | 3K | 29% | 0.61 | 1.44 | 3.53 | 58 |
 
 ### Caption has an emoji
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| emoji | 12036 | 46K | 2K | 23% | 0.46 | 1.63 | 3.81 | 60 |
-| no emoji | 8826 | 45K | 2K | 27% | 0.58 | 2.43 | 5.07 | 70 |
+| emoji | 13485 | 58K | 2K | 23% | 0.49 | 1.67 | 3.88 | 66 |
+| no emoji | 10619 | 67K | 2K | 27% | 0.62 | 2.20 | 4.82 | 73 |
 
 ### Sound
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| original sound | 17612 | 46K | 2K | 25% | 0.51 | 2.04 | 4.31 | 65 |
-| existing song/sound | 3250 | 45K | 2K | 22% | 0.47 | 1.59 | 4.06 | 61 |
+| original sound | 20477 | 63K | 2K | 25% | 0.54 | 1.95 | 4.27 | 70 |
+| existing song/sound | 3627 | 55K | 2K | 24% | 0.53 | 1.58 | 4.22 | 66 |
 
 ### Photo slideshow or video
 
 | Group | Videos | Median views | Median views/day | Hit share | Comments/1k | Shares/1k | Saves/1k | Likes/1k |
 |---|---|---|---|---|---|---|---|---|
-| video | 20643 | 45K | 2K | 25% | 0.50 | 1.96 | 4.27 | 64 |
-| slideshow | 219 | 139K | 4K | 27% | 0.50 | 1.74 | 3.94 | 105 |
+| video | 23776 | 62K | 2K | 25% | 0.54 | 1.89 | 4.27 | 69 |
+| slideshow | 328 | 93K | 3K | 22% | 0.57 | 1.50 | 3.68 | 85 |
 
 ### Hashtags most over-represented among hits (5+ uses, 3+ creators)
 
 | Hashtag | Uses | Among hits | Lift |
 |---|---|---|---|
 | #token | 183 | 179 | 119.7x |
-| #xbox | 8 | 8 | 51.0x |
+| #carterpcs | 243 | 235 | 83.1x |
+| #tech | 186 | 178 | 63.0x |
 | #ending | 6 | 6 | 39.0x |
 | #jamesharden | 6 | 6 | 39.0x |
-| #gta6ending | 47 | 43 | 29.0x |
+| #gta6ending | 47 | 44 | 38.1x |
 | #creepy | 11 | 10 | 21.0x |
+| #xbox | 11 | 10 | 21.0x |
+| #ps5 | 18 | 16 | 19.8x |
 | #fortnitebr | 10 | 9 | 19.0x |
 | #footballedit | 9 | 8 | 17.0x |
 | #grandtheftauto6 | 27 | 23 | 15.7x |
-| #update | 76 | 64 | 15.5x |
 | #nickeh30 | 14 | 12 | 15.0x |
 | #luxdrop | 14 | 12 | 15.0x |
 | #nbabasketball | 14 | 12 | 15.0x |
-| #ps5 | 13 | 11 | 13.8x |
+| #apple | 68 | 56 | 13.6x |
 | #krillion | 18 | 15 | 13.3x |
 | #jason | 34 | 28 | 13.2x |
 | #police | 7 | 6 | 13.0x |
 | #mayahiga | 28 | 23 | 12.8x |
-| #lukadoncic | 12 | 10 | 12.6x |
+| #iphoneduo | 50 | 40 | 11.6x |
 | #myron | 11 | 9 | 11.4x |
 | #suits | 6 | 5 | 11.0x |
-| #tea | 6 | 5 | 11.0x |
-| #nbaedits | 10 | 8 | 10.2x |
-| #metaglasses | 10 | 8 | 10.2x |
-| #timberwolves | 10 | 8 | 10.2x |
+| #lukadoncic | 15 | 12 | 10.7x |
+| #tips | 15 | 12 | 10.7x |
 
 Least common among hits:
 
@@ -437,7 +437,7 @@ Least common among hits:
 | #twitchmoments | 17 | 0 | 0.09x |
 | #camplooks | 18 | 0 | 0.08x |
 | #kickstreaming | 95 | 2 | 0.08x |
-| #fashion | 19 | 0 | 0.08x |
+| #ad | 19 | 0 | 0.08x |
 | #fanum | 20 | 0 | 0.07x |
 | #bestfriend | 20 | 0 | 0.07x |
 | #angryginge | 22 | 0 | 0.07x |
@@ -458,6 +458,7 @@ Least common among hits:
 | @kaicenat | 25.5M | 16 s | 137.2M | 492K | 4.0M | 2.1M | 89 | #kaicenat |
 | @ishowspeed | 55.6M | 20 s | 135.3M | 304K | 304K | 732K | 172 | #ishowspeed |
 | @mcxangaioficial | 3.2M | 33 s | 135.0M | 100K | 553K | 1.4M | 738 | (no caption) |
+| @laurincon95 | 204K | 13 s | 106.6M | 46K | 587K | 1.2M | 609 | #increible #thespherevegas |
 | @marlon3lg | 6.4M | 11 s | 106.2M | 82K | 336K | 160K | 347 | Yea #fyp |
 | @kl.esr | 394K | 64 s | 92.1M | 27K | 1.1M | 287K | 388 | Small failures #fail #funny #fyp #run #jump |
 | @homosapienstv | 5.3M | 61 s | 88.2M | 12K | 246K | 285K | 293 | ¿Qué pasa si usas Brackets durante 360 días? 😳 #sabiasque #homosapien… |
@@ -467,7 +468,6 @@ Least common among hits:
 | @kaicenat | 25.5M | 15 s | 67.5M | 136K | 168K | 534K | 129 | #streameruniversity |
 | @lex1nqton | 1.6M | 5 s | 66.5M | 38K | 4.2M | 697K | 605 | (no caption) |
 | @rayasianboy | 5.7M | 15 s | 65.4M | 94K | 2.8M | 774K | 27 | La calm |
-| @kaicenat | 25.5M | 157 s | 57.0M | 172K | 501K | 624K | 166 | Streamer University 2026 Enroll now |
 
 ### Fastest (views per day)
 
@@ -486,8 +486,8 @@ Least common among hits:
 | @ishowspeed | 55.6M | 25 s | 80.1M | 271K | 739K | 840K | 21 | #ishowspeed |
 | @clame.to.faim | 4K | 37 s | 9.6M | 5K | 152K | 57K | 3 | who else loves Whitney Houston? #dating #youtube #skit #comedy #funny… |
 | @omario.300 | 26K | 61 s | 8.7M | 6K | 129K | 51K | 2 | Just playing a little game🤣🤣#fyp #viral #funny #meta #prank |
-| @overtime | 35.6M | 89 s | 2.0M | 1K | 8K | 11K | 1 | AIN’T NO WAY THAT’S HOW IT ENDS 😭 @IShowSpeed #gta6 #gta #ishowspeed … |
 | @homosapienstv | 5.3M | 60 s | 26.0M | 6K | 81K | 77K | 7 | ¿Por qué te deben de quitar las muelas del juicio? 🤔 #aprender #homos… |
+| @mrr.harrmon | 11K | 14 s | 27.5M | 12K | 1.1M | 154K | 8 | Inst: dan.shnaidr |
 
 ### Most comments
 
@@ -501,13 +501,13 @@ Least common among hits:
 | @kaicenat | 25.5M | 157 s | 57.0M | 172K | 501K | 624K | 166 | Streamer University 2026 Enroll now |
 | @iamurhope | 22.9M | 15 s | 22.0M | 136K | 154K | 416K | 77 | Just dance DC. @john marcon |
 | @kaicenat | 25.5M | 15 s | 67.5M | 136K | 168K | 534K | 129 | #streameruniversity |
+| @1stseekgod | 641K | - s | 7.8M | 124K | 101K | 89K | 612 | lets pray |
+| @cheryl.pierce | 378K | 163 s | 10.6M | 100K | 250K | 355K | 286 | When God is about to elevate you, you go through these things. It’s a… |
 | @mcxangaioficial | 3.2M | 33 s | 135.0M | 100K | 553K | 1.4M | 738 | (no caption) |
 | @usatravel900 | 41K | 60 s | 17.9M | 99K | 537K | 49K | 54 | what would you rather? #wouldyourather #chooseone #thisorthat #quickp… |
 | @rayasianboy | 5.7M | 15 s | 65.4M | 94K | 2.8M | 774K | 27 | La calm |
 | @marlon3lg | 6.4M | 11 s | 106.2M | 82K | 336K | 160K | 347 | Yea #fyp |
 | @agentoflaughter | 14.9M | 13 s | 24.6M | 73K | 207K | 351K | 96 | pov: first time swimming 😂 💔  #comedy #funny #viral |
-| @a4omg | 14.7M | 21 s | 13.6M | 62K | 264K | 259K | 28 | Чей мармелад вкуснее? 🤔#МармеВладыч @marmelad_ich |
-| @avascreams | 6.5M | 47 s | 25.1M | 60K | 478K | 466K | 902 | (no caption) |
 
 ### Most shares
 
@@ -523,11 +523,11 @@ Least common among hits:
 | @dogmeme93 | 398K | 15 s | 32.6M | 23K | 1.8M | 214K | 59 | #viralvideo #fyp #viral  #animalsfunny #memestiktok |
 | @sosianey | 23.6M | 26 s | 46.4M | 56K | 1.6M | 537K | 47 | 🥷 🐶 🥹 #neymar #meme #trending #fy #fyp |
 | @ar_.19b | 18K | 5 s | 20.4M | 9K | 1.6M | 194K | 52 | Pray for the fam#Sad#Disablilties@Shannon Barrett Pinkerton og vid on… |
+| @amandaprescottfx | 1.3M | 24 s | 45.7M | 38K | 1.6M | 608K | 561 | Ohhh we’re COOKED🧍🏾‍♀️Inspired By: @Squall 🔥🙌 #fyp #horrorcomedy #sca… |
 | @billy.badass42069 | 134K | 8 s | 19.7M | 12K | 1.4M | 76K | 42 | . #viral #foryoupage #trending #fyp #fy |
 | @sinnersvein | 220K | 9 s | 22.6M | 15K | 1.2M | 434K | 279 | #roblox #comedy #british #england boii |
 | @kl.esr | 394K | 64 s | 92.1M | 27K | 1.1M | 287K | 388 | Small failures #fail #funny #fyp #run #jump |
 | @zdoubleee | 3K | 5 s | 14.8M | 4K | 1.1M | 80K | 215 | #funny #wales #fail #viral #foryou |
-| @None | 280K | 28 s | 26.3M | 24K | 1.1M | 552K | 554 | 2017 ahh dance 💀 #Micup #Roblox #fyp #robloxfyp #micup #micuproblox #… |
 
 ### Most saves
 
@@ -536,6 +536,7 @@ Least common among hits:
 | @kaicenat | 25.5M | 16 s | 137.2M | 492K | 4.0M | 2.1M | 89 | #kaicenat |
 | @ishowspeed | 55.6M | 14 s | 264.3M | 602K | 1.9M | 1.8M | 240 | #ishowspeed |
 | @mcxangaioficial | 3.2M | 33 s | 135.0M | 100K | 553K | 1.4M | 738 | (no caption) |
+| @laurincon95 | 204K | 13 s | 106.6M | 46K | 587K | 1.2M | 609 | #increible #thespherevegas |
 | @ishowspeed | 55.6M | 25 s | 80.1M | 271K | 739K | 840K | 21 | #ishowspeed |
 | @ishowspeed | 55.6M | 15 s | 174.1M | 190K | 400K | 778K | 313 | #ishowspeed |
 | @rayasianboy | 5.7M | 15 s | 65.4M | 94K | 2.8M | 774K | 27 | La calm |
@@ -545,9 +546,8 @@ Least common among hits:
 | @p0xdz | 19K | 37 s | 26.1M | 14K | 751K | 672K | 146 | DO NOT MOVE when the Memory Worms pull up 😭😭 Game: REYSYNC / The Back… |
 | @pinos781 | 28K | 5 s | 28.1M | 20K | 692K | 640K | 39 | (no caption) |
 | @kaicenat | 25.5M | 157 s | 57.0M | 172K | 501K | 624K | 166 | Streamer University 2026 Enroll now |
+| @amandaprescottfx | 1.3M | 24 s | 45.7M | 38K | 1.6M | 608K | 561 | Ohhh we’re COOKED🧍🏾‍♀️Inspired By: @Squall 🔥🙌 #fyp #horrorcomedy #sca… |
 | @avascreams | 6.5M | 55 s | 21.5M | 16K | 135K | 592K | 931 | (no caption) |
-| @None | 196K | 34 s | 40.9M | 12K | 263K | 591K | 19 | #dkaytoolittle #streamer #clip #bored |
-| @gtinxz | 474K | 17 s | 38.2M | 59K | 532K | 576K | 142 | Thank you for everything my goat 🐐💔 #cristianoronaldo #ronaldo #fyp |
 
 ### Highest comments per 1k views (100k+ views)
 
@@ -556,18 +556,18 @@ Least common among hits:
 | @isaiahrmartin | 1.5M | 19 s | 154K | 4K | 967 | 2K | 21 | I’m learning more |
 | @isaiahrmartin | 1.5M | 56 s | 439K | 10K | 3K | 6K | 26 | He was cooking them 🤣 |
 | @isaiahrmartin | 1.5M | 12 s | 1.4M | 29K | 13K | 14K | 24 | I’m learning |
-| @isaiahrmartin | 1.5M | 55 s | 121K | 2K | 285 | 1K | 25 | Those man is really down bad |
+| @isaiahrmartin | 1.5M | 55 s | 121K | 2K | 285 | 1K | 26 | Those man is really down bad |
+| @praying.tok | 138K | 72 s | 778K | 15K | 86K | 13K | 564 | Romans 15:13 #JesusChrist #bishopmarmariemmanuel #fyp #Bible |
+| @promiseime72 | 136K | - s | 2.7M | 52K | 39K | 25K | 632 | Amen |
 | @isaiahrmartin | 1.5M | 11 s | 912K | 18K | 7K | 11K | 17 | Learned a little bit more to say thank you |
 | @the_arfterworld | 10K | 37 s | 389K | 7K | 31K | 13K | 78 | Please share and comment so we can help Ronza. You can find her paren… |
 | @isaiahrmartin | 1.5M | 134 s | 242K | 4K | 2K | 5K | 16 | Never forget |
 | @isaiahrmartin | 1.5M | 62 s | 576K | 9K | 5K | 7K | 24 | Flavio Bolsonaro must be deported |
 | @michaelsoepic | 4.1M | 17 s | 346K | 5K | 7K | 17K | 11 | You have found DIAMONDS! 💎💎 #fypシ #minecraft #diamonds |
+| @1stseekgod | 641K | - s | 7.8M | 124K | 101K | 89K | 612 | lets pray |
 | @isaiahrmartin | 1.5M | 78 s | 192K | 3K | 2K | 2K | 7 | All the money Trump is spending on the Bolsonaros should be going tow… |
 | @isaiahrmartin | 1.5M | 150 s | 721K | 10K | 5K | 8K | 22 | Show them how you feel about that |
 | @michaelsoepic | 4.1M | 14 s | 171K | 2K | 4K | 5K | 14 | You have reached bedrock! #fypシ #minecraft #bedrock |
-| @michaelsoepic | 4.1M | 8 s | 313K | 4K | 157 | 484 | 221 | Give me some creative ones #fypシ #jokes #top5 |
-| @isaiahrmartin | 1.5M | 293 s | 642K | 9K | 7K | 7K | 22 | Get them out of here |
-| @isaiahrmartin | 1.5M | 171 s | 257K | 3K | 1K | 2K | 26 | Great conversation |
 
 ### Highest shares per 1k views (100k+ views)
 
@@ -598,6 +598,7 @@ Least common among hits:
 | @kdv.71 | 890 | 12 s | 11.4M | 1K | 7K | 28K | 59 | rough day out here #pharmacyschool #pharmacy #futuredoctor |
 | @jack_638263 | 20 | 91 s | 242K | 0.00 | 2.00 | 15 | 1209 | #fyp #foryou #foryoupage #movieclips #film #filmtok #filmclips #movie… |
 | @shamoo617 | 628 | 17 s | 7.4M | 2K | 181K | 32K | 579 | #fail |
+| @user.4568214 | 43 | 10 s | 454K | 615 | 5K | 5K | 181 | Tall Girls are so Pretty😍 #tallgirl #taller #like? #fyp #loveit |
 | @areeb_khanz | 485 | 6 s | 5.1M | 2K | 15K | 17K | 20 | one of the close call i ever had😭#dashcam #viral #fyp #driving #trend |
 | @postwitheli | 647 | 19 s | 6.8M | 965 | 195K | 22K | 44 | Over 3m views on reels #reels #meme #nonchalantbreadbowl |
 | @jennintransitt | 198 | 16 s | 2.0M | 559 | 77K | 10K | 100 | 💀 #gym #gymfail #gymgirlproblems |
@@ -607,4 +608,3 @@ Least common among hits:
 | @xxballistaxx | 179 | 12 s | 1.5M | 126 | 373 | 4K | 127 | #stableronaldo #streameruniversity |
 | @pholoverwithbeansprouts | 17 | - s | 133K | 74 | 3K | 3K | 8 | #fyp #stableronaldo #streamer #foryoupage |
 | @xboxforu | 257 | 10 s | 2.0M | 605 | 16K | 9K | 3 | You can swim with an ORCA in GTA 6! #gta6 #vicecity #gtavi |
-| @None | 3K | 6 s | 22.8M | 4K | 376K | 121K | 7 | always the smallest ahh cars  #parking #smallcar #ahh #almost #funny |

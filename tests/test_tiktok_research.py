@@ -119,3 +119,11 @@ def test_caption_features_detects_shouting_but_not_hashtags():
     assert research.caption_features(video)["shouted_word"] is True
     video = research.add_measures(make_video("2", 100, desc="calm caption #GTA6 @BOB"), now=NOW)
     assert research.caption_features(video)["shouted_word"] is False
+
+
+def test_load_videos_keeps_captions_with_unicode_line_separators(tmp_path):
+    path = tmp_path / "videos.jsonl"
+    video = make_video("1", 100, desc="first line\u2028second line")
+    path.write_text(json.dumps(video, ensure_ascii=False) + "\n", encoding="utf-8")
+    videos = research.load_videos(path)
+    assert videos[0]["desc"] == "first line\u2028second line"

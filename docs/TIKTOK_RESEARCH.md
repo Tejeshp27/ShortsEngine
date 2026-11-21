@@ -25,9 +25,9 @@ This adds TikTok evidence to the YouTube work in
 |---|---|---|
 | Owner's For You feed | 744 | What TikTok chooses to show the owner |
 | 25 searches (funny, streamer clips, podcast clips, street interview, Kai Cenat, IShowSpeed, prank, comedy skit, fails, storytime, NBA, football skills, Fortnite, Roblox funny, GTA 6, Minecraft, movie clips, reaction, debate, satisfying, JasonTheWeen, StableRonaldo, Lacy, Adin Ross, Jynxzi) | 3,727 | A broad cross-section of genres |
-| 66 creator profiles (~235 of each account's own videos) | 16,855 | Lets each account be compared **with itself** |
+| 79 creator profiles (~235 of each account's own videos) | 20,176 | Lets each account be compared **with itself** |
 
-Total: **21,326 videos** (20,862 after removing 464 adverts) from **4,014 creators**.
+Total: **24,647 videos** (24,104 after removing 543 adverts) from **4,155 creators**.
 
 ### Why "compared with itself" matters
 
@@ -88,8 +88,8 @@ So the length should follow the moment. A story needs its whole arc. A single
 reaction needs only the instant. The 10-30 s middle is often a story cut too
 short or an instant padded out.
 
-For the 36 profile accounts of every genre (section A of the tables),
-length makes little difference. So this is specific to streamer clips: a
+Across all 72 profile accounts of every genre, the length effect is weaker
+(see `tiktok_analysis.md` section A). So this is specific to streamer clips: a
 longer clip has room for the setup, the moment and the reaction.
 
 **This disagrees with our current settings** (reaction/gameplay clips 18-35 s).
@@ -99,18 +99,20 @@ the best part at the end", "cut off mid-sentence").
 ### 2.2 Shares spread videos, comments do not
 
 Within each account, how a video did compared with that account's usual
-(rank correlation, 6,320 videos):
+(rank correlation, 11,609 videos from 72 accounts):
 
 | Per 1,000 views | Correlation with "x usual views" |
 |---|---|
 | Shares | **+0.10** (more shares → bigger video) |
-| Saves | +0.03 |
-| Likes | +0.03 |
+| Saves | +0.05 |
+| Likes | +0.04 |
 | Comments | **-0.12** (big videos get *fewer* comments per view) |
 
-Each account's best quarter against its own worst quarter (36 accounts):
-2.78 vs 1.96 shares per 1,000 views, but 0.55 vs 0.79 comments. Hits reach
-people who are not fans; those people share but rarely comment.
+Each account's best quarter against its own worst quarter (72 accounts,
+3,568 videos each): 2.03 vs 1.41 shares per 1,000 views and 77 vs 65 likes,
+but 0.49 vs 0.72 comments. Hits were also a little longer (median 38 s vs
+31 s) with identical captions (8 words, 4 hashtags). Hits reach people who
+are not fans; those people share but rarely comment.
 
 ### 2.3 What each number rewards (from the top-15 lists)
 
@@ -158,22 +160,22 @@ were compared with its own lowest (2,190 videos in each group, accounts with
 
 ### 2.5 Captions barely matter (same result as YouTube)
 
-Compared with each account's own usual views, almost every caption feature
-was close to 1.00x:
+Compared with each account's own usual views (72 accounts), almost every
+caption feature was close to 1.00x:
 
 | Caption feature | With | Without |
 |---|---|---|
-| Asks a question | 1.01x | 1.00x |
+| Asks a question | 0.99x | 1.00x |
 | Any emoji | 1.01x | 0.97x |
-| 😭 | 0.92x | 1.01x |
-| A SHOUTED word ("Kai Cenat got EXCITED") | 1.04x | 1.00x |
-| @mention | 1.02x | 1.00x |
-| Original sound (not a song) | 1.00x | 0.96x |
-| Caption length 6-12 words | 1.04x | 0.91x-0.99x for others |
+| 😭 | 0.93x | 1.01x |
+| A SHOUTED word ("Kai Cenat got EXCITED") | 1.01x | 1.00x |
+| @mention | 1.03x | 1.00x |
+| Original sound (not a song) | 1.00x | 0.97x |
+| Caption 6-12 words | 1.01x | 0.99x |
 
 For streamer clips alone, a SHOUTED word did a bit better (1.18x vs 0.97x,
 breakouts 42% vs 32%). That is a small, possibly style-of-account effect.
-Posting time (4-hour blocks, US Central) ranged only 0.92x-1.03x.
+Posting time (4-hour blocks, US Central) ranged only 0.97x-1.03x.
 
 **Hashtags:** between accounts, 6+ hashtags looked terrible (4% hits), but
 that is because spam-like tiny accounts use many hashtags. Within an account

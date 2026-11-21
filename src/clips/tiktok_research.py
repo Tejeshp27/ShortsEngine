@@ -104,7 +104,9 @@ def load_videos(path):
     """
     videos = []
     seen_ids = set()
-    for line in Path(path).read_text(encoding="utf-8").splitlines():
+    # split("\n") rather than splitlines(): captions can contain Unicode line
+    # separators (U+2028) that splitlines() would wrongly treat as new lines
+    for line in Path(path).read_text(encoding="utf-8").split("\n"):
         line = line.strip()
         if not line:
             continue
