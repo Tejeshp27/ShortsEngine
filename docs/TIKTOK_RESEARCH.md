@@ -73,6 +73,21 @@ cuts often help", not a rule. The clearest signals are:
 - 90-180 s clips double the account's usual views about half the time.
 - A very short single moment (under 10 s) also does well.
 
+**What the breakouts actually were** (clips with 30-140x the account's usual
+views, read from their captions):
+- *Long (60 s+):* complete stories with conflict or emotion: an argument
+  between two streamers, a streamer telling the story of going to court,
+  Speed in tears over Ronaldo's retirement, Speed bringing his cameraman on
+  stage after winning an award, Marlon discovering how kind Tokyo locals are.
+  Several were labelled "FULL CLIP".
+- *Short (under 15 s):* one instant that needs no setup: an awards presenter
+  falling over, a failed backflip, StableRonaldo seeing he got only 3 votes,
+  a one-line comeback.
+
+So the length should follow the moment. A story needs its whole arc. A single
+reaction needs only the instant. The 10-30 s middle is often a story cut too
+short or an instant padded out.
+
 For the 36 profile accounts of every genre (section A of the tables),
 length makes little difference. So this is specific to streamer clips: a
 longer clip has room for the setup, the moment and the reaction.
@@ -195,9 +210,14 @@ Nothing was changed in the pipeline; these are proposals.
    number that goes with bigger reach. Comments do not. The editor prompt could
    ask for shareability (an instantly understood, surprising or relatable
    moment) rather than "controversial / ask a question".
-3. **Keep captions simple.** Name + what happens, 6-12 words, 3-5 specific
-   hashtags. Caption tricks (questions, emoji, capitals) showed no reliable
-   effect, so the packaging experiments should not expect big wins from them.
+3. **Keep captions simple and specific.** Name the person and the specific
+   thing that happens (and the event, if there is one), 6-12 words, 3-5
+   specific hashtags. Skip hype words ("insane", "speechless"). Caption tricks
+   (questions, emoji, capitals) showed no reliable effect, so the packaging
+   experiments should not expect big wins from them.
+5. **Pick moments by who and what.** Recognisable people doing something
+   specific, and moments tied to that week's events (awards, a new game, a
+   feud), beat generic gameplay.
 4. **GTA 6:** clip it only when something actually happens. The topic is
    saturated.
 

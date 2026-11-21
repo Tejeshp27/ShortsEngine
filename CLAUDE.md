@@ -279,6 +279,13 @@ original agreement dates were not supplied):
 
 ## Current phase
 
+**TikTok research (2026-11-21 overnight, Claude Code):** the owner asked for research on what gets the most views, comments and shares on TikTok (all genres, not only streamers), using their logged-in personal account in Chrome. Read-only browsing; public numbers TikTok sends to the page were saved (no video files, no likes/follows). Data: `docs/research/tiktok_videos_2026-11-21.jsonl` (~21K videos: For You feed, 25 searches, 66 creator profiles). Script: `python -m src.clips.tiktok_research <jsonl>` (`src/clips/tiktok_research.py`, `tests/test_tiktok_research.py`), tables in `docs/research/tiktok_analysis.md`. Report: **`docs/TIKTOK_RESEARCH.md`**. Main findings:
+- For streamer clips (34 accounts, each compared with itself within ±10 days), 10-30 s is the weakest length and 90-180 s the strongest (1.73x). Long breakouts are complete stories, short ones single instants.
+- Shares, not comments, go with bigger reach.
+- Caption style makes ~no difference; who and what is in the clip does.
+- The owner's feed is 86% accounts under 100K followers.
+Nothing in the pipeline was changed; the proposals in section 3 of the report are for the owner to decide. Live recording was stopped earlier the same night at the owner's request.
+
 **Keep the Mac awake while working (2026-11-20 night, Claude Code):** the Mac sleeps after 1 minute idle, which stops recording. `src/clips/keep_awake.py` starts the built-in `caffeinate -i -s -w <pid>` for every live capture (`live_capture.record`) and every non-dry clip pipeline job (`automation.run_pipeline`). It ends with that process, and no system setting is changed. A closed lid still sleeps the Mac unless it is plugged in with an external display. After a reboot the launchd agents (RunAtLoad + KeepAlive) restart the supervisor and dashboard at login. **759 tests pass.**
 
 **TikTok results feed the learning (2026-11-20 night, Claude Code):** the existing TikTok connection (newssimplified60, scope video.list already granted) can list the account's own posts. `src/clips/tiktok_posts.py` matches hand-posted TikToks to clips by caption (the pasted Final caption starts with the title) and timing, then saves them in `platform_posts`. Unclear or ambiguous posts are skipped, not guessed. The daily collector (`analytics/accounts.collect_account` → `link_hand_posted_tiktoks`) runs this before reading statistics, so TikTok views now count in `packaging`/`feedback`, compared with each platform's own median. First run: video 8 (Roblox, 2 views) and video 124 (roast) were linked. Two older posts with owner-written captions could not be matched. **758 tests pass.**
