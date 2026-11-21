@@ -36,6 +36,14 @@ CATEGORIES = ["humor", "surprise", "hook", "clarity", "pacing", "conversation", 
 LAUGH_WORDS = {"haha", "hahaha", "lol", "lmao", "lmfao", "dead", "crying", "bro", "nah", "stop"}
 SURPRISE_WORDS = {"what", "wait", "no", "yo", "how", "why", "huh", "bruh"}
 
+# A gap with no words counts as a reaction (not dead air) when it is no more
+# than this many dB quieter than the talking around it.
+REACTION_GAP_MARGIN_DB = 3
+
+# Pacing bonus for a window that has at least one reaction beat (a 2 s+
+# gap filled with laughing, screaming or a crowd).
+REACTION_BEAT_BONUS = 0.15
+
 DEFAULT_PROFILE = {
     "version": "v1",
     "weights": {"humor": 25, "surprise": 20, "hook": 15, "clarity": 15,
@@ -193,6 +201,45 @@ def speech_gaps(spoken, start, end):
     return gaps
 
 
+def gap_is_reaction(gap_start, gap_end, volume, talk_level, sounds):
+    """
+    Decide whether a gap with no words is a reaction (laughing, screaming,
+    a crowd) rather than dead air.
+
+    The TikTok study (docs/TIKTOK_CONTENT_RESEARCH.md, section 2.2) found
+    that clips which break out have MORE of these loud wordless moments
+    than the same account's flops (higher in 22 of 25 accounts), so they
+    must not be punished as "dead air".
+
+    Args:
+        gap_start (float): Start of the gap, in seconds.
+        gap_end (float): End of the gap.
+        volume (list[float]): Loudness in dB for each second of the recording.
+        talk_level (float or None): Typical loudness while people talk in
+            this window (None when unknown).
+        sounds (list[dict]): Per-second sound chances (may be empty).
+
+    Returns:
+        bool: True when the gap is a reaction, False when it is quiet.
+
+    Example:
+        gap_is_reaction(10, 13, volume, -20.0, [])   # True if seconds 10-12 are about -20 dB
+    """
+    first = int(gap_start)
+    last = max(first + 1, math.ceil(gap_end))
+    # The sound model clearly hears a laugh, scream or cheer in the gap.
+    for second in range(first, min(last, len(sounds or []))):
+        heard = sounds[second]
+        if max(heard.get("laughter", 0), heard.get("scream", 0), heard.get("cheer", 0)) >= 0.3:
+            return True
+    # Or the gap is about as loud as the talking (within REACTION_GAP_MARGIN_DB).
+    levels = volume[first:last] if volume else []
+    if levels and talk_level is not None:
+        if float(np.median(levels)) >= talk_level - REACTION_GAP_MARGIN_DB:
+            return True
+    return False
+
+
 def chat_ratio(engagement, start, end, reaction_delay=4.0):
     """
     How much chat reacted during (and just after) a window, versus normal.
@@ -305,15 +352,37 @@ def local_components(start, end, words, media, sounds, engagement):
         clarity -= 0.2
     clarity = min(1.0, max(0.0, clarity))
 
-    # Pacing: little dead air, a comfortable talking speed.
+    # Pacing: little dead air, a comfortable talking speed. A gap filled
+    # with laughing/screaming is a "reaction beat", not dead air: clips that
+    # break out on TikTok have more of them (TIKTOK_CONTENT_RESEARCH.md 2.2).
+    talk_seconds = []
+    for word in spoken:
+        talk_seconds.append(int(word["start"]))
+    talk_level = None
+    if volume and talk_seconds:
+        talk_levels = []
+        for second in sorted(set(talk_seconds)):
+            if second < len(volume):
+                talk_levels.append(volume[second])
+        if talk_levels:
+            talk_level = float(np.median(talk_levels))
     dead_air = 0.0
+    reaction_beats = 0
     for gap_start, gap_end in speech_gaps(spoken, start, end):
-        if gap_end - gap_start > 1.5:
-            dead_air += gap_end - gap_start - 1.5
+        gap_length = gap_end - gap_start
+        if gap_length <= 1.5:
+            continue
+        if gap_is_reaction(gap_start, gap_end, volume, talk_level, sounds):
+            if gap_length >= 2.0:
+                reaction_beats += 1
+        else:
+            dead_air += gap_length - 1.5
     words_per_second = len(spoken) / length
     pacing = 1.0 - min(1.0, dead_air / length * 2)
-    if words_per_second < 0.8:
+    if words_per_second < 0.8 and reaction_beats == 0:
         pacing -= 0.2
+    if reaction_beats:
+        pacing += REACTION_BEAT_BONUS
     pacing = min(1.0, max(0.0, pacing))
 
     # Conversation: questions, talking to someone, chat activity.
@@ -356,6 +425,7 @@ def local_components(start, end, words, media, sounds, engagement):
                 "music_seconds": heard["music"]["seconds"] if heard else None,
                 "chat_ratio": None if chat is None else round(chat, 2),
                 "volume_jump": round(jump, 3), "dead_air_seconds": round(dead_air, 1),
+                "reaction_beats": reaction_beats,
                 "words": len(spoken)}
     return components, evidence
 
