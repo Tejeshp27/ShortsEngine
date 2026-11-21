@@ -164,6 +164,17 @@ against itself:
 
 At the looser 2x / 0.6x split the same directions hold, but more weakly.
 
+**Where the big moment sits.** The loudest second sits in the middle in both
+groups (55% of the way through breakouts vs 51% for flops). Breakouts have
+about 14 s of build-up before it and 15 s after it; flops are just shorter.
+Give the moment its setup and its aftermath.
+
+**Following up a hit.** A clip whose caption shares 25%+ of its words with a hit
+the same account posted in the previous 5 days did only a little better:
+1.13x usual (median) vs 0.97x. 28% of those follow-ups became hits (3x+),
+against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
+riding a trend helps a little, but each moment still has to be good.
+
 ### 2.4b Watching for laughing and shocked faces (2,000+ more clips)
 
 The watcher also read every face twice a second with the FER+ expression
