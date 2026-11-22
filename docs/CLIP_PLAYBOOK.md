@@ -75,5 +75,5 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 | No words for a few seconds | TikTok/Whisper transcript | Yes |
 | Loud vs quiet | loudness per second | Yes |
 | Laughter / scream sound | CED-tiny sound model (`audio_events.py`) | Misses most laughs under game sound |
-| Laughing / shocked face | FER+ (`expressions.py`) | Reads laughs well, but smiles also count and open-mouth talking reads as surprise; use it with "no words" |
+| Laughing / shocked face | FER+ (`expressions.py`), shown to the editor as `(face: laughing hard)` / `(face: shocked)` | Reads laughs well at full HD; smiles also count and open-mouth talking reads as surprise, so shocked marks skip talking seconds. Breakouts had more of both in two samples (small effect) |
 | *Why* people react | the editor model reading the transcript | The real judgement; the signals above only point it at the right seconds |
