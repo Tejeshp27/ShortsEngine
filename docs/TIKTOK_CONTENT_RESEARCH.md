@@ -175,24 +175,29 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 40 clip accounts never seen before (2,485 clips)
+### 2.4a-2 Out-of-sample test: 43 clip accounts never seen before (2,696 clips)
 
 New clip accounts found through search (DUB, DDG, Adapt, Kai, N3on, Lacy,
-Marlon, Silky, StableRonaldo clip pages and others) were listed by scrolling
-their profiles and watched the same way. Hits higher / flops higher, by account:
+Marlon, Silky, StableRonaldo, Jynxzi clip pages and others) were listed by
+scrolling their profiles and watched the same way. Hits higher / flops higher,
+by account:
 
-| Measure | 2x+ vs 0.6x (40 accounts) | 5x+ vs 0.3x (34 accounts) |
+| Measure | 2x+ vs 0.6x (43 accounts) | 5x+ vs 0.3x (37 accounts) |
 |---|---|---|
-| Length | **31 / 9** | **25 / 9** (38 s vs 31 s) |
-| Highest surprise on a face | **27 / 13** | **22 / 12** (0.36 vs 0.33) |
-| Share of pictures with 2+ faces | 21 / 19 | **23 / 11** (47% vs 43%) |
-| Share of the clip with talking | 19 / 21 | 12 / **22** (75% vs 77%) |
-| Loud wordless stretches | 20 / 19 | 19 / 14 |
-| Laughing-face moments per 30 s | 23 / 17 | 17 / 17 |
-| Highest happiness on a face | 21 / 19 | 20 / 14 |
-| Time after the last words | 22 / 18 | 18 / 16 |
-| Quiet wordless stretches | 19 / 21 (*not* replicated) | 16 / 18 |
-| Words in the first 3 s | 18 / 22 | 17 / 17 |
+| Length | **33 / 10** | **27 / 10** (39 s vs 34 s) |
+| Highest surprise on a face | **29 / 14** | **24 / 13** (0.36 vs 0.33) |
+| Share of pictures with 2+ faces | 22 / 21 | **26 / 11** (47% vs 43%) |
+| Share of the clip with talking | 20 / 23 | 12 / **25** (73% vs 77%) |
+| Loud wordless stretches | 22 / 20 | **22 / 14** (0.55 vs 0.38) |
+| Laughing-face moments per 30 s | 25 / 18 | 18 / 19 |
+| Highest happiness on a face | 24 / 19 | 21 / 16 |
+| Time after the last words | 23 / 20 | 20 / 17 |
+| Quiet wordless stretches | 20 / 23 (*not* replicated) | 17 / 20 |
+| Words in the first 3 s | 18 / 25 | 17 / 20 |
+
+So among the *biggest* breakouts against real flops, the first sample's
+picture comes back: less talking, more loud reaction moments, more people,
+a bigger surprised face, and longer clips.
 
 **Honest conclusion:** the talking, pause and loudness patterns are *small
 tendencies* that show up in some account sets and not others. They are not
