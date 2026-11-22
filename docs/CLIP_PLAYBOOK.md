@@ -55,9 +55,10 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 - **Keep the reaction seconds.** Do not trim a loud gap without words; that
   is the laugh or the scream (`trimming.py` now keeps them).
 - **Leave pauses in.** Breakouts had more quiet pauses as well as loud ones
-  (0.41 vs 0.29 per 30 s; 18 of 24 accounts in the first sample, only 18 of 33
-  on unseen accounts, so a weak effect). Trimming now only shortens silences
-  longer than 2.5 s (`trimming.max_dead_air_seconds`, was 1.4).
+  (0.41 vs 0.29 per 30 s; 18 of 24 accounts in the first sample, but not on 40
+  unseen accounts: 19 vs 21). Treat it as harmless rather than proven. Trimming
+  now only shortens silences longer than 2.5 s (`trimming.max_dead_air_seconds`,
+  was 1.4); set it back to 1.4 if clips feel slow.
 - **End about 1 second after the last word**, longer while people are still
   laughing (hits 1.0 s vs flops 0.5 s; `trimming.reaction_tail_seconds`).
 - **Longer is safer than shorter.** Breakouts ran longer than the same
