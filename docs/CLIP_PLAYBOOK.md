@@ -33,6 +33,8 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
    (Druski meeting Chris Rock, Dave Chappelle and Michael B. Jordan). These were
    among the biggest breakouts on 26 unseen accounts too, and part 1 found
    song/music/dance words had the highest share rates.
+   Music clips with no talking are a long shot: about 12% of ordinary clips,
+   but 20% of the 100x+ giants. Worth an occasional try, not a default.
 8. **A running bit with a big reaction.** Jynxzi's "almost almost" near-miss
    clips broke out again and again (381x, 343x, 138x). An in-game moment can
    work when the exaggerated reaction is a recurring bit fans know.

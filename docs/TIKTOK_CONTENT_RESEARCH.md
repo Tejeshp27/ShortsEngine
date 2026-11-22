@@ -245,6 +245,37 @@ model (`src/clips/expressions.py`), alongside the sound model and the transcript
 
 Small blind samples; treat the percentages as directions.
 
+### 2.4c Music-only clips and missing captions (8,000+ watched clips)
+
+Our sound model tags each second as speech, music, laughter and so on. A clip
+was called **music over a visual moment** when under 30% of its seconds had
+talking and at least 60% had music. Examples: a streamer vibing to a song,
+a short reveal set to a track, a meme-style edit.
+
+| How far above the account's usual | Clips | Music over a visual moment |
+|---|---|---|
+| 0.3x or less (flops) | 1,683 | 11.8% |
+| 0.3-0.6x | 2,575 | 11.7% |
+| 0.6-2x | 1,497 | 12.5% |
+| 2-5x | 1,831 | 11.4% |
+| 5-20x | 1,479 | 11.6% |
+| 20-100x | 693 | 10.8% |
+| **100x or more** | **222** | **20.3%** |
+
+So these clips are a long shot. They are not more likely to be a hit than a
+talking clip, but they show up about twice as often among the giant breakouts.
+Typical giants: Marlon vibing to a song, Kai Cenat's GTA reveal set to music,
+Druski's reaction as famous guests walk in. ShortsEngine chooses moments from
+the transcript, so it cannot find these yet. A "music moment" pick (the
+streamer reacting or dancing while a song plays) would be the way to try it.
+
+**Missing captions are a data caveat, not a lesson.** 29% of watched clips had
+no TikTok caption track. That was more common among flops (36% vs 21%; 57 of
+85 accounts). This happened even when the sound model heard talking. TikTok
+probably makes captions after a video starts spreading, so this is an effect
+of views, not a cause. The talking measures above use only clips that have
+captions, so hits and flops are compared on the same footing.
+
 ### 2.5 Smaller notes
 
 - Hits were a little longer (median 29 s vs 23 s; 16 / 10), in line with part 1.
