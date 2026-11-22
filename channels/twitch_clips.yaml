@@ -335,7 +335,7 @@ framing:
 trimming:
   enabled: true               # false = keep the chosen start/end exactly
   lead_seconds: 0.25          # sound kept before the first line
-  max_dead_air_seconds: 1.4   # silent gaps longer than this may be shortened...
+  max_dead_air_seconds: 2.5   # silent gaps longer than this may be shortened (was 1.4; TikTok study 2026-11-21: breakouts keep more quiet pauses, 18/24 and 13/20 accounts)...
   keep_gap_seconds: 0.5       # ...down to this
   comedic_pause_seconds: 2.5  # the pause right before the payoff may stay this long
   reaction_tail_seconds: 1.0  # kept after the payoff line

@@ -175,20 +175,21 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 15 clip accounts never seen before (969 clips)
+### 2.4a-2 Out-of-sample test: 20 clip accounts never seen before (1,334 clips)
 
 New clip accounts found through search (DUB, Adapt, Kai, N3on, Lacy clip
 pages and others) were listed by scrolling their profiles and watched the
 same way. Hits higher / flops higher, by account:
 
-| Measure | 2x+ vs 0.6x (15 accounts) | 5x+ vs 0.3x (14 accounts) |
+| Measure | 2x+ vs 0.6x (20 accounts) | 5x+ vs 0.3x (19 accounts) |
 |---|---|---|
-| Share of the clip with talking | 9 / 6 (*not* replicated; 74% vs 74%) | 5 / 9 (71% vs 75%) |
-| Share with no words | 7 / 8 | 7 / 7 |
-| Loud wordless stretches | 7 / 8 | 8 / 6 |
-| Time after the last words | **10 / 5** (0.8 s vs 0.5 s) | 9 / 5 |
-| Length | **11 / 4** (40 s vs 36 s) | 9 / 5 |
-| Highest surprise on a face | **11 / 4** | 9 / 5 |
+| Share of the clip with talking | 11 / 9 (*not* replicated; 74% vs 74%) | 7 / 12 (72% vs 75%) |
+| Loud wordless stretches | 9 / 11 | 9 / 10 |
+| Quiet wordless stretches | **13 / 7** | 12 / 7 |
+| Time after the last words | **14 / 6** (0.8 s vs 0.6 s) | 12 / 7 (1.0 s vs 0.6 s) |
+| Length | **15 / 5** (40 s vs 35 s) | 13 / 6 (41 s vs 34 s) |
+| Laughing-face moments | 14 / 6 | 9 / 10 |
+| Highest surprise on a face | 13 / 7 | 11 / 8 |
 
 **Honest conclusion:** the talking, pause and loudness patterns are *small
 tendencies* that show up in some account sets and not others. They are not
