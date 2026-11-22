@@ -175,25 +175,25 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 56 clip accounts never seen before (3,609 clips)
+### 2.4a-2 Out-of-sample test: 60 clip accounts never seen before (3,779 clips)
 
 New clip accounts found through search (DUB, DDG, Adapt, Kai, N3on, Lacy,
 Marlon, Silky, StableRonaldo, Jynxzi clip pages and others) were listed by
 scrolling their profiles and watched the same way. Hits higher / flops higher,
 by account:
 
-| Measure | 2x+ vs 0.6x (56 accounts) | 5x+ vs 0.3x (48 accounts) |
+| Measure | 2x+ vs 0.6x (60 accounts) | 5x+ vs 0.3x (50 accounts) |
 |---|---|---|
-| Length | **40 / 16** (40 s vs 36 s) | **35 / 13** (41 s vs 34 s) |
-| Highest surprise on a face | **37 / 19** | **30 / 18** (0.36 vs 0.35) |
-| Share of pictures with 2+ faces | 28 / 28 | **32 / 16** (44% vs 44%) |
-| Share of the clip with talking | 29 / 27 | 17 / **31** (74% vs 77%) |
-| Loud wordless stretches | 26 / 29 | 26 / 21 (0.53 vs 0.44) |
-| Time after the last words | 31 / 25 (0.8 s vs 0.6 s) | 23 / 25 |
-| Highest happiness on a face | 31 / 25 | 26 / 22 |
-| Laughing-face moments per 30 s | 28 / 28 | 22 / 26 |
-| Quiet wordless stretches | 29 / 27 (*not* replicated) | 23 / 25 |
-| Words in the first 3 s | 27 / 29 | 22 / 26 |
+| Length | **42 / 18** (40 s vs 36 s) | **35 / 15** (41 s vs 34 s) |
+| Highest surprise on a face | **40 / 20** | **30 / 20** (0.36 vs 0.35) |
+| Share of pictures with 2+ faces | 31 / 29 | **33 / 17** (44% vs 44%) |
+| Share of the clip with talking | 31 / 29 | 19 / **31** (76% vs 77%) |
+| Loud wordless stretches | 27 / 32 | 26 / 23 (0.50 vs 0.44) |
+| Time after the last words | 31 / 28 (0.8 s vs 0.6 s) | 23 / 27 |
+| Highest happiness on a face | 32 / 28 | 26 / 24 |
+| Laughing-face moments per 30 s | 30 / 30 | 22 / 28 |
+| Quiet wordless stretches | 32 / 28 (*not* replicated) | 24 / 26 |
+| Words in the first 3 s | 29 / 31 | 24 / 26 |
 
 So among the *biggest* breakouts against real flops, the first sample's
 picture comes back: less talking, more loud reaction moments, more people,
