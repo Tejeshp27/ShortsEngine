@@ -175,25 +175,25 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 47 clip accounts never seen before (2,908 clips)
+### 2.4a-2 Out-of-sample test: 50 clip accounts never seen before (3,091 clips)
 
 New clip accounts found through search (DUB, DDG, Adapt, Kai, N3on, Lacy,
 Marlon, Silky, StableRonaldo, Jynxzi clip pages and others) were listed by
 scrolling their profiles and watched the same way. Hits higher / flops higher,
 by account:
 
-| Measure | 2x+ vs 0.6x (47 accounts) | 5x+ vs 0.3x (40 accounts) |
+| Measure | 2x+ vs 0.6x (50 accounts) | 5x+ vs 0.3x (43 accounts) |
 |---|---|---|
-| Length | **34 / 13** | **29 / 11** (38 s vs 34 s) |
-| Highest surprise on a face | **31 / 16** | **25 / 15** (0.38 vs 0.35) |
-| Share of pictures with 2+ faces | 24 / 23 | **27 / 13** |
-| Share of the clip with talking | 22 / 25 | 14 / **26** (73% vs 77%) |
-| Loud wordless stretches | 23 / 23 | 23 / 16 (0.55 vs 0.38) |
-| Highest happiness on a face | 26 / 21 | 22 / 18 |
-| Laughing-face moments per 30 s | 26 / 21 | 20 / 20 |
-| Time after the last words | 25 / 22 | 22 / 18 |
-| Quiet wordless stretches | 23 / 24 (*not* replicated) | 18 / 22 |
-| Words in the first 3 s | 21 / 26 | 19 / 21 |
+| Length | **36 / 14** | **31 / 12** (39 s vs 33 s) |
+| Highest surprise on a face | **34 / 16** | **28 / 15** (0.36 vs 0.33) |
+| Share of pictures with 2+ faces | 24 / 26 | **29 / 14** (47% vs 44%) |
+| Share of the clip with talking | 24 / 26 | 16 / **27** (75% vs 77%) |
+| Loud wordless stretches | 24 / 25 | 24 / 18 (0.54 vs 0.39) |
+| Highest happiness on a face | 27 / 23 | 23 / 20 |
+| Laughing-face moments per 30 s | 27 / 23 | 21 / 22 |
+| Time after the last words | 28 / 22 | 22 / 21 |
+| Quiet wordless stretches | 25 / 25 (*not* replicated) | 20 / 23 |
+| Words in the first 3 s | 23 / 27 | 21 / 22 |
 
 So among the *biggest* breakouts against real flops, the first sample's
 picture comes back: less talking, more loud reaction moments, more people,
