@@ -175,24 +175,24 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 33 clip accounts never seen before (2,155 clips)
+### 2.4a-2 Out-of-sample test: 36 clip accounts never seen before (2,297 clips)
 
-New clip accounts found through search (DUB, Adapt, Kai, N3on, Lacy, Silky
-clip pages and others) were listed by scrolling their profiles and watched
-the same way. Hits higher / flops higher, by account:
+New clip accounts found through search (DUB, DDG, Adapt, Kai, N3on, Lacy,
+Marlon, Silky clip pages and others) were listed by scrolling their profiles
+and watched the same way. Hits higher / flops higher, by account:
 
-| Measure | 2x+ vs 0.6x (33 accounts) | 5x+ vs 0.3x (27 accounts) |
+| Measure | 2x+ vs 0.6x (36 accounts) | 5x+ vs 0.3x (30 accounts) |
 |---|---|---|
-| Length | **24 / 9** | **18 / 9** (39 s vs 34 s) |
-| Highest surprise on a face | **21 / 12** | 16 / 11 |
-| Highest happiness on a face | 20 / 13 | 16 / 11 |
-| Laughing-face moments per 30 s | 20 / 13 | 14 / 13 |
-| Share of pictures with 2+ faces | 17 / 16 | **19 / 8** (48% vs 43%) |
-| Share of the clip with talking | 17 / 16 | 10 / 17 (74% vs 77%) |
-| Quiet wordless stretches | 18 / 15 | 15 / 12 |
-| Loud wordless stretches | 16 / 17 | 13 / 14 |
-| Time after the last words | 18 / 15 | 13 / 14 |
-| Words in the first 3 s | 15 / 18 | 13 / 14 |
+| Length | **27 / 9** | **21 / 9** (38 s vs 31 s) |
+| Highest surprise on a face | **24 / 12** | **19 / 11** (0.40 vs 0.33) |
+| Highest happiness on a face | 21 / 15 | 18 / 12 |
+| Share of pictures with 2+ faces | 19 / 17 | **20 / 10** (48% vs 44%) |
+| Share of the clip with talking | 17 / 19 | 10 / **20** (73% vs 77%) |
+| Laughing-face moments per 30 s | 21 / 15 | 15 / 15 |
+| Quiet wordless stretches | 19 / 17 | 16 / 14 |
+| Loud wordless stretches | 18 / 18 | 16 / 14 |
+| Time after the last words | 20 / 16 | 15 / 15 |
+| Words in the first 3 s | 16 / 20 | 15 / 15 |
 
 **Honest conclusion:** the talking, pause and loudness patterns are *small
 tendencies* that show up in some account sets and not others. They are not
