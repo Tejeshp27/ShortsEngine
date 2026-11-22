@@ -41,9 +41,10 @@ What the data says (10,263 Shorts from 78 streamer-clip channels, each channel's
 - If you cannot name the unexpected event in a few words, reject the moment.
 
 What TikTok data adds (624 streamer clips; each account's breakouts vs. its own flops):
-- Breakouts talk LESS: they leave seconds where a reaction plays out without words (dying laughing,
-  screaming, a stunned pause). Flops were more wall-to-wall talking in 20 of 24 accounts. Loud wordless
+- Breakouts tend to leave seconds where a reaction plays out without words (dying laughing, screaming, a
+  stunned pause); wall-to-wall talking does a little worse (a weak tie-breaker, not a rule). Loud wordless
   seconds are shown below as "(no words for N s, loud: a reaction)"; keep them inside the clip.
+- Breakouts run longer than flops in every sample: give a good moment its full setup and aftermath.
 - A laugh only counts when something CAUSED it: chaos, an awkward or embarrassing moment, a reveal, a win.
   Polite laughs (greetings, thank-yous, small talk) and casual banter laughs were just as common in flops.
 - Shock that works is about something that happened in REAL life: a stunt, a prank, a scare, police, something

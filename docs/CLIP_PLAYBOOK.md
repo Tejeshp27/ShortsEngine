@@ -12,9 +12,10 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
    police turning up, something breaking, a surprise guest, a gift being
    opened, a drama reveal, an award result. When a face looks shocked, it
    was a real-life event in 42% of breakouts vs 10% of flops.
-2. **The reaction takes over from the talking.** The best clips have a few
-   seconds where nobody speaks: someone dying laughing, screaming, frozen in
-   shock. Flops are wall-to-wall talking (20 of 24 accounts).
+2. **Let the reaction breathe.** Give the clip seconds where nobody speaks:
+   someone dying laughing, screaming, frozen in shock. Flops tended to be more
+   wall-to-wall talking (20 of 24 accounts in the first sample), but on 11 new
+   accounts this was only a weak tendency. Treat it as a tie-breaker, not a rule.
 3. **Laughs with a cause.** Laughing at chaos, at an awkward or embarrassing
    moment, at a reveal. Not polite laughs, not routine banter.
 4. **Other real people.** Guests, friends, family, strangers, celebrities.
