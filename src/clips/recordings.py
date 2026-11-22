@@ -341,8 +341,13 @@ def rank_moments(recording, words, media, engagement, config, settings, streamer
     reviews = []
     if settings.ranking.use_editor_model and llm is not None:
         from src.clips.taste import taste_block
+        faces = None
+        if settings.ranking.face_reactions:
+            faces = candidate_face_marks(recording["file_path"], shortlist, words, duration,
+                                         settings.ranking.context_seconds)
         reviews = review_candidates(shortlist, words, sounds, engagement, duration, name, config, settings, llm,
-                                    taste_block(recording["channel"]), volume=media.get("volume_db", []))
+                                    taste_block(recording["channel"]), volume=media.get("volume_db", []),
+                                    faces=faces)
     result = decide_candidates(shortlist, reviews, words, duration, settings, profile)
     recent = recent_titles(recording["channel"])
     hashtags = config.get("publishing", {}).get("hashtags", [])
@@ -530,3 +535,29 @@ def read_engagement(path, duration):
             raise ValueError("Engagement times must be inside the recording and counts must be nonnegative finite numbers.")
         cleaned.append({"time": seconds, "count": count})
     return cleaned
+
+
+def candidate_face_marks(source, candidates, words, duration, context_seconds, after_seconds=15):
+    """
+    Read faces across each shortlisted moment and turn them into editor marks.
+
+    Args:
+        source (str): The recording file.
+        candidates (list[dict]): Shortlisted windows (start, end).
+        words (list[dict]): Timed words.
+        duration (float): Recording length.
+        context_seconds (float): Seconds shown before each window (same as the editor).
+        after_seconds (float): Seconds shown after each window (same as the editor).
+
+    Returns:
+        list: For each candidate, a list of (second, "laughing hard"/"shocked").
+    """
+    from src.clips.expressions import face_marks, read_face_track
+
+    marks = []
+    for candidate in candidates:
+        start = max(0.0, candidate["start"] - context_seconds)
+        end = min(duration, candidate["end"] + after_seconds)
+        marks.append(face_marks(read_face_track(source, start, end), words))
+    return marks
+

@@ -413,6 +413,9 @@ class RankingSettings(BaseModel):
                       (one call per recording, ~1–2 cents per recorded hour).
     shortlist_size: How many locally found moments the model reviews.
     context_seconds: Extra transcript shown before each moment (for its setup).
+    face_reactions: Read faces once a second across each shortlisted moment and
+                    show the editor model where someone is laughing hard or
+                    shocked (free, local; adds ~10-20 s of CPU per moment).
     """
     enabled: bool = True
     profile: str = "config/clip_ranking/v1.yaml"
@@ -420,6 +423,7 @@ class RankingSettings(BaseModel):
     use_editor_model: bool = True
     shortlist_size: int = Field(default=6, ge=1, le=12)
     context_seconds: float = Field(default=20, ge=0, le=60)
+    face_reactions: bool = False
 
 
 class TrimSettings(BaseModel):

@@ -85,3 +85,27 @@ def test_trimming_keeps_a_loud_gap_and_cuts_a_quiet_one():
     assert trim["cuts"] == 1                       # only the quiet gap was shortened
     without_volume = plan_trim(0, 26, words, [], [], None, settings, 10)
     assert without_volume["cuts"] == 2             # old behaviour: both gaps cut
+
+
+def test_editor_message_shows_face_marks():
+    from src.clips import editor
+
+    words = make_words([(0, 1), (5, 6)])
+    message = editor.build_user_message([{"start": 0, "end": 6}], words, [], [], 0, 6,
+                                        faces=[[(3.0, "laughing hard")]])
+    assert "[3.0] (face: laughing hard)" in message
+
+
+def test_candidate_face_marks_uses_the_shown_range(monkeypatch):
+    from src.clips import expressions, recordings
+
+    seen = []
+
+    def fake_track(source, start, end, step_seconds=1.0):
+        seen.append((start, end))
+        return [{"time": start + 1, "happiness": 0.95, "surprise": 0}, {"time": start + 2, "happiness": 0.95, "surprise": 0}]
+
+    monkeypatch.setattr(expressions, "read_face_track", fake_track)
+    marks = recordings.candidate_face_marks("video.mp4", [{"start": 30, "end": 50}], [], 100, 20)
+    assert seen == [(10, 65)]
+    assert marks == [[(11, "laughing hard")]]

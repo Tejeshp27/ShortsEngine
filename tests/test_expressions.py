@@ -50,3 +50,26 @@ def test_reaction_moments_need_two_pictures_in_a_row():
                  sample(1.5), sample(2.0, surprise=0.8), sample(2.5)]
     moments = expressions.reaction_moments(per_frame)
     assert moments == [{"kind": "happiness", "start": 0.5, "end": 1.0, "peak": 0.95}]
+
+
+def reading_at(time, happiness=0.0, surprise=0.0):
+    """One per-second face reading."""
+    return {"time": time, "happiness": happiness, "surprise": surprise}
+
+
+def test_face_marks_laughing_needs_two_seconds():
+    readings = [reading_at(1, happiness=0.95), reading_at(2, happiness=0.2),
+                reading_at(5, happiness=0.95), reading_at(6, happiness=0.97), reading_at(7, happiness=0.96)]
+    assert expressions.face_marks(readings, []) == [(5, "laughing hard")]
+
+
+def test_face_marks_shocked_only_when_nobody_talks():
+    words = [{"start": 0.0, "end": 3.0}]
+    readings = [reading_at(1, surprise=0.8), reading_at(10, surprise=0.7), reading_at(11, surprise=0.9)]
+    # second 1 is during talking (skipped); 10 counts; 11 is the same moment (within 3 s)
+    assert expressions.face_marks(readings, words) == [(10, "shocked")]
+
+
+def test_read_face_track_without_models_is_empty(monkeypatch):
+    monkeypatch.setattr(expressions, "expression_model", lambda: None)
+    assert expressions.read_face_track("missing.mp4", 0, 10) == []

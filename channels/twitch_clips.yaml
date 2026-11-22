@@ -320,6 +320,7 @@ ranking:
   use_editor_model: true      # the clip_pick model reads each shortlisted moment and judges the joke (~1-2 cents per recorded hour)
   shortlist_size: 6           # moments per recording the model reviews (more = slightly higher cost)
   context_seconds: 20         # transcript shown before each moment so the model can find where the setup starts
+  face_reactions: true        # mark laughing-hard / shocked faces for the editor model (free FER+ model; TikTok: breakouts show more of both)
 
 # Face-aware framing (src/clips/framing.py): finds the streamer's face in each clip, never cuts the head.
 framing:

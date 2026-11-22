@@ -39,7 +39,15 @@ FACE_SIZE = 64
 FACE_MARGIN = 0.15
 
 # Faces smaller than this share of the frame width are too small to read.
-MIN_FACE_WIDTH = 0.04
+# (A streamer's webcam box is often ~15% of the stream width, so the face
+# itself is only ~3% of it; frames are read at full 1920 px width.)
+MIN_FACE_WIDTH = 0.02
+
+# Size the stream picture is read at for face reading. Full HD, because at
+# half size the small webcam faces were usually missed (tested on 6 real
+# stream excerpts: faces in 178 of 180 frames at full size vs. ~120 at half).
+TRACK_WIDTH = 1920
+TRACK_HEIGHT = 1080
 
 _model = None
 
@@ -279,3 +287,140 @@ def moment_start(moment):
         float: Start time in seconds.
     """
     return moment["start"]
+
+
+# ---------------------------------------------------------------------------
+# Face marks for the editor model
+# ---------------------------------------------------------------------------
+
+# A laughing face counts when happiness stays at least this high for two
+# readings in a row (two seconds at one reading per second).
+LAUGH_MARK = 0.9
+
+# A shocked face counts when surprise reaches this while nobody is talking
+# (open-mouth talking also reads as "surprise", so talking seconds are skipped).
+SHOCK_MARK = 0.5
+
+# Two marks of the same kind closer than this are one moment.
+MARK_GAP_SECONDS = 3.0
+
+
+def is_talking(words, time_seconds):
+    """
+    Check whether any word is being spoken at a moment.
+
+    Args:
+        words (list[dict]): Timed words ({"start", "end"}).
+        time_seconds (float): The moment.
+
+    Returns:
+        bool: True when a word covers the moment (with 0.2 s slack).
+    """
+    for word in words:
+        if word["start"] - 0.2 <= time_seconds <= word["end"] + 0.2:
+            return True
+    return False
+
+
+def face_marks(readings, words):
+    """
+    Turn face readings into short marks the editor model can read.
+
+    Args:
+        readings (list[dict]): {"time", "happiness", "surprise"} for each
+            sampled second, in time order (from read_face_track).
+        words (list[dict]): Timed words of the recording.
+
+    Returns:
+        list[tuple]: (second, "laughing hard" or "shocked") in time order.
+
+    Example:
+        face_marks([{"time": 5, "happiness": 0.95, "surprise": 0},
+                    {"time": 6, "happiness": 0.93, "surprise": 0}], [])
+        # [(5, "laughing hard")]
+    """
+    marks = []
+    last_time = {"laughing hard": None, "shocked": None}
+    for index, reading in enumerate(readings):
+        kind = None
+        if index > 0 and reading.get("happiness", 0) >= LAUGH_MARK and readings[index - 1].get("happiness", 0) >= LAUGH_MARK:
+            kind = "laughing hard"
+            moment = readings[index - 1]["time"]
+        elif reading.get("surprise", 0) >= SHOCK_MARK and not is_talking(words, reading["time"]):
+            kind = "shocked"
+            moment = reading["time"]
+        if kind is None:
+            continue
+        previous = last_time[kind]
+        if previous is not None and moment - previous < MARK_GAP_SECONDS:
+            continue
+        last_time[kind] = moment
+        marks.append((round(moment, 1), kind))
+    marks.sort(key=first_of_pair)
+    return marks
+
+
+def first_of_pair(pair):
+    """
+    Sorting key: the first item of a pair (the time of a mark).
+
+    Args:
+        pair (tuple): (second, label).
+
+    Returns:
+        float: The second.
+    """
+    return pair[0]
+
+
+def read_full_frame(source, time_seconds):
+    """
+    Read one picture from a stream recording at full HD size.
+
+    Args:
+        source (str): The video file (a 16:9 stream recording).
+        time_seconds (float): When in the video.
+
+    Returns:
+        numpy array (1080, 1920, 3) in BGR colour order, or None if unreadable.
+    """
+    import subprocess
+
+    command = ["ffmpeg", "-nostdin", "-v", "error", "-ss", f"{time_seconds:.3f}", "-i", str(source),
+               "-frames:v", "1", "-vf", f"scale={TRACK_WIDTH}:{TRACK_HEIGHT}",
+               "-f", "rawvideo", "-pix_fmt", "bgr24", "-"]
+    result = subprocess.run(command, capture_output=True)
+    expected = TRACK_WIDTH * TRACK_HEIGHT * 3
+    if result.returncode != 0 or len(result.stdout) < expected:
+        return None
+    return np.frombuffer(result.stdout[:expected], dtype=np.uint8).reshape(TRACK_HEIGHT, TRACK_WIDTH, 3)
+
+
+def read_face_track(source, start, end, step_seconds=1.0):
+    """
+    Read the strongest face reaction once per `step_seconds` across a stretch of video.
+
+    Args:
+        source (str): The video file (a 16:9 stream recording).
+        start (float): From this second...
+        end (float): ...to this second.
+        step_seconds (float): Time between readings.
+
+    Returns:
+        list[dict]: {"time", "happiness", "surprise", ...} per reading (from
+        strongest_reaction); empty when the models or the video are unavailable.
+    """
+    from src.clips import framing
+
+    if expression_model() is None or framing.face_detector() is None:
+        return []
+    readings = []
+    time_seconds = max(0.0, start)
+    while time_seconds < end:
+        frame = read_full_frame(source, time_seconds)
+        if frame is not None:
+            summary = strongest_reaction(frame_expressions(frame))
+            summary["time"] = round(time_seconds, 2)
+            readings.append(summary)
+        time_seconds += step_seconds
+    return readings
