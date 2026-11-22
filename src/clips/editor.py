@@ -45,9 +45,9 @@ What TikTok data adds (624 streamer clips; each account's breakouts vs. its own 
   stunned pause); wall-to-wall talking does a little worse (a weak tie-breaker, not a rule). Loud wordless
   seconds are shown below as "(no words for N s, loud: a reaction)"; keep them inside the clip.
 - Breakouts run longer than flops in every sample: give a good moment its full setup and aftermath.
-- "(face: laughing hard)" and "(face: shocked)" are read from faces on screen. Breakouts showed a bigger
-  surprised/laughing face more often than flops (a small but repeated effect). A big face reaction to something
-  specific is good evidence; a smile during small talk is not.
+- "(face: laughing hard)" and "(face: shocked)" are read from faces on screen. A bigger SURPRISED face was
+  more common in breakouts (40 of 60 accounts); a laughing face on its own was not (30 vs. 30), because
+  streamers smile all the time. Use the marks to find the seconds, then judge from the words what caused them.
 - A laugh only counts when something CAUSED it: chaos, an awkward or embarrassing moment, a reveal, a win.
   Polite laughs (greetings, thank-yous, small talk) and casual banter laughs were just as common in flops.
 - Shock that works is about something that happened in REAL life: a stunt, a prank, a scare, police, something

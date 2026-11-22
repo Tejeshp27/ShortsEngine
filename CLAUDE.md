@@ -294,7 +294,7 @@ Later in the same round, 20 unseen clip accounts were listed by slowly scrolling
 - "Hits talk less" did NOT replicate there. Longer clips (15/5), a beat after the last word (14/6) and quiet pauses (13/7) did.
 - Changes made: `trimming.max_dead_air_seconds` 1.4 → 2.5; `clips.moment_max_seconds` 60 → 90; longer preferred lengths in `config/clip_ranking/v2.yaml`; editor guidance 20-60 s (story up to 90).
 - Analysis module: `src/clips/tiktok_watch_research.py`.
-- On 31 unseen accounts the face signals held up: higher peak surprise in 21/10, more laughing-face moments in 20/11. So `ranking.face_reactions: true` now has the editor see `(face: laughing hard)` / `(face: shocked)` marks. These come from `expressions.read_face_track` (full-HD frames once a second, ~6 s CPU per minute) via `recordings.candidate_face_marks`.
+- On 31 unseen accounts the face signals held up: higher peak surprise in 21/10, more laughing-face moments in 20/11. On 60 unseen accounts (3,779 clips, 2026-11-22) surprise still held (40/20) but laughing-face counts became a tie (30/30), so the editor prompt now says a laughing face alone is not evidence. Music-only clips are 20% of 100x+ breakouts vs ~12% elsewhere (a long shot the transcript-based picker cannot find yet). So `ranking.face_reactions: true` now has the editor see `(face: laughing hard)` / `(face: shocked)` marks. These come from `expressions.read_face_track` (full-HD frames once a second, ~6 s CPU per minute) via `recordings.candidate_face_marks`.
 
 **810 tests pass.**
 
