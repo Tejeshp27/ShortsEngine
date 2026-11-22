@@ -54,9 +54,12 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
   now only shortens silences longer than 2.5 s (`trimming.max_dead_air_seconds`, was 1.4).
 - **End about 1 second after the last word**, longer while people are still
   laughing (hits 1.0 s vs flops 0.5 s; `trimming.reaction_tail_seconds`).
-- **Length follows the moment:** a single instant can be short; a story needs
-  its whole arc (part 1: 90-180 s clips did best for streamer clips,
-  10-30 s worst).
+- **Longer is safer than shorter.** Breakouts ran longer than the same
+  account's flops in every sample (40 s vs 35 s on 20 unseen accounts, 15 of
+  20). Limits are now 18-45 s for reactions/gameplay, up to 60 s for awkward
+  moments and conversations, and up to 90 s for stories (`config/clip_ranking/v2.yaml`,
+  `clips.moment_max_seconds: 90`). A single instant can still be short; a
+  story needs its whole arc.
 - **Format does not matter much.** Each account's hits and flops used the same
   layout, captions, title banner and editing.
 

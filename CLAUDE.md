@@ -290,7 +290,12 @@ Code changes:
 - `editor.py`: marks "(no words for N s, loud: a reaction)" and adds the TikTok lessons to its prompt.
 - New `src/clips/expressions.py` (FER+, sha256-pinned, `models/expression/`); it is not yet used in scoring (face evidence alone was weak).
 
-**799 tests pass.**
+Later in the same round, 20 unseen clip accounts were listed by slowly scrolling their profiles (TikTok rate-limits profile lists: about 1 in 3 loads works, with ~40 s rests) and watched (1,334 clips).
+- "Hits talk less" did NOT replicate there. Longer clips (15/5), a beat after the last word (14/6) and quiet pauses (13/7) did.
+- Changes made: `trimming.max_dead_air_seconds` 1.4 → 2.5; `clips.moment_max_seconds` 60 → 90; longer preferred lengths in `config/clip_ranking/v2.yaml`; editor guidance 20-60 s (story up to 90).
+- Analysis module: `src/clips/tiktok_watch_research.py`.
+
+**805 tests pass.**
 
 **TikTok research part 2: inside the videos (2026-11-21, Claude Code):** the owner asked what the best videos actually *contain* (not titles/captions), focused on streamer clips. Each account's own hits (2x+ usual), flops (≤0.6x) and typical videos were measured in the owner's Chrome. The data is TikTok auto-transcripts, file facts, 4 frames/s shrunk to numbers and the sound level every 0.1 s. Only numbers were kept, no video files. Claude also coded labels blind. Sample: 1,280 videos, 624 from 33 streamer-clip accounts. Report: **`docs/TIKTOK_CONTENT_RESEARCH.md`**. Script: `python -m src.clips.tiktok_content_research --labels docs/research/tiktok_visual_labels_2026-11-21.json` (`tests/test_tiktok_content_research.py`). Transcripts are in git-ignored `cache/tiktok_content_raw.jsonl`, with a copy in `cache/backups/`. Findings:
 - Each account's hits and flops share the same format (layout, captions, banner, editing, cuts, loudness).
