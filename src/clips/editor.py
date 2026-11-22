@@ -72,7 +72,7 @@ How to judge (streamer culture):
   never mid-sentence, never before the best line. If the funniest line comes after the rough window, extend
   to include it. When unsure, run a few seconds longer rather than cut the payoff.
   Both must lie inside the lines shown for that candidate. Clips under 18 seconds rarely work (no build-up);
-  most good moments are 20-45 seconds, a story up to 60.
+  most good moments are 20-60 seconds, a story up to 90.
 
 Titles (written from the payoff, sound like a real person who watches Twitch, never like an AI):
 - Be specific to what happened; name {name} or the other person when it helps; past tense often works

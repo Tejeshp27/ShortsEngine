@@ -29,10 +29,11 @@ clarity_floor: 0.4          # (v1: 0.35)
 model_share: 0.85           # the model's reading counts more than loudness/laughter hints (v1: 0.75)
 require_event: true         # reject when the editor cannot name an unexpected event
 
-lengths:                    # preferred seconds by moment type (hit median 26-33 s; owner: ~10 s is far too short)
-  reaction: [18, 35]
-  gameplay: [18, 35]
-  awkward: [18, 45]
-  conversation: [15, 45]
-  argument: [15, 50]
-  story: [25, 60]
+lengths:                    # preferred seconds by moment type (owner: ~10 s is far too short; TikTok 2026-11-21:
+                            # breakouts run longer than the same account's flops in every sample, 15 of 20 new accounts)
+  reaction: [18, 45]        # was [18, 35]
+  gameplay: [18, 45]        # was [18, 35]
+  awkward: [18, 60]         # was [18, 45]
+  conversation: [15, 60]    # was [15, 45]
+  argument: [15, 75]        # was [15, 50]
+  story: [25, 90]           # was [25, 60]

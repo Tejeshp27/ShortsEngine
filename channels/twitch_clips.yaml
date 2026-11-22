@@ -161,7 +161,7 @@ clips:
   min_views: 0                      # skip clips with fewer views than this
   skip_shorter_than_seconds: 8      # clips shorter than this are too short to post
   moment_min_seconds: 18            # shortest clip (owner 2026-11-20: ~10 s one-liners are far too short; hits median 26-33 s)
-  moment_max_seconds: 60            # and at most this long
+  moment_max_seconds: 90            # and at most this long (was 60; TikTok study: breakouts run longer, stories need their arc)
 
 # Speech-to-text, run locally with whisper.cpp (free; brew install whisper-cpp).
 transcription:

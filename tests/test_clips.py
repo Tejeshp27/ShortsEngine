@@ -162,7 +162,7 @@ def test_real_channel_file_is_valid():
     # 10 s since the 2026-11-20 overhaul: quick reactions work at 10-20 s
     # (docs/VIRAL_CONTENT_RESEARCH.md); the editor model picks the real length.
     assert settings.clips.moment_min_seconds == 18   # owner 2026-11-20: ~10 s is far too short
-    assert settings.clips.moment_max_seconds == 60
+    assert settings.clips.moment_max_seconds == 90   # 2026-11-21: TikTok breakouts run longer
 
 
 # ---------------------------------------------------------------------------
