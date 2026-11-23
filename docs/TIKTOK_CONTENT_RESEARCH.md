@@ -175,25 +175,25 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 80 clip accounts never seen before (5,043 clips)
+### 2.4a-2 Out-of-sample test: 83 clip accounts never seen before (5,319 clips)
 
 New clip accounts found through user and video search (DUB, DDG, Adapt, Kai
 Cenat, IShowSpeed, Adin Ross, N3on, Lacy, Marlon, Silky, StableRonaldo, Jynxzi,
 Case-Oh, Kick and "stream moments" pages and others) were listed by scrolling
 their profiles and watched the same way. Hits higher / flops higher, by account:
 
-| Measure | 2x+ vs 0.6x (80 accounts) | 5x+ vs 0.3x (67 accounts) |
+| Measure | 2x+ vs 0.6x (83 accounts) | 5x+ vs 0.3x (70 accounts) |
 |---|---|---|
-| Length | **56 / 24** (40 s vs 37 s) | **48 / 19** (42 s vs 34 s) |
-| Highest surprise on a face | **51 / 29** | **43 / 24** (0.39 vs 0.35) |
-| Share of pictures with 2+ faces | 38 / 42 | 39 / 28 (47% vs 43%) |
-| Share of the clip with talking | 39 / 41 | 23 / **44** (73% vs 77%) |
-| Loud wordless stretches | 35 / 43 | 34 / 32 (*not* replicated) |
-| Time after the last words | 43 / 37 | 34 / 33 |
-| Highest happiness on a face | 44 / 36 | 37 / 30 |
-| Laughing-face moments per 30 s | 36 / **44** (flops lean) | 30 / 37 |
-| Quiet wordless stretches | 44 / 36 | 34 / 33 |
-| Words in the first 3 s | 39 / 40 | 30 / 37 |
+| Length | **57 / 26** (40 s vs 36 s) | **49 / 21** (42 s vs 34 s) |
+| Highest surprise on a face | **52 / 31** | **45 / 25** (0.38 vs 0.35) |
+| Share of pictures with 2+ faces | 41 / 42 | **42 / 28** (47% vs 43%) |
+| Share of the clip with talking | 39 / 44 | 24 / **46** (73% vs 77%) |
+| Loud wordless stretches | 37 / 44 | 36 / 33 (*not* replicated) |
+| Time after the last words | 45 / 38 | 37 / 33 |
+| Highest happiness on a face | 46 / 37 | 39 / 31 |
+| Laughing-face moments per 30 s | 39 / 44 | 32 / 38 |
+| Quiet wordless stretches | 45 / 38 | 36 / 34 |
+| Words in the first 3 s | 40 / 42 | 30 / 40 |
 
 As more accounts came in, only three patterns kept holding: **breakouts are
 longer**, **a face looks more surprised**, and among the biggest breakouts
