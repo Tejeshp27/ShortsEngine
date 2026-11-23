@@ -175,25 +175,25 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 66 clip accounts never seen before (4,190 clips)
+### 2.4a-2 Out-of-sample test: 70 clip accounts never seen before (4,383 clips)
 
 New clip accounts found through search (DUB, DDG, Adapt, Kai, N3on, Lacy,
 Marlon, Silky, StableRonaldo, Jynxzi and Kick clip pages and others) were
 listed by scrolling their profiles and watched the same way. Hits higher /
 flops higher, by account:
 
-| Measure | 2x+ vs 0.6x (66 accounts) | 5x+ vs 0.3x (56 accounts) |
+| Measure | 2x+ vs 0.6x (70 accounts) | 5x+ vs 0.3x (60 accounts) |
 |---|---|---|
-| Length | **45 / 21** (39 s vs 36 s) | **39 / 17** (40 s vs 33 s) |
-| Highest surprise on a face | **43 / 23** | **35 / 21** (0.36 vs 0.35) |
-| Share of pictures with 2+ faces | 33 / 33 | **36 / 20** (48% vs 44%) |
-| Share of the clip with talking | 32 / 34 | 21 / **35** (77% vs 77%) |
-| Loud wordless stretches | 29 / 35 | 27 / 28 (*not* replicated) |
-| Time after the last words | 34 / 32 | 26 / 30 |
-| Highest happiness on a face | 37 / 29 | 31 / 25 |
-| Laughing-face moments per 30 s | 33 / 33 | 26 / 30 |
-| Quiet wordless stretches | 37 / 29 | 29 / 27 |
-| Words in the first 3 s | 34 / 32 | 25 / 31 |
+| Length | **49 / 21** (39 s vs 36 s) | **42 / 18** (41 s vs 34 s) |
+| Highest surprise on a face | **44 / 26** | **37 / 23** (0.36 vs 0.35) |
+| Share of pictures with 2+ faces | 35 / 35 | **40 / 20** (44% vs 42%) |
+| Share of the clip with talking | 33 / 37 | 22 / **38** (76% vs 77%) |
+| Loud wordless stretches | 33 / 36 | 29 / 30 (*not* replicated) |
+| Time after the last words | 38 / 32 | 29 / 31 |
+| Highest happiness on a face | 38 / 32 | 33 / 27 |
+| Laughing-face moments per 30 s | 35 / 35 | 28 / 32 |
+| Quiet wordless stretches | 40 / 30 | 31 / 29 |
+| Words in the first 3 s | 37 / 33 | 28 / 32 |
 
 As more accounts came in, only three patterns kept holding: **breakouts are
 longer**, **a face looks more surprised**, and among the biggest breakouts
