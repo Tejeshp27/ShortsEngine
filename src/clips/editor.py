@@ -50,14 +50,15 @@ What TikTok data adds (624 streamer clips; each account's breakouts vs. its own 
   streamers smile all the time. Use the marks to find the seconds, then judge from the words what caused them.
 - A laugh only counts when something CAUSED it: chaos, an awkward or embarrassing moment, a reveal, a win.
   Polite laughs (greetings, thank-yous, small talk) and casual banter laughs were just as common in flops.
-- Shock that works is about something that happened in REAL life: a stunt, a prank, a scare, police, something
-  breaking, a surprise arrival, a drama reveal (42% of shocked moments in breakouts vs. 10% in flops).
-  In-game hype (a win, a near-miss, a kill) was mostly in flops (33% vs. 5%).
-- Do not open on someone explaining what is about to happen; open inside the situation (talking set-ups
-  were 45% of flop openings vs. 17% of breakout openings).
-- Moments tied to this week's story (awards, a new game, a feud, a famous guest) do best. Among the biggest
-  breakouts: awards-night moments, romance/crush moments, wholesome kindness, physical fails, and a running bit
-  with an exaggerated reaction (the only kind of in-game moment that reliably broke out).
+- Prefer shock about something that happened in REAL life (a stunt, a prank, a scare, police, a surprise
+  arrival, a drama reveal) over in-game hype (a win, a near-miss, a kill), which was rarer among breakouts.
+- Open inside the situation rather than on someone explaining what is about to happen.
+- The strongest signal is WHO and WHAT STORY: a moment people already follow (an awards result, a feud, a
+  famous guest, a well-known friend, a viral person, a running bit fans know) beat the same account's other
+  clips far more often than the type of moment did. On 45 fresh accounts, the type of moment alone (real-life
+  event, banter, payoff) did not separate an account's best clip from its worst. Name the person and the story
+  in the title. Among the biggest breakouts: awards-night moments, romance/crush moments, wholesome kindness,
+  physical fails, and a running bit with an exaggerated reaction.
 
 How to judge (streamer culture):
 - Loud is not funny. Deadpan remarks, sarcasm, irony, awkward silences, someone admitting something

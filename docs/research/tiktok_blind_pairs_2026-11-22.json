@@ -1,0 +1,905 @@
+{
+ "note": "Blind transcript labels, 45 accounts: biggest hit (5x+) vs worst flop (0.3x-). Labelled before unblinding. No transcripts stored.",
+ "labels": [
+  {
+   "code": "C001",
+   "id": "7598039519870422285",
+   "author": "kickclipsofficial_",
+   "group": "hit",
+   "rel": 729.93,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C002",
+   "id": "7433290297422974214",
+   "author": "streams.clip",
+   "group": "flop",
+   "rel": 0.02,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C003",
+   "id": "7707431027576179981",
+   "author": "kingclps",
+   "group": "hit",
+   "rel": 240,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C004",
+   "id": "7698552957721251103",
+   "author": "jay_jay_clips",
+   "group": "flop",
+   "rel": 0.18,
+   "kind": "other/unclear",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C005",
+   "id": "7357719990021246241",
+   "author": "funny.streamer.clipss",
+   "group": "hit",
+   "rel": 6.6,
+   "kind": "other/unclear",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C006",
+   "id": "7705596893925100814",
+   "author": "judyclips042",
+   "group": "hit",
+   "rel": 357.93,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C007",
+   "id": "7708545859729837325",
+   "author": "deyyclippa",
+   "group": "flop",
+   "rel": 0.05,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C008",
+   "id": "7706030834914020621",
+   "author": "ggclips091",
+   "group": "flop",
+   "rel": 0.18,
+   "kind": "in-game",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C009",
+   "id": "7706566977355074847",
+   "author": "clipuniversehqq",
+   "group": "flop",
+   "rel": 0.13,
+   "kind": "music",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C010",
+   "id": "7708540683782458655",
+   "author": "streammomentz3",
+   "group": "flop",
+   "rel": 0.21,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C011",
+   "id": "7676287669848050958",
+   "author": "clips4kaicenat",
+   "group": "flop",
+   "rel": 0.19,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C012",
+   "id": "7697025070568475917",
+   "author": "honeygotclips",
+   "group": "hit",
+   "rel": 5.74,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C013",
+   "id": "7389409098879569182",
+   "author": "jynxziclippa",
+   "group": "hit",
+   "rel": 48.78,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C014",
+   "id": "7569455975871171870",
+   "author": "officialbanksclips",
+   "group": "hit",
+   "rel": 184.2,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C015",
+   "id": "7707435576525409550",
+   "author": "freshstreamclips",
+   "group": "flop",
+   "rel": 0.08,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C016",
+   "id": "7304480316108901674",
+   "author": "officialbanksclips",
+   "group": "flop",
+   "rel": 0.07,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C017",
+   "id": "7288825622728609070",
+   "author": "clippinggdat",
+   "group": "hit",
+   "rel": 67.71,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C018",
+   "id": "7599019747107294478",
+   "author": "twitchclipzlmao",
+   "group": "hit",
+   "rel": 75.8,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C019",
+   "id": "7705624327206571278",
+   "author": "theultimateclipspage",
+   "group": "hit",
+   "rel": 70.04,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C020",
+   "id": "7699581061390503199",
+   "author": "clipuniversehqq",
+   "group": "hit",
+   "rel": 814.91,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C021",
+   "id": "7275926998063648042",
+   "author": "kaicenatclips.ent",
+   "group": "flop",
+   "rel": 0.01,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C022",
+   "id": "7679516907459939606",
+   "author": "jynxziclipz222",
+   "group": "flop",
+   "rel": 0.26,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C023",
+   "id": "7692293880699489550",
+   "author": "clippedwandl",
+   "group": "flop",
+   "rel": 0.14,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C024",
+   "id": "7662917423036779790",
+   "author": "clipitandreverseit",
+   "group": "flop",
+   "rel": 0,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C025",
+   "id": "7654757498892668174",
+   "author": "kickclipsofficial_",
+   "group": "flop",
+   "rel": 0.14,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C026",
+   "id": "7694801603219557663",
+   "author": "clipfarmgoatz",
+   "group": "flop",
+   "rel": 0.07,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C027",
+   "id": "7372779630119439659",
+   "author": "divgoclips",
+   "group": "flop",
+   "rel": 0.14,
+   "kind": "music",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C028",
+   "id": "7707441789921185054",
+   "author": "clipfarmgoatz",
+   "group": "hit",
+   "rel": 185.99,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C029",
+   "id": "7555598533760584990",
+   "author": "recent_kick_clips",
+   "group": "hit",
+   "rel": 87.32,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C030",
+   "id": "7707133829164616991",
+   "author": "money.clipxz",
+   "group": "hit",
+   "rel": 448.2,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C031",
+   "id": "7707452762870664461",
+   "author": "deethekickplug",
+   "group": "flop",
+   "rel": 0.16,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C032",
+   "id": "7268749434081643818",
+   "author": "clippinggdat",
+   "group": "flop",
+   "rel": 0.18,
+   "kind": "other/unclear",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C033",
+   "id": "7351401589942258977",
+   "author": "funny.streamer.clipss",
+   "group": "flop",
+   "rel": 0.18,
+   "kind": "in-game",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C034",
+   "id": "7633463369026243861",
+   "author": "lacyclipss67",
+   "group": "hit",
+   "rel": 19.88,
+   "kind": "other/unclear",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C035",
+   "id": "7560551309737266463",
+   "author": "clipzeverything",
+   "group": "hit",
+   "rel": 267.7,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C036",
+   "id": "7707765985016581406",
+   "author": "taclipzzz",
+   "group": "hit",
+   "rel": 107.64,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C037",
+   "id": "7708197665326091550",
+   "author": "jacobtheclipper",
+   "group": "flop",
+   "rel": 0.07,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C038",
+   "id": "7611012487462341902",
+   "author": "adinclipsw",
+   "group": "flop",
+   "rel": 0.06,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C039",
+   "id": "7620301410780859661",
+   "author": "clipsvaultx_tv",
+   "group": "hit",
+   "rel": 267.59,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": true
+  },
+  {
+   "code": "C040",
+   "id": "7665975306020326676",
+   "author": "lacyclipss67",
+   "group": "flop",
+   "rel": 0.22,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C041",
+   "id": "7592333536779128119",
+   "author": "undagroundklipz",
+   "group": "flop",
+   "rel": 0.03,
+   "kind": "other/unclear",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C042",
+   "id": "7707510722212793630",
+   "author": "jacobtheclipper",
+   "group": "hit",
+   "rel": 122.34,
+   "kind": "other/unclear",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C043",
+   "id": "7697457534709402900",
+   "author": "adin_clip",
+   "group": "hit",
+   "rel": 75.52,
+   "kind": "in-game",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C044",
+   "id": "7353990940404616478",
+   "author": "divgoclips",
+   "group": "hit",
+   "rel": 526.76,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C045",
+   "id": "7705636871795133709",
+   "author": "streammomentz3",
+   "group": "hit",
+   "rel": 86.17,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C046",
+   "id": "7707061620182207758",
+   "author": "judyclips042",
+   "group": "flop",
+   "rel": 0.2,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": true
+  },
+  {
+   "code": "C047",
+   "id": "7602344756508757278",
+   "author": "recent_kick_clips",
+   "group": "flop",
+   "rel": 0.07,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C048",
+   "id": "7695198530809400607",
+   "author": "money.clipxz",
+   "group": "flop",
+   "rel": 0.17,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C049",
+   "id": "7681025400679468310",
+   "author": "jynxziclipz222",
+   "group": "hit",
+   "rel": 451.86,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C050",
+   "id": "7703221933416107286",
+   "author": "void.champion",
+   "group": "hit",
+   "rel": 403.67,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C051",
+   "id": "7601361929864482062",
+   "author": "twitchclipzlmao",
+   "group": "flop",
+   "rel": 0.11,
+   "kind": "in-game",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C052",
+   "id": "7703401155920989453",
+   "author": "amcishere___",
+   "group": "hit",
+   "rel": 26.04,
+   "kind": "real-life event",
+   "opening": "set-up",
+   "clear_payoff": true
+  },
+  {
+   "code": "C053",
+   "id": "7683349956018572566",
+   "author": "void.champion",
+   "group": "flop",
+   "rel": 0.11,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C054",
+   "id": "7688205634654768414",
+   "author": "woowopdadclips",
+   "group": "flop",
+   "rel": 0.12,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C055",
+   "id": "7282426940340931886",
+   "author": "kaicenatclips.ent",
+   "group": "hit",
+   "rel": 73.17,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C056",
+   "id": "7698539816643808525",
+   "author": "kingclps",
+   "group": "flop",
+   "rel": 0.06,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C057",
+   "id": "7575998124750015775",
+   "author": "clipzeverything",
+   "group": "flop",
+   "rel": 0.09,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C058",
+   "id": "7622550526550461727",
+   "author": "clipsvaultx_tv",
+   "group": "flop",
+   "rel": 0.11,
+   "kind": "in-game",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C059",
+   "id": "7699154064000568596",
+   "author": "dailyclipz9825",
+   "group": "flop",
+   "rel": 0.04,
+   "kind": "other/unclear",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C060",
+   "id": "7703795293942304014",
+   "author": "amcishere___",
+   "group": "flop",
+   "rel": 0.1,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C061",
+   "id": "7464443604585532715",
+   "author": "streamcntrl_",
+   "group": "flop",
+   "rel": 0.24,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C062",
+   "id": "7708564687192919310",
+   "author": "deyyclippa",
+   "group": "hit",
+   "rel": 41.27,
+   "kind": "music",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C063",
+   "id": "7682870420613254431",
+   "author": "jynxziclipslivee",
+   "group": "hit",
+   "rel": 27.44,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C064",
+   "id": "7678849111545695502",
+   "author": "kickfarmer",
+   "group": "hit",
+   "rel": 78.94,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C065",
+   "id": "7643657683878415630",
+   "author": "ggclips091",
+   "group": "hit",
+   "rel": 1222.22,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C066",
+   "id": "7390899115405675807",
+   "author": "jynxziclippa",
+   "group": "flop",
+   "rel": 0.14,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C067",
+   "id": "7664096150949022990",
+   "author": "clipitandreverseit",
+   "group": "hit",
+   "rel": 68.97,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C068",
+   "id": "7697427848285539605",
+   "author": "dailyclipz9825",
+   "group": "hit",
+   "rel": 69.01,
+   "kind": "real-life event",
+   "opening": "set-up",
+   "clear_payoff": true
+  },
+  {
+   "code": "C069",
+   "id": "7438416813098159390",
+   "author": "streamcntrl_",
+   "group": "hit",
+   "rel": 5636.58,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C070",
+   "id": "7696981334207630605",
+   "author": "kickfarmer",
+   "group": "flop",
+   "rel": 0.2,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C071",
+   "id": "7698018617987796246",
+   "author": "clipartist1011",
+   "group": "flop",
+   "rel": 0.17,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C072",
+   "id": "7540880098166148359",
+   "author": "adin_clip",
+   "group": "flop",
+   "rel": 0.03,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C073",
+   "id": "7647370806477016351",
+   "author": "bestclips6767",
+   "group": "hit",
+   "rel": 133.51,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C074",
+   "id": "7693401619358174478",
+   "author": "freshstreamclips",
+   "group": "hit",
+   "rel": 617.71,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C075",
+   "id": "7705184589429378318",
+   "author": "deethekickplug",
+   "group": "hit",
+   "rel": 128.85,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C076",
+   "id": "7643647502352125214",
+   "author": "jay_jay_clips",
+   "group": "hit",
+   "rel": 169.78,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C077",
+   "id": "7708556157283093774",
+   "author": "taclipzzz",
+   "group": "flop",
+   "rel": 0.09,
+   "kind": "real-life event",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C078",
+   "id": "7652815605443120414",
+   "author": "adaptlivetv",
+   "group": "flop",
+   "rel": 0.04,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C079",
+   "id": "7668896036978560286",
+   "author": "woowopdadclips",
+   "group": "hit",
+   "rel": 556.62,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C080",
+   "id": "7675223964637089037",
+   "author": "clips4kaicenat",
+   "group": "hit",
+   "rel": 270.01,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C081",
+   "id": "7633233664553356574",
+   "author": "adaptlivetv",
+   "group": "hit",
+   "rel": 127.09,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C082",
+   "id": "7602515044873686286",
+   "author": "adinclipsw",
+   "group": "hit",
+   "rel": 62.5,
+   "kind": "real-life event",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C083",
+   "id": "7609499120973171999",
+   "author": "bestclips6767",
+   "group": "flop",
+   "rel": 0.04,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C084",
+   "id": "7685484574289300749",
+   "author": "jynxziclipslivee",
+   "group": "flop",
+   "rel": 0.17,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C085",
+   "id": "7697191229297003789",
+   "author": "honeygotclips",
+   "group": "flop",
+   "rel": 0.12,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": false
+  },
+  {
+   "code": "C086",
+   "id": "7704444695857958166",
+   "author": "clipartist1011",
+   "group": "hit",
+   "rel": 377.37,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C087",
+   "id": "7708531572151962893",
+   "author": "clippedwandl",
+   "group": "hit",
+   "rel": 1075.27,
+   "kind": "real-life event",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C088",
+   "id": "7481802962503814406",
+   "author": "streams.clip",
+   "group": "hit",
+   "rel": 10.77,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  },
+  {
+   "code": "C089",
+   "id": "7571721850284215565",
+   "author": "undagroundklipz",
+   "group": "hit",
+   "rel": 264.64,
+   "kind": "talk/banter",
+   "opening": "inside",
+   "clear_payoff": true
+  },
+  {
+   "code": "C090",
+   "id": "7707769122230111502",
+   "author": "theultimateclipspage",
+   "group": "flop",
+   "rel": 0.08,
+   "kind": "talk/banter",
+   "opening": "set-up",
+   "clear_payoff": false
+  }
+ ]
+}

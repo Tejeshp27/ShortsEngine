@@ -11,7 +11,9 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 1. **Something actually happens, in real life.** A stunt, a prank, a scare,
    police turning up, something breaking, a surprise guest, a gift being
    opened, a drama reveal, an award result. When a face looks shocked, it
-   was a real-life event in 42% of breakouts vs 10% of flops.
+   was a real-life event in 42% of breakouts vs 10% of flops (first sample;
+   on 45 fresh account pairs the type of moment alone did not separate hits
+   from flops, see rule 5).
 2. **Let the reaction breathe.** Give the clip seconds where nobody speaks:
    someone dying laughing, screaming, frozen in shock. Cutting a laugh ruins the
    moment. But on 56 unseen accounts, loud wordless seconds did not predict views
@@ -20,7 +22,7 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
    moment, at a reveal. Not polite laughs, not routine banter.
 4. **Other real people.** Guests, friends, family, strangers, celebrities.
    Clips with more people on screen lean towards breakouts.
-5. **This week's story.** Awards, a new game launch, a feud, a famous guest.
+5. **This week's story and the people fans follow (the strongest signal).** Awards, a new game launch, a feud, a famous guest.
    Post it fast: the first clip of a moment tends to beat later copies
    (61 of 102 same-moment pairs).
 
@@ -53,7 +55,8 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 ## How to cut it
 
 - **Start inside the situation**, not on someone explaining it. Talking
-  set-ups were 45% of flop openings vs 17% of breakout openings.
+  set-ups were 45% of flop openings vs 17% of breakout openings in the first
+  sample, but not on 45 fresh pairs (27% vs 36%). Keep it as editing sense.
 - **Keep the reaction seconds.** Do not trim a loud gap without words; that
   is the laugh or the scream (`trimming.py` now keeps them).
 - **Leave pauses in.** Breakouts had more quiet pauses as well as loud ones

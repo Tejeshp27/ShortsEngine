@@ -283,6 +283,37 @@ probably makes captions after a video starts spreading, so this is an effect
 of views, not a cause. The talking measures above use only clips that have
 captions, so hits and flops are compared on the same footing.
 
+### 2.4d Blind re-test of the moment labels on fresh accounts (45 pairs)
+
+For 45 of the unseen accounts, the account's single biggest breakout (5x or
+more) and its single worst flop (0.3x or less) were taken. Their transcripts
+were shuffled and labelled blind, then unblinded.
+
+| Blind label | Biggest hits (45) | Worst flops (45) |
+|---|---|---|
+| Something real happens on camera | 31% | 29% |
+| In-game moment | 2% | 9% |
+| Talk, banter or a story with no event | 58% | 49% |
+| Opens on a set-up or explanation | 36% | 27% |
+| A clear funny payoff | 44% | 42% |
+
+Within pairs: a real-life event only in the hit 9 times, only in the flop 8
+times; a set-up opening only in the flop 6 times, only in the hit 10 times.
+
+**From the transcript alone, an account's best clip and its worst clip look
+alike.** The first sample's label gaps (set-up openings 45% vs 17%, real-life
+shock 42% vs 10%) did not come back. Only "in-game moments are rarer in hits"
+pointed the same way, and on small numbers.
+
+What the hits had instead, from their captions after unblinding: a person or
+story viewers already follow. Examples: Big Justice and the Costco guys,
+Clavicular, Kai Cenat meeting Ray again after 3 years, a TTS donation about
+Karrahboo, the Streamer Awards results, Kevin Hart with Drake, 6ix9ine on the
+music industry, Jack Doherty and the police, Arman Tsarukyan calling N3on's dad.
+This matches part 1, where hits differed by being tied to the week's story.
+So the editor should weigh **who is in it and what story it belongs to** above
+the type of moment, and name both in the title.
+
 ### 2.5 Smaller notes
 
 - Hits were a little longer (median 29 s vs 23 s; 16 / 10), in line with part 1.
