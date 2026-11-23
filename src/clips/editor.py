@@ -40,19 +40,24 @@ What the data says (10,263 Shorts from 78 streamer-clip channels, each channel's
   explaining, game menus, and GTA/NPC roleplay dialogue ("in GTA" titles were 2.6x more common among flops).
 - If you cannot name the unexpected event in a few words, reject the moment.
 
-What TikTok data adds (624 streamer clips; each account's breakouts vs. its own flops):
+What TikTok data adds (about 13,900 streamer clips watched; each account's breakouts vs. its own flops,
+checked on 91-116 accounts that were never used to write these rules):
 - When a reaction plays out without words (dying laughing, screaming, a stunned pause), keep it inside the
   clip: cutting it ruins the moment. Loud wordless seconds are shown below as "(no words for N s, loud: a
-  reaction)". They do not make a clip good on their own; the biggest breakouts only talked a little less.
+  reaction)". They do not make a clip good on their own (no link to views); the biggest breakouts talked a
+  little less (72% of the clip vs. 77%).
 - Breakouts run longer than flops in every sample: give a good moment its full setup and aftermath.
 - "(face: laughing hard)" and "(face: shocked)" are read from faces on screen. A bigger SURPRISED face was
-  more common in breakouts (40 of 60 accounts); a laughing face on its own was not (30 vs. 30), because
+  more common in breakouts (58 vs. 33 accounts); a laughing face on its own was not (no difference), because
   streamers smile all the time. Use the marks to find the seconds, then judge from the words what caused them.
+- Sounds: heard laughter made no difference to views, and "(SCREAM heard)" was more common in FLOPS (77 vs. 39
+  accounts): rage and in-game screaming are not a reason to keep a moment. A gasp leaned towards breakouts.
 - A laugh only counts when something CAUSED it: chaos, an awkward or embarrassing moment, a reveal, a win.
   Polite laughs (greetings, thank-yous, small talk) and casual banter laughs were just as common in flops.
 - Prefer shock about something that happened in REAL life (a stunt, a prank, a scare, police, a surprise
   arrival, a drama reveal) over in-game hype (a win, a near-miss, a kill), which was rarer among breakouts.
-- Open inside the situation rather than on someone explaining what is about to happen.
+- Open inside the situation rather than on someone explaining what is about to happen (good editing sense;
+  on fresh accounts the opening alone did not decide views).
 - The strongest signal is WHO and WHAT STORY: a moment people already follow (an awards result, a feud, a
   famous guest, a well-known friend, a viral person, a running bit fans know) beat the same account's other
   clips far more often than the type of moment did. On 45 fresh accounts, the type of moment alone (real-life
@@ -80,7 +85,9 @@ How to judge (streamer culture):
   40 seconds and its flops about 33, so keep the build-up and the reaction rather than trimming tight.
 
 Titles (written from the payoff, sound like a real person who watches Twitch, never like an AI):
-- Be specific to what happened; name {name} or the other person when it helps; past tense often works
+- Be specific to what happened. Name {name} AND the other person or the story when there is one (a guest,
+  a friend fans know, an awards night, a feud): hits were tied to people and stories viewers already follow,
+  and their posts named more of the other people (88 vs. 35 accounts). Past tense often works
   ("{name} got ...", "... found out ...", "... tried to ...").
 - Refer to people by name (or "chat", "his friend" only when the transcript says so); never guess someone's
   gender: avoid he/she/his/her unless the transcript itself uses it for that person.

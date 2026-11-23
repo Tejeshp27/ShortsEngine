@@ -8,13 +8,15 @@
 #   - a bigger surprised face went with breakouts (58 vs 33 accounts) and the
 #     biggest breakouts had more people on screen (44 vs 31) -> face_weights;
 #   - a laughing face and loud wordless seconds did not predict views -> not scored.
+#   - the sound model: laughter showed no signal, screaming went with flops, a gasp
+#     with breakouts -> sound rules below.
 # Everything else is unchanged from v2. Roll back by pointing ranking.profile at v2.yaml.
 # =============================================================
 
 version: v3                 # name stored with every clip decision
 created: "2026-11-23"       # when this profile was written
 based_on: v2                # previous version
-note: "v2 plus face evidence in the shortlist and longer preferred lengths (TikTok watching study)."
+note: "v2 plus faces in the shortlist, sound rules that match views, and longer preferred lengths (TikTok watching study)."
 
 weights:
   humor: 25                 # genuinely funny
@@ -34,6 +36,15 @@ require_event: true         # reject when the editor cannot name an unexpected e
 face_weights:               # used when ranking.face_reactions is on (faces read on ranking.face_pool_size moments)
   surprise_peak: 0.25       # share of the local surprise score taken by the biggest surprised face in the moment
   multi_face: 0.15          # share of the local conversation score taken by how often 2+ people are on screen
+
+# How the free sound model counts in the local score. Tested against views on 116
+# unseen TikTok clip accounts (each account's breakouts vs its own flops):
+#   laughter heard: no signal (56 vs 60 accounts); screaming heard went with FLOPS
+#   (39 vs 77); a gasp went with breakouts (74 vs 42); cheering: no signal.
+laughter_humor_share: 0.3   # share of the local humor score from heard laughter (v2: 0.65; laugh words and chat keep theirs)
+shock_sounds: [gasp]        # sounds that count as shock in the local surprise score (v2: scream, gasp, cheer)
+reaction_beat_bonus: 0.0    # pacing bonus for a loud gap without words (v2: 0.15; did not predict views, 41 vs 48).
+                            # Such gaps still never count as dead air and trimming keeps them.
 
 lengths:                    # preferred seconds by moment type (TikTok watching: breakouts 39-41 s vs flops 33-36 s)
   reaction: [20, 50]        # v2: [18, 45]

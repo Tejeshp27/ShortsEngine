@@ -173,3 +173,77 @@ def test_v3_profile_loads_with_face_weights_and_longer_lengths():
     assert profile["version"] == "v3"
     assert profile["face_weights"]["surprise_peak"] > 0
     assert profile["lengths"]["reaction"][1] >= 50
+
+
+def steady_words(count):
+    """`count` words, one every half second."""
+    words = []
+    for index in range(count):
+        words.append({"word": "word", "start": index * 0.5, "end": index * 0.5 + 0.4})
+    return words
+
+
+def quiet_sounds(seconds):
+    """Per-second sound-model chances with nothing heard but speech."""
+    sounds = []
+    for _ in range(seconds):
+        sounds.append({"laughter": 0.0, "speech": 0.8, "scream": 0.0, "cheer": 0.0, "gasp": 0.0, "music": 0.0})
+    return sounds
+
+
+def test_v3_does_not_count_a_scream_as_shock_but_v2_does():
+    words = steady_words(60)
+    sounds = quiet_sounds(40)
+    sounds[10]["scream"] = 0.9
+    media = {"volume_db": [-30.0] * 40, "motion": [0.02] * 40}
+    v2 = ranking.load_profile("config/clip_ranking/v2.yaml")
+    v3 = ranking.load_profile("config/clip_ranking/v3.yaml")
+    old, _ = ranking.local_components(0, 30, words, media, sounds, [], v2)
+    new, _ = ranking.local_components(0, 30, words, media, sounds, [], v3)
+    assert old["surprise"] > new["surprise"]
+    # A gasp still counts in v3.
+    sounds[10]["gasp"] = 0.9
+    gasp, _ = ranking.local_components(0, 30, words, media, sounds, [], v3)
+    assert gasp["surprise"] > new["surprise"]
+
+
+def test_v3_leans_less_on_heard_laughter_and_scores_stay_in_range():
+    words = steady_words(60)
+    sounds = quiet_sounds(40)
+    for second in range(10, 14):
+        sounds[second]["laughter"] = 0.8
+    media = {"volume_db": [-30.0] * 40, "motion": [0.02] * 40}
+    old, _ = ranking.local_components(0, 30, words, media, sounds, [], ranking.load_profile("config/clip_ranking/v2.yaml"))
+    new, _ = ranking.local_components(0, 30, words, media, sounds, [], ranking.load_profile("config/clip_ranking/v3.yaml"))
+    assert 0 < new["humor"] <= old["humor"] <= 1.0
+    # Without a profile the original rules apply (same as v2's defaults).
+    plain, _ = ranking.local_components(0, 30, words, media, sounds, [])
+    assert plain["humor"] == old["humor"]
+
+
+def test_unknown_shock_sound_is_refused():
+    try:
+        ranking.sound_rules({"shock_sounds": ["explosion"]})
+    except ValueError as error:
+        assert "explosion" in str(error)
+    else:
+        raise AssertionError("an unknown sound must be refused")
+
+
+def test_title_naming_the_other_person_scores_higher():
+    from src.clips import titles
+    transcript = "chris rock just walked in bro what is happening druski"
+    plain, _ = titles.title_score("Druski could not believe who walked in", transcript, ["Druski"], [], 12)
+    named, _ = titles.title_score("Druski could not believe Chris Rock walked in", transcript,
+                                  ["Druski", "Chris Rock"], [], 12, other_names=["Chris Rock"])
+    assert named > plain
+
+
+def test_in_gta_title_gets_a_small_penalty():
+    from src.clips import titles
+    transcript = "he stole the police car and drove into the ocean"
+    clean, _ = titles.title_score("Jason stole a police car and drove into the ocean", transcript, ["Jason"], [], 12)
+    gta, problems = titles.title_score("Jason stole a police car in GTA and drove into the ocean", transcript,
+                                       ["Jason"], [], 12)
+    assert gta < clean
+    assert "flop phrase: in gta" in problems

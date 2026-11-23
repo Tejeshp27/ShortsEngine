@@ -285,7 +285,11 @@ original agreement dates were not supplied):
 - **Faster drafts:** `live_recording.chunk_minutes` 60 → 30 (the first post of a moment usually wins, 61 of 102 pairs).
 - The editor prompt now says breakouts averaged ~40 s vs flops ~33 s.
 - Out-of-sample result at the end of watching (91 accounts, 5,754 clips): length 62/29, peak surprise 58/33, biggest breakouts talk less 24/51 (flops higher), 2+ faces 44/31 (5x level); laughing faces and loud wordless seconds showed no signal.
-**816 tests pass** (4 new in `tests/test_reaction_beats.py`).
+- **Sound model vs views (116 accounts, `TIKTOK_CONTENT_RESEARCH.md` 2.4f):** heard laughter no signal (56/60), screams went with FLOPS (39/77), gasps with breakouts (74/42). v3 profile sound rules (`ranking.sound_rules`): `laughter_humor_share: 0.3` (was 0.65), `shock_sounds: [gasp]` (was scream/gasp/cheer), `reaction_beat_bonus: 0` (was 0.15; loud gaps still never count as dead air). Older profiles keep the old rules.
+- **Titles** (`titles.title_score`): "in GTA" −10 (flop phrase, YouTube study); +8 when a title names another person from the editor's "who".
+- **Packaging:** the `broad` hashtag option (#funny #fyp) is no longer tried (generic tags made no difference); `people` stays.
+- Editor prompt carries the final numbers, the screaming finding and asks titles to name the other person or story. Research doc section 3a lists every change.
+**821 tests pass** (9 new in `tests/test_reaction_beats.py`).
 
 **TikTok watching, round 3 (2026-11-21, Claude Code; ongoing until the owner says stop):** the owner asked Claude to keep watching streamer clips to learn what to clip (dying laughing, super shocked...). The watcher tab reads each clip's transcript and sound in memory. Our sound model (`audio_events`) tags each second, and faces are read twice a second with the new free FER+ model. Only numbers are kept: `cache/tiktok_watch_raw.jsonl`, `tiktok_faces.jsonl` and `tiktok_sound_tags.jsonl`, with gz copies in `docs/research/`. Rules are summarised in **`docs/CLIP_PLAYBOOK.md`**. Findings:
 - On 1,209 fresh clips, "less talking" replicated (flops talked more in 20 of 24 accounts); "loud" gaps were weaker evidence than the first sample showed.

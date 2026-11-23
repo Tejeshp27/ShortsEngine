@@ -8,8 +8,11 @@
 #
 #   title_emoji    none | one          — emoji at the end of the title
 #   title_case     natural | lowercase — "Jason Got Banned" vs "jason got banned"
-#   hashtags       minimal | game | broad | people — streamer+platform / +game /
-#                  +#funny #fyp / +the other named people in the clip
+#   hashtags       minimal | game | people — streamer+platform / +game /
+#                  +the other named people in the clip. ("broad" = +#funny #fyp
+#                  still works for old records but is no longer tried: generic
+#                  tags made no difference on TikTok, 48 vs 53 accounts, and were
+#                  3-6x more common among YouTube flops.)
 #   caption_style  punch | clean       — big 1-2 word captions vs sentence case
 #   context_line   whole | opening     — context line all clip vs first 8 seconds
 #   description    summary | question  — post caption tells / asks viewers
@@ -42,7 +45,7 @@ from src.storage.database import get_connection
 DEFAULT_DIMENSIONS = {
     "title_emoji": ["none", "one"],
     "title_case": ["natural", "lowercase"],
-    "hashtags": ["minimal", "game", "broad", "people"],
+    "hashtags": ["minimal", "game", "people"],
     "caption_style": ["punch", "clean"],
     "context_line": ["whole", "opening"],
     "description": ["summary", "question"],

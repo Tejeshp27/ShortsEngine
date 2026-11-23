@@ -43,8 +43,9 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 
 9. **Name the other people.** Breakouts tagged more of the other people and
    topics in the clip than the same account's flops (88 vs 35 accounts).
-   Generic tags (#fyp, #viral) made no difference. The `people` hashtag option
-   in the packaging experiment does this.
+   Generic tags (#fyp, #viral) made no difference, so the `broad` option is no
+   longer tried. The `people` hashtag option does this, and titles that name
+   another person in the clip get a small bonus ("in GTA" a small penalty).
 
 ## Skip these
 
@@ -56,6 +57,9 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 - **Polite moments:** greetings, thank-yous, small talk, showing a room or an item.
 - **A laughing face with no cause.** Streamers smile constantly; that alone
   is not a clip.
+- **Screaming on its own.** Screams heard by the sound model were more common
+  in flops (77 vs 39 accounts): rage and in-game screaming. A gasp leaned the
+  other way (74 vs 42). Heard laughter made no difference (56 vs 60).
 
 ## How to cut it
 
@@ -86,7 +90,7 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 |---|---|---|
 | No words for a few seconds | TikTok/Whisper transcript | Yes |
 | Loud vs quiet | loudness per second | Yes |
-| Laughter / scream sound | CED-tiny sound model (`audio_events.py`) | Misses most laughs under game sound |
+| Laughter / scream / gasp sound | CED-tiny sound model (`audio_events.py`) | Misses most laughs under game sound. Against views (116 accounts): laughter no signal, screams went with flops, gasps with breakouts; ranking v3 counts only gasps as shock and leans less on laughter |
 | Laughing / shocked face | FER+ (`expressions.py`), shown to the editor as `(face: laughing hard)` / `(face: shocked)` | Reads laughs well at full HD; smiles also count and open-mouth talking reads as surprise, so shocked marks skip talking seconds. On 60 unseen accounts a bigger surprised face went with breakouts (40 vs 20); laughing-face counts did not (30 vs 30) |
 | *Why* people react | the editor model reading the transcript | The real judgement; the signals above only point it at the right seconds |
 

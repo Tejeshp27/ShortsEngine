@@ -375,7 +375,7 @@ packaging:
   dimensions:                 # options being tested (remove one to stop testing it)
     title_emoji: [none, one]            # no emoji vs one at the end (😭 is the most common in hits)
     title_case: [natural, lowercase]    # "Jason Got Banned" vs "jason got banned"
-    hashtags: [minimal, game, broad, people]  # streamer+platform / +game / +#funny #fyp / +other named people (TikTok hits tag them more)
+    hashtags: [minimal, game, people]  # streamer+platform / +game / +other named people (TikTok hits tag them more, 88/35 accounts); broad (#funny #fyp) dropped: generic tags made no difference
     caption_style: [punch, clean]       # big 1-2 capital words vs sentence case
     context_line: [whole, opening]      # context line the whole clip vs the first 8 seconds
     description: [summary, question]    # post caption describes the moment vs asks viewers a question

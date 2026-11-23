@@ -267,7 +267,36 @@ def chat_ratio(engagement, start, end, reaction_delay=4.0):
     return max(inside) / baseline
 
 
-def local_components(start, end, words, media, sounds, engagement):
+def sound_rules(profile):
+    """
+    Read how the local score uses the sound model, from a ranking profile.
+
+    Older profiles leave these out and keep the original rules:
+        laughter_humor_share: how much heard laughter counts in the humor score (0.65).
+        shock_sounds: which sounds count as shock in the surprise score
+                      (scream, gasp, cheer).
+        reaction_beat_bonus: pacing bonus for a loud gap without words (0.15).
+
+    Args:
+        profile (dict or None): From load_profile(), or None for the original rules.
+
+    Returns:
+        dict: The three rules.
+
+    Example:
+        sound_rules({"shock_sounds": ["gasp"]})["shock_sounds"]  # ["gasp"]
+    """
+    profile = profile or {}
+    shock_sounds = profile.get("shock_sounds", ["scream", "gasp", "cheer"])
+    for kind in shock_sounds:
+        if kind not in ("scream", "gasp", "cheer", "laughter"):
+            raise ValueError(f"Unknown shock sound {kind!r} in the ranking profile.")
+    return {"laughter_humor_share": float(profile.get("laughter_humor_share", 0.65)),
+            "shock_sounds": list(shock_sounds),
+            "reaction_beat_bonus": float(profile.get("reaction_beat_bonus", REACTION_BEAT_BONUS))}
+
+
+def local_components(start, end, words, media, sounds, engagement, profile=None):
     """
     Estimate the seven categories for one window from measurable evidence.
 
@@ -278,12 +307,15 @@ def local_components(start, end, words, media, sounds, engagement):
         media (dict): Per-second "volume_db" and "motion" lists (signals.measure_media).
         sounds (list[dict]): Per-second sound chances (audio_events.recording_events).
         engagement (list[dict]): Chat/viewer-clip samples, possibly empty.
+        profile (dict or None): A ranking profile; its sound rules (laughter_humor_share,
+            shock_sounds, reaction_beat_bonus) are used when present.
 
     Returns:
         tuple: (components dict with 0–1 values, evidence dict explaining them).
     """
     from src.clips.audio_events import window_events
 
+    rules = sound_rules(profile)
     length = max(1.0, end - start)
     spoken = words_between(words, start, end)
     texts = []
@@ -304,11 +336,15 @@ def local_components(start, end, words, media, sounds, engagement):
             laugh_words += 1
         if text in SURPRISE_WORDS:
             surprise_words += 1
-    humor = 0.65 * laughter + 0.15 * min(1.0, laugh_words / 3)
+    # Each part counts by its share; without chat data the other parts are
+    # scaled up so the score still runs from 0 to 1.
+    laughter_share = rules["laughter_humor_share"]
+    humor = laughter_share * laughter + 0.15 * min(1.0, laugh_words / 3)
+    total_share = laughter_share + 0.15
     if chat_score is not None:
         humor += 0.2 * chat_score
-    else:
-        humor = humor / 0.8
+        total_share += 0.2
+    humor = humor / total_share
 
     # Surprise: screams/gasps/cheers, a sudden change versus the 10 s before,
     # chat. Loudness is capped at 0.25 of this one category.
@@ -321,7 +357,8 @@ def local_components(start, end, words, media, sounds, engagement):
             jump = min(1.0, max(0.0, max(inside) - float(np.median(before))) / 15)
     shock = 0.0
     if heard:
-        shock = max(heard["scream"]["max"], heard["gasp"]["max"], heard["cheer"]["max"])
+        for kind in rules["shock_sounds"]:
+            shock = max(shock, heard[kind]["max"])
     surprise = 0.45 * min(1.0, shock / 0.5) + 0.25 * jump + 0.1 * min(1.0, surprise_words / 3)
     if chat_score is not None:
         surprise += 0.2 * chat_score
@@ -382,7 +419,7 @@ def local_components(start, end, words, media, sounds, engagement):
     if words_per_second < 0.8 and reaction_beats == 0:
         pacing -= 0.2
     if reaction_beats:
-        pacing += REACTION_BEAT_BONUS
+        pacing += rules["reaction_beat_bonus"]
     pacing = min(1.0, max(0.0, pacing))
 
     # Conversation: questions, talking to someone, chat activity.
@@ -677,7 +714,7 @@ def propose_candidates(duration, words, media, sounds, engagement, settings, pro
         if (start, end) in seen or end - start < min(duration, settings.clips.moment_min_seconds) - 0.5:
             continue
         seen.add((start, end))
-        components, evidence = local_components(start, end, words, media, sounds, engagement)
+        components, evidence = local_components(start, end, words, media, sounds, engagement, profile)
         spoken = []
         for word in words_between(words, start, end):
             spoken.append(word["word"])

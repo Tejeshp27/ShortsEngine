@@ -175,26 +175,26 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 87 clip accounts never seen before (5,545 clips)
+### 2.4a-2 Out-of-sample test: 91 clip accounts never seen before (5,754 clips)
 
 New clip accounts found through user and video search (DUB, DDG, Adapt, Kai
 Cenat, IShowSpeed, Adin Ross, N3on, Lacy, Marlon, Silky, StableRonaldo, Jynxzi,
 Case-Oh, Kick, "stream moments" and Streamer Awards pages and others) were
-listed by scrolling their profiles and watched the same way. Hits higher /
-flops higher, by account:
+listed by scrolling their profiles and watched the same way. Final numbers when
+watching ended (2026-11-23). Hits higher / flops higher, by account:
 
-| Measure | 2x+ vs 0.6x (87 accounts) | 5x+ vs 0.3x (74 accounts) |
+| Measure | 2x+ vs 0.6x (91 accounts) | 5x+ vs 0.3x (75 accounts) |
 |---|---|---|
-| Length | **60 / 27** (39 s vs 36 s) | **52 / 22** (41 s vs 33 s) |
-| Highest surprise on a face | **55 / 32** | **48 / 26** (0.37 vs 0.35) |
-| Share of pictures with 2+ faces | 42 / 45 | 43 / 31 (46% vs 44%) |
-| Share of the clip with talking | 39 / 48 | 24 / **50** (72% vs 76%) |
-| Loud wordless stretches | 39 / 46 | 41 / 33 (weak) |
-| Time after the last words | 46 / 41 | 39 / 35 |
-| Highest happiness on a face | 48 / 39 | 40 / 34 |
-| Laughing-face moments per 30 s | 41 / 46 | 34 / 40 |
-| Quiet wordless stretches | 49 / 38 | 40 / 34 |
-| Words in the first 3 s | 42 / 44 | 32 / 42 |
+| Length | **62 / 29** (39 s vs 36 s) | **52 / 23** (41 s vs 33 s) |
+| Highest surprise on a face | **58 / 33** (0.37 vs 0.34) | **49 / 26** (0.36 vs 0.34) |
+| Share of pictures with 2+ faces | 43 / 48 | 44 / 31 (47% vs 43%) |
+| Share of the clip with talking | 42 / 49 | 24 / **51** (72% vs 77%) |
+| Loud wordless stretches | 41 / 48 | 41 / 34 (weak) |
+| Time after the last words | 48 / 43 | 40 / 35 |
+| Highest happiness on a face | 51 / 40 | 40 / 35 |
+| Laughing-face moments per 30 s | 42 / 49 | 35 / 40 |
+| Quiet wordless stretches | 51 / 40 | 41 / 34 |
+| Words in the first 3 s | 44 / 46 | 33 / 42 |
 
 As more accounts came in, only three patterns kept holding: **breakouts are
 longer**, **a face looks more surprised**, and among the biggest breakouts
@@ -342,6 +342,27 @@ fourth hashtag option, `people`. It tags the streamer, then the other named
 people from the editor's "who" field, then the platform. The bandit tests it
 against the other options on real posts.
 
+### 2.4f What the sound model hears (all new-account clips, 116 accounts)
+
+Our free sound model (`audio_events.py`, CED-tiny) tagged every second of each
+watched clip. Breakouts higher / flops higher, by account:
+
+| Sound | 2x+ vs 0.6x (116 accounts) | 5x+ vs 0.3x (109 accounts) |
+|---|---|---|
+| Laughter (peak) | 56 / 60 | 55 / 54 |
+| Laughter (seconds per 30 s) | 56 / 56 | 53 / 50 |
+| **Screaming (peak)** | 39 / **77** | 51 / 57 |
+| **Screaming (seconds per 30 s)** | 38 / **66** | 35 / **50** |
+| Cheering (peak) | 56 / 60 | 57 / 51 |
+| **Gasp (peak)** | **74** / 42 | **72** / 37 |
+| Music (seconds per 30 s) | 69 / 47 | 58 / 51 |
+
+Heard laughter made no difference. **Screaming went with flops** (rage and
+in-game screaming), and a **gasp went with breakouts**, which fits the
+surprised-face result. Before this test, the clipper's local score took 65% of
+"humor" from heard laughter and counted screams as shock; ranking profile v3
+changes that (section 3a).
+
 ### 2.5 Smaller notes
 
 - Hits were a little longer (median 29 s vs 23 s; 16 / 10), in line with part 1.
@@ -377,6 +398,33 @@ Nothing in the pipeline was changed.
    test moment choice, but the decision log can: tag each posted clip with
    its loud-wordless count and opening type, then compare once 20+ clips
    are 48 h old.
+
+## 3a. What was changed in the clipper (2026-11-23)
+
+Section 3 was written before anything changed. After watching ended, the owner
+asked for the lessons to be applied. Ranking profile `config/clip_ranking/v3.yaml`
+(roll back by pointing `ranking.profile` at v2.yaml) and related code:
+
+- **Faces pick the shortlist:** 10 moments are found, faces read, and the
+  surprise peak (25% of local surprise) and 2+ faces share (15% of
+  conversation) re-rank them; the best 6 go to the editor model. A laughing
+  face is not scored.
+- **Sound rules match views:** heard laughter counts 30% of local humor (was
+  65%), only a gasp counts as shock (screams and cheers no longer), and loud
+  wordless gaps get no pacing bonus (they still never count as dead air, and
+  trimming keeps them).
+- **Longer preferred lengths:** reaction/gameplay 20-50 s (was 18-45 s).
+- **Faster drafts:** live recording pieces are 30 minutes (was 60), since the
+  first post of a moment usually wins.
+- **Editor prompt** carries the final numbers, says screaming went with flops,
+  and asks titles to name the other person or story.
+- **Titles:** "in GTA" gets a small penalty; naming another person in the clip
+  gets a small bonus.
+- **Hashtags:** the `people` option is tested; `broad` (#funny #fyp) is no
+  longer tried.
+- Not done: music-only clips (a long shot among giants, 2.4c) cannot be found
+  from transcripts; trimming and the "reaction beats" proposal in section 3
+  were already done in round 3.
 
 ## 4. Limits
 

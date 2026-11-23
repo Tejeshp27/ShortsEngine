@@ -28,6 +28,16 @@ BANNED_PHRASES = [
     "lost his mind", "loses it", "loses his mind", "crazy moment", "craziest", "ultimate", "legendary moment",
 ]
 
+# Phrases that were far more common in flop titles than hit titles in the
+# within-channel YouTube study (VIRAL_CONTENT_RESEARCH.md section 9: "in GTA"
+# 2.6x more common among flops). A small penalty, not a ban.
+FLOP_PHRASES = ["in gta"]
+
+# Bonus when a title names another person in the clip (not the streamer):
+# TikTok breakouts were tied to people and stories viewers follow, and their
+# posts named more of the other people (TIKTOK_CONTENT_RESEARCH.md 2.4d-e).
+OTHER_PERSON_BONUS = 8
+
 # Filler words that carry no information when checking specificity.
 COMMON_WORDS = {
     "the", "a", "an", "and", "or", "but", "to", "of", "in", "on", "at", "for", "with", "his", "her", "their",
@@ -149,7 +159,7 @@ def guessed_pronouns(title, transcript):
     return guessed
 
 
-def title_score(title, transcript, known_names, recent_titles, max_words, max_emoji=1):
+def title_score(title, transcript, known_names, recent_titles, max_words, max_emoji=1, other_names=None):
     """
     Score one title idea from 0 to 100 and list its problems.
 
@@ -160,6 +170,8 @@ def title_score(title, transcript, known_names, recent_titles, max_words, max_em
         recent_titles (list[str]): Titles used recently (to avoid repeating a formula).
         max_words (int): Longest allowed title, in words.
         max_emoji (int): Most emoji allowed.
+        other_names (list[str] or None): People in the clip other than the
+            streamer; naming one of them earns a small bonus.
 
     Returns:
         tuple: (score, list of plain-English problems).
@@ -174,6 +186,14 @@ def title_score(title, transcript, known_names, recent_titles, max_words, max_em
         if re.search(r"(?<![a-z])" + re.escape(phrase) + r"(?![a-z])", lower):
             problems.append("generic phrase: " + phrase)
             score -= 35
+            break
+    for phrase in FLOP_PHRASES:
+        if re.search(r"(?<![a-z])" + re.escape(phrase) + r"(?![a-z])", lower):
+            problems.append("flop phrase: " + phrase)
+            score -= 10
+    for other in other_names or []:
+        if len(other) >= 3 and re.search(r"(?<![a-z])" + re.escape(other.lower()) + r"(?![a-z])", lower):
+            score += OTHER_PERSON_BONUS
             break
     words = title.split()
     if len(words) > max_words:
@@ -219,7 +239,7 @@ def title_score(title, transcript, known_names, recent_titles, max_words, max_em
     return max(0.0, min(100.0, round(score, 1))), problems
 
 
-def pick_best(options, transcript, known_names, recent_titles, max_words, max_emoji=1):
+def pick_best(options, transcript, known_names, recent_titles, max_words, max_emoji=1, other_names=None):
     """
     Score every idea and return the best one with all the scores.
 
@@ -230,6 +250,7 @@ def pick_best(options, transcript, known_names, recent_titles, max_words, max_em
         recent_titles (list[str]): Recent titles.
         max_words (int): Word limit.
         max_emoji (int): Emoji limit.
+        other_names (list[str] or None): People in the clip other than the streamer.
 
     Returns:
         tuple: (best title or "", list of {"text", "score", "problems"} for every idea).
@@ -239,7 +260,8 @@ def pick_best(options, transcript, known_names, recent_titles, max_words, max_em
         text = " ".join(option.replace('"', "").split())
         if not text:
             continue
-        score, problems = title_score(text, transcript, known_names, recent_titles, max_words, max_emoji)
+        score, problems = title_score(text, transcript, known_names, recent_titles, max_words, max_emoji,
+                                      other_names)
         scored.append({"text": text, "score": score, "problems": problems})
     if not scored:
         return "", []
@@ -330,9 +352,9 @@ def choose_titles(review, transcript, name, username, platform, other_names, rec
     known = [name, username] + other_names
     titles = review.get("titles", {}) if review else {}
     hook, hook_scores = pick_best(titles.get("hook", []), transcript, known, [],
-                                  title_settings.hook_max_words, title_settings.max_emoji)
+                                  title_settings.hook_max_words, title_settings.max_emoji, other_names)
     youtube, youtube_scores = pick_best(titles.get("youtube", []), transcript, known, recent_titles,
-                                        title_settings.youtube_max_words, title_settings.max_emoji)
+                                        title_settings.youtube_max_words, title_settings.max_emoji, other_names)
     # Prefer an idea that already names the streamer over bolting "Name:" onto another one.
     best_named = None
     for idea in youtube_scores:
