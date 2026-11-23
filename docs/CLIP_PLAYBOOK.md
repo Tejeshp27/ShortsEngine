@@ -41,6 +41,11 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
    clips broke out again and again (381x, 343x, 138x). An in-game moment can
    work when the exaggerated reaction is a recurring bit fans know.
 
+9. **Name the other people.** Breakouts tagged more of the other people and
+   topics in the clip than the same account's flops (88 vs 35 accounts).
+   Generic tags (#fyp, #viral) made no difference. The `people` hashtag option
+   in the packaging experiment does this.
+
 ## Skip these
 
 - **In-game hype on its own:** a win, a kill, a near-miss, a buzzer-beater.

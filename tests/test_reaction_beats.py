@@ -109,3 +109,19 @@ def test_candidate_face_marks_uses_the_shown_range(monkeypatch):
     marks = recordings.candidate_face_marks("video.mp4", [{"start": 30, "end": 50}], [], 100, 20)
     assert seen == [(10, 65)]
     assert marks == [[(11, "laughing hard")]]
+
+
+def test_people_hashtags_keep_names_and_skip_roles_and_the_streamer():
+    from src.clips import packaging
+    tags = packaging.people_hashtags("Kai Cenat, Druski and his friend, chat", "kaicenat", "Kai Cenat")
+    assert tags == ["#druski"]
+    assert packaging.people_hashtags("", "kaicenat") == []
+
+
+def test_people_hashtag_option_puts_other_people_after_the_streamer():
+    from src.clips import packaging
+    tags = packaging.styled_hashtags("kaicenat", "twitch", "GTA V", "people", 4,
+                                     who="Kai Cenat & Chris Rock", display_name="Kai Cenat")
+    assert tags == ["#kaicenat", "#chrisrock", "#twitch"]
+    # the older options are unchanged
+    assert packaging.styled_hashtags("kaicenat", "twitch", "GTA V", "game", 4) == ["#kaicenat", "#twitch", "#gtav"]

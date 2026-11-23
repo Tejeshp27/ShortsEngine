@@ -314,6 +314,33 @@ This matches part 1, where hits differed by being tied to the week's story.
 So the editor should weigh **who is in it and what story it belongs to** above
 the type of moment, and name both in the title.
 
+### 2.4e Hashtags that name people and topics (all watched clips, 125 accounts)
+
+A mechanical check of the "who and what story" idea, with no judgement involved.
+Each caption's hashtags were split three ways:
+- **generic:** #fyp, #viral, #twitch, #funny and similar;
+- **the account's usual tags:** used on 40% or more of its clips, usually its
+  own streamer's name;
+- **unusual specific tags:** names and topics the account does not normally use.
+
+| Measure (hits higher / flops higher, by account) | 2x+ vs 0.6x (125) | 5x+ vs 0.3x (110) |
+|---|---|---|
+| Generic tags | 48 / 53 | 43 / 41 |
+| All specific tags | **92 / 32** | **77 / 31** |
+| Unusual specific tags (other people, topics) | **88 / 35** (1.9 vs 1.6) | **78 / 30** |
+| @mentions in the caption | 24 / 27 | 19 / 23 |
+
+Breakouts tag more of the **other people and topics in the clip**, while
+generic tags make no difference. The effect per clip is small, but it is one
+of the most consistent patterns found. Two caveats: a clipper may tag more
+when they already think a clip is strong, and tags may themselves help
+search reach. Either way it agrees with 2.4d: the people and the story matter.
+
+**What changed:** the packaging experiment (`src/clips/packaging.py`) has a
+fourth hashtag option, `people`. It tags the streamer, then the other named
+people from the editor's "who" field, then the platform. The bandit tests it
+against the other options on real posts.
+
 ### 2.5 Smaller notes
 
 - Hits were a little longer (median 29 s vs 23 s; 16 / 10), in line with part 1.

@@ -858,6 +858,7 @@ def test_packaging_report_names_a_winner_only_with_enough_evidence(monkeypatch):
         results.append(({"hashtags": "minimal"}, True))
         results.append(({"hashtags": "broad"}, False))
         results.append(({"hashtags": "game"}, False))
+        results.append(({"hashtags": "people"}, False))
     monkeypatch.setattr(packaging, "published_outcomes", lambda channel: outcomes_with(results))
     report = packaging.packaging_report("demo", settings)
     assert report["dimensions"]["hashtags"]["winner"] == "minimal"

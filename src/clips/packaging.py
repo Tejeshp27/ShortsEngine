@@ -8,7 +8,8 @@
 #
 #   title_emoji    none | one          — emoji at the end of the title
 #   title_case     natural | lowercase — "Jason Got Banned" vs "jason got banned"
-#   hashtags       minimal | game | broad — streamer+platform / +game / +#funny #fyp
+#   hashtags       minimal | game | broad | people — streamer+platform / +game /
+#                  +#funny #fyp / +the other named people in the clip
 #   caption_style  punch | clean       — big 1-2 word captions vs sentence case
 #   context_line   whole | opening     — context line all clip vs first 8 seconds
 #   description    summary | question  — post caption tells / asks viewers
@@ -41,7 +42,7 @@ from src.storage.database import get_connection
 DEFAULT_DIMENSIONS = {
     "title_emoji": ["none", "one"],
     "title_case": ["natural", "lowercase"],
-    "hashtags": ["minimal", "game", "broad"],
+    "hashtags": ["minimal", "game", "broad", "people"],
     "caption_style": ["punch", "clean"],
     "context_line": ["whole", "opening"],
     "description": ["summary", "question"],
@@ -322,7 +323,41 @@ def style_title(title, options):
     return styled
 
 
-def styled_hashtags(username, platform, game, option, maximum):
+def people_hashtags(who, username, display_name=""):
+    """
+    Turn the editor's "who" text into hashtags for the other named people.
+
+    Only words that look like names (start with a capital letter) are used, so
+    roles like "his friend" or "chat" are skipped. The streamer is left out
+    because they are tagged already.
+
+    Args:
+        who (str): The editor model's "who" field, e.g. "Kai Cenat, Druski, his friend".
+        username (str): The streamer's login (left out).
+        display_name (str): The streamer's display name (also left out).
+
+    Returns:
+        list[str]: e.g. ["#druski"].
+
+    Example:
+        people_hashtags("Kai Cenat and Druski", "kaicenat", "Kai Cenat") → ["#druski"]
+    """
+    skip = {username.lower(), re.sub(r"[^a-z0-9]", "", display_name.lower())}
+    tags = []
+    # The editor separates people with commas, "and" or "&".
+    for part in re.split(r",|&|\band\b|/", who or ""):
+        words = part.split()
+        name_words = []
+        for word in words:
+            if word[:1].isupper():
+                name_words.append(word)
+        tag = re.sub(r"[^a-z0-9]", "", "".join(name_words).lower())
+        if 3 <= len(tag) <= 20 and tag not in skip and tag not in ("chat", "streamer"):
+            tags.append("#" + tag)
+    return tags
+
+
+def styled_hashtags(username, platform, game, option, maximum, who="", display_name=""):
     """
     Build the hashtag set for the chosen hashtag option.
 
@@ -330,13 +365,20 @@ def styled_hashtags(username, platform, game, option, maximum):
         username (str): Streamer login.
         platform (str): "twitch", "kick" or "youtube".
         game (str): Game name or "".
-        option (str): "minimal", "game" or "broad".
+        option (str): "minimal", "game", "broad" or "people".
         maximum (int): Most hashtags.
+        who (str): The editor's "who" field (used by "people").
+        display_name (str): The streamer's display name (used by "people").
 
     Returns:
         list[str]: The hashtags.
     """
     tags = ["#" + username.lower(), "#" + platform.lower()]
+    # "people" puts the other named people first: on TikTok, each account's
+    # breakouts carried more specific name/topic hashtags than its flops
+    # (88 vs 35 accounts; docs/TIKTOK_CONTENT_RESEARCH.md section 2.4e).
+    if option == "people":
+        tags = ["#" + username.lower()] + people_hashtags(who, username, display_name) + ["#" + platform.lower()]
     game_tag = re.sub(r"[^a-z0-9]", "", game.lower())
     if option in ("game", "broad") and 2 <= len(game_tag) <= 20:
         tags.append("#" + game_tag)
@@ -368,7 +410,9 @@ def apply_packaging(metadata, titles, review, streamer, settings, packaging):
     updated = dict(metadata)
     updated["youtube_title"] = style_title(metadata["youtube_title"], options)
     updated["hashtags"] = styled_hashtags(streamer.username, streamer.platform, (review or {}).get("game", ""),
-                                          options.get("hashtags", "minimal"), settings.titles.max_hashtags)
+                                          options.get("hashtags", "minimal"), settings.titles.max_hashtags,
+                                          who=(review or {}).get("who", ""),
+                                          display_name=getattr(streamer, "display_name", "") or "")
     question = ((review or {}).get("titles") or {}).get("question", "")
     if options.get("description") == "question" and question:
         updated["description"] = question
