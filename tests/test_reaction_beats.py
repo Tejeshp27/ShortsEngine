@@ -125,3 +125,51 @@ def test_people_hashtag_option_puts_other_people_after_the_streamer():
     assert tags == ["#kaicenat", "#chrisrock", "#twitch"]
     # the older options are unchanged
     assert packaging.styled_hashtags("kaicenat", "twitch", "GTA V", "game", 4) == ["#kaicenat", "#twitch", "#gtav"]
+
+
+def make_candidate(start, end, surprise, conversation, score):
+    """A small candidate dict like the ones propose_candidates() returns."""
+    components = {"humor": 0.5, "surprise": surprise, "hook": 0.5, "clarity": 0.5,
+                  "pacing": 0.5, "conversation": conversation, "quality": 0.5}
+    return {"start": start, "end": end, "components": components, "evidence": {}, "local_score": score}
+
+
+def test_face_evidence_reads_only_inside_the_window():
+    readings = [{"time": 1, "surprise": 0.9, "faces": 2},
+                {"time": 12, "surprise": 0.3, "faces": 1},
+                {"time": 14, "surprise": 0.5, "faces": 2}]
+    found = ranking.face_evidence(readings, 10, 20)
+    assert found == {"peak_surprise": 0.5, "multi_face_share": 0.5, "face_readings": 2}
+    assert ranking.face_evidence(readings, 30, 40)["peak_surprise"] is None
+
+
+def test_profile_without_face_weights_changes_nothing():
+    profile = {"weights": {"humor": 25, "surprise": 25, "hook": 15, "clarity": 15,
+                           "pacing": 5, "conversation": 10, "quality": 5}}
+    candidate = make_candidate(0, 30, 0.2, 0.2, 40.0)
+    ranking.add_face_evidence(candidate, [{"time": 5, "surprise": 0.9, "faces": 3}], profile)
+    assert candidate["components"]["surprise"] == 0.2
+    assert candidate["local_score"] == 40.0
+    assert candidate["evidence"]["peak_surprise"] == 0.9
+
+
+def test_surprised_face_lifts_a_moment_into_the_shortlist():
+    profile = {"weights": {"humor": 25, "surprise": 25, "hook": 15, "clarity": 15,
+                           "pacing": 5, "conversation": 10, "quality": 5},
+               "face_weights": {"surprise_peak": 0.25, "multi_face": 0.15}}
+    calm = make_candidate(0, 30, 0.5, 0.5, 0)
+    shocked = make_candidate(100, 130, 0.45, 0.5, 0)
+    calm_track = [{"time": 10, "surprise": 0.05, "faces": 1}]
+    shocked_track = [{"time": 110, "surprise": 0.8, "faces": 2}]
+    shortlist, tracks = ranking.rerank_with_faces([calm, shocked], [calm_track, shocked_track], profile, 1)
+    assert shortlist == [shocked]
+    assert tracks == [shocked_track]
+    # 0.75 * 0.45 + 0.25 * min(1, 0.8 / 0.6) = 0.5875
+    assert shocked["components"]["surprise"] == 0.588
+
+
+def test_v3_profile_loads_with_face_weights_and_longer_lengths():
+    profile = ranking.load_profile("config/clip_ranking/v3.yaml")
+    assert profile["version"] == "v3"
+    assert profile["face_weights"]["surprise_peak"] > 0
+    assert profile["lengths"]["reaction"][1] >= 50

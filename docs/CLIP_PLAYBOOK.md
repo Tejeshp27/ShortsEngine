@@ -89,3 +89,7 @@ The editor model gets the same rules in its prompt (`src/clips/editor.py`).
 | Laughter / scream sound | CED-tiny sound model (`audio_events.py`) | Misses most laughs under game sound |
 | Laughing / shocked face | FER+ (`expressions.py`), shown to the editor as `(face: laughing hard)` / `(face: shocked)` | Reads laughs well at full HD; smiles also count and open-mouth talking reads as surprise, so shocked marks skip talking seconds. On 60 unseen accounts a bigger surprised face went with breakouts (40 vs 20); laughing-face counts did not (30 vs 30) |
 | *Why* people react | the editor model reading the transcript | The real judgement; the signals above only point it at the right seconds |
+
+Since 2026-11-23 (`config/clip_ranking/v3.yaml`) faces also help pick which moments the
+editor reads: 10 moments are found, their faces read, and the 6 with the most surprise and
+the most people on screen (blended into the sound/word scores) go to the editor.

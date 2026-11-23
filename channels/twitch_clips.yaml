@@ -315,12 +315,13 @@ analysis:
 # weights; weak, confusing or duplicate moments are rejected, so a dull hour gives fewer or no clips.
 ranking:
   enabled: true               # false = the older analysis.weights scoring below
-  profile: "config/clip_ranking/v2.yaml"  # v2 = stricter (requires an unexpected event); point back at v1.yaml to roll back
+  profile: "config/clip_ranking/v3.yaml"  # v3 = v2 + faces in the shortlist + longer lengths (TikTok watching 2026-11-23); point back at v2.yaml to roll back
   ab_profile: ""              # optional A/B test: a second profile file used for every other recording ("" = off)
   use_editor_model: true      # the clip_pick model reads each shortlisted moment and judges the joke (~1-2 cents per recorded hour)
   shortlist_size: 6           # moments per recording the model reviews (more = slightly higher cost)
   context_seconds: 20         # transcript shown before each moment so the model can find where the setup starts
-  face_reactions: true        # mark laughing-hard / shocked faces for the editor model (free FER+ model; TikTok: breakouts show more of both)
+  face_reactions: true        # read faces (free FER+ model): re-rank moments and mark laughing-hard / shocked seconds for the editor
+  face_pool_size: 10          # moments found before the face re-rank; the best shortlist_size go to the editor (TikTok: surprised faces 58/33 accounts)
 
 # Face-aware framing (src/clips/framing.py): finds the streamer's face in each clip, never cuts the head.
 framing:
@@ -396,9 +397,9 @@ automation:
 # disk is reused. Run by the clips supervisor; follows the Start/Stop button.
 # Needs acquisition.only: false (otherwise chunks would never be clipped and deleted).
 live_recording:
-  enabled: false              # true = record streamers while they are live
+  enabled: true               # true = record streamers while they are live
   quality: "1080p60,1080p,best"   # Streamlink qualities to try, best first (720p60 halves disk use)
-  chunk_minutes: 60           # length of each saved piece; clips come out after each piece ends
+  chunk_minutes: 30           # length of each saved piece; clips come out after each piece ends (was 60; the first post of a moment usually wins, 61 of 102 pairs)
   overlap_seconds: 120        # last 2 minutes of the previous piece are added to the next, so a moment on the boundary is not split
   max_concurrent: 10          # record every focus streamer who is live (owner 2026-11-20: always record them); disk limits below still apply
   max_hours_per_streamer_per_day: 24  # no daily cap: record the whole stream (owner 2026-11-20)

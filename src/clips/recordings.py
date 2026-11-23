@@ -326,7 +326,7 @@ def rank_moments(recording, words, media, engagement, config, settings, streamer
     from src.clips.audio_events import recording_events
     from src.clips.decisions import log_event, selection_record
     from src.clips.editor import review_candidates
-    from src.clips.ranking import decide_candidates, load_profile, propose_candidates
+    from src.clips.ranking import decide_candidates, load_profile, propose_candidates, rerank_with_faces
     from src.clips.titles import choose_titles
 
     profile_path = settings.ranking.profile
@@ -336,15 +336,22 @@ def rank_moments(recording, words, media, engagement, config, settings, streamer
     profile = load_profile(profile_path)
     sounds = recording_events(recording["file_path"])
     duration = recording["duration"]
-    shortlist = propose_candidates(duration, words, media, sounds, engagement, settings, profile)
+    faces = None
+    if settings.ranking.face_reactions:
+        # Read faces on a slightly bigger pool, let them re-rank it (surprised
+        # faces and more people went with breakouts), then keep the shortlist.
+        pool_size = max(settings.ranking.shortlist_size, settings.ranking.face_pool_size)
+        pool = propose_candidates(duration, words, media, sounds, engagement, settings, profile,
+                                  pool_size=pool_size)
+        tracks = candidate_face_tracks(recording["file_path"], pool, duration, settings.ranking.context_seconds)
+        shortlist, tracks = rerank_with_faces(pool, tracks, profile, settings.ranking.shortlist_size)
+        faces = face_marks_for(tracks, words)
+    else:
+        shortlist = propose_candidates(duration, words, media, sounds, engagement, settings, profile)
     name = display_name_for(streamer)
     reviews = []
     if settings.ranking.use_editor_model and llm is not None:
         from src.clips.taste import taste_block
-        faces = None
-        if settings.ranking.face_reactions:
-            faces = candidate_face_marks(recording["file_path"], shortlist, words, duration,
-                                         settings.ranking.context_seconds)
         reviews = review_candidates(shortlist, words, sounds, engagement, duration, name, config, settings, llm,
                                     taste_block(recording["channel"]), volume=media.get("volume_db", []),
                                     faces=faces)
@@ -552,12 +559,49 @@ def candidate_face_marks(source, candidates, words, duration, context_seconds, a
     Returns:
         list: For each candidate, a list of (second, "laughing hard"/"shocked").
     """
-    from src.clips.expressions import face_marks, read_face_track
+    tracks = candidate_face_tracks(source, candidates, duration, context_seconds, after_seconds)
+    return face_marks_for(tracks, words)
 
-    marks = []
+
+def candidate_face_tracks(source, candidates, duration, context_seconds, after_seconds=15):
+    """
+    Read faces once a second across each candidate (plus the context the editor sees).
+
+    Args:
+        source (str): The recording file.
+        candidates (list[dict]): Windows (start, end).
+        duration (float): Recording length.
+        context_seconds (float): Seconds read before each window.
+        after_seconds (float): Seconds read after each window.
+
+    Returns:
+        list: For each candidate, its face readings (empty when faces cannot be read).
+    """
+    from src.clips.expressions import read_face_track
+
+    tracks = []
     for candidate in candidates:
         start = max(0.0, candidate["start"] - context_seconds)
         end = min(duration, candidate["end"] + after_seconds)
-        marks.append(face_marks(read_face_track(source, start, end), words))
+        tracks.append(read_face_track(source, start, end))
+    return tracks
+
+
+def face_marks_for(tracks, words):
+    """
+    Turn each candidate's face readings into editor marks.
+
+    Args:
+        tracks (list[list[dict]]): From candidate_face_tracks().
+        words (list[dict]): Timed words.
+
+    Returns:
+        list: For each candidate, a list of (second, "laughing hard"/"shocked").
+    """
+    from src.clips.expressions import face_marks
+
+    marks = []
+    for track in tracks:
+        marks.append(face_marks(track, words))
     return marks
 

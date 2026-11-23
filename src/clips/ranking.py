@@ -649,9 +649,12 @@ def overlaps(first, second, share=0.25):
     return overlap > share * max(1.0, shorter)
 
 
-def propose_candidates(duration, words, media, sounds, engagement, settings, profile):
+def propose_candidates(duration, words, media, sounds, engagement, settings, profile, pool_size=None):
     """
     Propose windows and score them locally; return the best distinct ones.
+
+    pool_size (int or None): return this many instead of ranking.shortlist_size
+        (a bigger pool is re-ranked with faces before the editor sees it).
 
     Args:
         duration (float): Recording length.
@@ -693,7 +696,7 @@ def propose_candidates(duration, words, media, sounds, engagement, settings, pro
         if repeated:
             continue
         shortlist.append(candidate)
-        if len(shortlist) >= settings.ranking.shortlist_size:
+        if len(shortlist) >= (pool_size or settings.ranking.shortlist_size):
             break
     return shortlist
 
@@ -709,6 +712,123 @@ def local_score_of(candidate):
         float: Its local score.
     """
     return candidate["local_score"]
+
+
+# ---------------------------------------------------------------------------
+# Faces (TikTok watching study, docs/TIKTOK_CONTENT_RESEARCH.md 2.4a-2)
+# ---------------------------------------------------------------------------
+# On 91 clip accounts never used to build the rules, an account's breakouts
+# showed a bigger surprised face than its own flops (58 accounts vs 33), and
+# its biggest breakouts had more people on screen (44 vs 31). A laughing face
+# did NOT predict views (streamers smile constantly), so it is not scored.
+
+# A peak surprise reading of this size counts fully (FER+ readings 0-1;
+# breakouts averaged 0.37 vs 0.34, so 0.6 is a clearly surprised face).
+FULL_SURPRISE = 0.6
+# Half of the pictures showing two or more faces counts fully.
+FULL_MULTI_FACE_SHARE = 0.5
+
+
+def face_evidence(readings, start, end):
+    """
+    Summarise face readings inside one window.
+
+    Args:
+        readings (list[dict]): {"time", "surprise", "faces", ...} per sampled
+            second (from expressions.read_face_track).
+        start (float): Window start, in seconds.
+        end (float): Window end.
+
+    Returns:
+        dict: {"peak_surprise", "multi_face_share", "face_readings"};
+              both values are None when no reading falls inside the window.
+
+    Example:
+        face_evidence([{"time": 3, "surprise": 0.7, "faces": 2}], 0, 10)
+        # {"peak_surprise": 0.7, "multi_face_share": 1.0, "face_readings": 1}
+    """
+    inside = []
+    for reading in readings:
+        if start <= reading.get("time", -1) <= end:
+            inside.append(reading)
+    if not inside:
+        return {"peak_surprise": None, "multi_face_share": None, "face_readings": 0}
+    peak = 0.0
+    several = 0
+    for reading in inside:
+        peak = max(peak, float(reading.get("surprise", 0) or 0))
+        if (reading.get("faces", 0) or 0) >= 2:
+            several += 1
+    return {"peak_surprise": round(peak, 3), "multi_face_share": round(several / len(inside), 3),
+            "face_readings": len(inside)}
+
+
+def add_face_evidence(candidate, readings, profile):
+    """
+    Fold face evidence into a candidate's local surprise and conversation scores.
+
+    The profile's "face_weights" say how much each face signal counts
+    (0 or missing = ignored, so older profiles behave exactly as before):
+        surprise_peak: share of the surprise score taken by the peak surprise.
+        multi_face: share of the conversation score taken by the share of
+                    pictures with two or more people.
+
+    Args:
+        candidate (dict): From propose_candidates() (changed in place).
+        readings (list[dict]): Face readings covering the window.
+        profile (dict): From load_profile().
+
+    Returns:
+        dict: The same candidate, with updated "components", "local_score"
+              and the face numbers added to "evidence".
+    """
+    weights = profile.get("face_weights") or {}
+    found = face_evidence(readings, candidate["start"], candidate["end"])
+    candidate["evidence"].update(found)
+    if found["face_readings"] == 0:
+        return candidate
+    components = candidate["components"]
+    surprise_share = float(weights.get("surprise_peak", 0) or 0)
+    if surprise_share > 0:
+        face_part = min(1.0, found["peak_surprise"] / FULL_SURPRISE)
+        mixed = (1 - surprise_share) * components["surprise"] + surprise_share * face_part
+        components["surprise"] = round(mixed, 3)
+    people_share = float(weights.get("multi_face", 0) or 0)
+    if people_share > 0:
+        face_part = min(1.0, found["multi_face_share"] / FULL_MULTI_FACE_SHARE)
+        mixed = (1 - people_share) * components["conversation"] + people_share * face_part
+        components["conversation"] = round(mixed, 3)
+    if surprise_share > 0 or people_share > 0:
+        candidate["local_score"] = weighted_total(components, profile["weights"])
+    return candidate
+
+
+def rerank_with_faces(pool, tracks, profile, keep):
+    """
+    Re-score a pool of candidates with their faces and keep the best `keep`.
+
+    Args:
+        pool (list[dict]): Distinct candidates from propose_candidates().
+        tracks (list[list[dict]]): Face readings for each pool candidate, same order.
+        profile (dict): From load_profile().
+        keep (int): How many to return (ranking.shortlist_size).
+
+    Returns:
+        tuple: (shortlist, its face readings), best first.
+    """
+    track_of = {}
+    for candidate, track in zip(pool, tracks):
+        add_face_evidence(candidate, track, profile)
+        track_of[id(candidate)] = track
+    # Python's sort keeps the original order for equal scores, so on a tie the
+    # candidate that was better before faces stays first.
+    ranked = list(pool)
+    ranked.sort(key=local_score_of, reverse=True)
+    shortlist = ranked[:keep]
+    kept_tracks = []
+    for candidate in shortlist:
+        kept_tracks.append(track_of[id(candidate)])
+    return shortlist, kept_tracks
 
 
 # ---------------------------------------------------------------------------

@@ -22,10 +22,10 @@ stays on. The dashboard navigation was regrouped (Clips / Results / Settings),
 the clips page redesigned (status cards, why each clip was kept or skipped) and
 video pages show a "Why this clip" panel. Stale files removed (see Current phase).
 
-**Live recording stopped 2026-11-21** at the owner's request
-(`live_recording.enabled: false`). The supervisor stopped the four running captures
-(Kai Cenat, Lacy, Jason, Marlon) within ~20 s; no restart was needed. Set it back to
-`true` to resume. (It had last been resumed 2026-11-20 18:16.)
+**Live recording resumed 2026-11-23** at the owner's request (`live_recording.enabled:
+true`, now in 30-minute pieces). The supervisor was restarted (`launchctl kickstart -k
+gui/$UID/com.shortsengine.clips`) so it runs the new ranking code. Set `enabled: false`
+to stop; the supervisor stops running captures within ~20 s. (It was stopped 2026-11-21.)
 
 Earlier history (rolling recorder built 2026-11-19, local pilot and acquisition
 phase 2026-11-18) is in the Current phase entries below and in
@@ -278,6 +278,14 @@ original agreement dates were not supplied):
    permission. Always tell me after you do, and briefly explain what changed and why.
 
 ## Current phase
+
+**Clipper uses the watching lessons + recording back on (2026-11-23, Claude Code):** the owner ended the watching (about 13,900 TikTok clips; a YouTube Shorts watcher was built but stopped after 8 clean Shorts, rows kept in git-ignored `cache/youtube_*.jsonl`) and asked to apply what was learned. Changes:
+- **Faces now help choose the shortlist.** Before, faces were only marks for the editor *after* the 6 moments were picked by sound/laughter scores, which did not predict views. Now `recordings.rank_moments` proposes `ranking.face_pool_size` (10) moments, reads faces once (`candidate_face_tracks`), re-ranks with `ranking.rerank_with_faces` and keeps the best 6; the same readings make the editor marks. `face_evidence` gives each window its peak surprise and its share of pictures with 2+ faces. Profile `face_weights` say how much they count (surprise 25% of the local surprise score, 2+ faces 15% of conversation). A laughing face is not scored.
+- **Profile `config/clip_ranking/v3.yaml`** = v2 + `face_weights` + longer preferred lengths (reaction/gameplay 20-50 s; breakouts averaged ~40 s vs flops ~33 s). Roll back by pointing `ranking.profile` at v2.yaml.
+- **Faster drafts:** `live_recording.chunk_minutes` 60 → 30 (the first post of a moment usually wins, 61 of 102 pairs).
+- The editor prompt now says breakouts averaged ~40 s vs flops ~33 s.
+- Out-of-sample result at the end of watching (91 accounts, 5,754 clips): length 62/29, peak surprise 58/33, biggest breakouts talk less 24/51 (flops higher), 2+ faces 44/31 (5x level); laughing faces and loud wordless seconds showed no signal.
+**816 tests pass** (4 new in `tests/test_reaction_beats.py`).
 
 **TikTok watching, round 3 (2026-11-21, Claude Code; ongoing until the owner says stop):** the owner asked Claude to keep watching streamer clips to learn what to clip (dying laughing, super shocked...). The watcher tab reads each clip's transcript and sound in memory. Our sound model (`audio_events`) tags each second, and faces are read twice a second with the new free FER+ model. Only numbers are kept: `cache/tiktok_watch_raw.jsonl`, `tiktok_faces.jsonl` and `tiktok_sound_tags.jsonl`, with gz copies in `docs/research/`. Rules are summarised in **`docs/CLIP_PLAYBOOK.md`**. Findings:
 - On 1,209 fresh clips, "less talking" replicated (flops talked more in 20 of 24 accounts); "loud" gaps were weaker evidence than the first sample showed.

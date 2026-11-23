@@ -1,0 +1,44 @@
+# =============================================================
+# config/clip_ranking/v3.yaml — ranking profile version 3 (v2 + what TikTok watching taught)
+#
+# Why: 13,900 TikTok streamer clips were watched (2026-11-21 to 11-23) and each
+# account's breakouts compared with its own flops. On 91 accounts never used to
+# write the rules (docs/TIKTOK_CONTENT_RESEARCH.md 2.4a-2):
+#   - breakouts ran longer (39 s vs 36 s; the biggest 41 s vs 33 s) -> longer lengths;
+#   - a bigger surprised face went with breakouts (58 vs 33 accounts) and the
+#     biggest breakouts had more people on screen (44 vs 31) -> face_weights;
+#   - a laughing face and loud wordless seconds did not predict views -> not scored.
+# Everything else is unchanged from v2. Roll back by pointing ranking.profile at v2.yaml.
+# =============================================================
+
+version: v3                 # name stored with every clip decision
+created: "2026-11-23"       # when this profile was written
+based_on: v2                # previous version
+note: "v2 plus face evidence in the shortlist and longer preferred lengths (TikTok watching study)."
+
+weights:
+  humor: 25                 # genuinely funny
+  surprise: 25              # the unexpected event and its payoff (raised from 20: the study's main finding)
+  hook: 15                  # something happens in the first seconds
+  clarity: 15               # a stranger understands it
+  pacing: 5                 # less important than the moment itself (lowered from 10)
+  conversation: 10          # real people reacting to each other
+  quality: 5                # sound and picture fine
+
+minimum_score: 62           # final score needed (v1: 60; 66 dropped a moment the owner liked, while a 73 one was disliked: the score alone does not capture taste)
+payoff_floor: 0.55          # humor OR surprise must reach this (v1: 0.45)
+clarity_floor: 0.4          # (v1: 0.35)
+model_share: 0.85           # the model's reading counts more than loudness/laughter hints (v1: 0.75)
+require_event: true         # reject when the editor cannot name an unexpected event
+
+face_weights:               # used when ranking.face_reactions is on (faces read on ranking.face_pool_size moments)
+  surprise_peak: 0.25       # share of the local surprise score taken by the biggest surprised face in the moment
+  multi_face: 0.15          # share of the local conversation score taken by how often 2+ people are on screen
+
+lengths:                    # preferred seconds by moment type (TikTok watching: breakouts 39-41 s vs flops 33-36 s)
+  reaction: [20, 50]        # v2: [18, 45]
+  gameplay: [20, 50]        # v2: [18, 45]
+  awkward: [20, 60]         # v2: [18, 60]
+  conversation: [18, 60]    # v2: [15, 60]
+  argument: [18, 75]        # v2: [15, 75]
+  story: [25, 90]           # unchanged

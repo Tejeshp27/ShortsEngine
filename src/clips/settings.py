@@ -416,6 +416,9 @@ class RankingSettings(BaseModel):
     face_reactions: Read faces once a second across each shortlisted moment and
                     show the editor model where someone is laughing hard or
                     shocked (free, local; adds ~10-20 s of CPU per moment).
+    face_pool_size: With face_reactions on, this many moments are found first,
+                    re-ranked with their faces (the profile's face_weights),
+                    and the best shortlist_size go to the editor.
     """
     enabled: bool = True
     profile: str = "config/clip_ranking/v1.yaml"
@@ -424,6 +427,7 @@ class RankingSettings(BaseModel):
     shortlist_size: int = Field(default=6, ge=1, le=12)
     context_seconds: float = Field(default=20, ge=0, le=60)
     face_reactions: bool = False
+    face_pool_size: int = Field(default=10, ge=1, le=20)
 
 
 class TrimSettings(BaseModel):
