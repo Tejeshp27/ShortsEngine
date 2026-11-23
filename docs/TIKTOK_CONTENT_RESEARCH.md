@@ -175,25 +175,26 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 83 clip accounts never seen before (5,319 clips)
+### 2.4a-2 Out-of-sample test: 87 clip accounts never seen before (5,545 clips)
 
 New clip accounts found through user and video search (DUB, DDG, Adapt, Kai
 Cenat, IShowSpeed, Adin Ross, N3on, Lacy, Marlon, Silky, StableRonaldo, Jynxzi,
-Case-Oh, Kick and "stream moments" pages and others) were listed by scrolling
-their profiles and watched the same way. Hits higher / flops higher, by account:
+Case-Oh, Kick, "stream moments" and Streamer Awards pages and others) were
+listed by scrolling their profiles and watched the same way. Hits higher /
+flops higher, by account:
 
-| Measure | 2x+ vs 0.6x (83 accounts) | 5x+ vs 0.3x (70 accounts) |
+| Measure | 2x+ vs 0.6x (87 accounts) | 5x+ vs 0.3x (74 accounts) |
 |---|---|---|
-| Length | **57 / 26** (40 s vs 36 s) | **49 / 21** (42 s vs 34 s) |
-| Highest surprise on a face | **52 / 31** | **45 / 25** (0.38 vs 0.35) |
-| Share of pictures with 2+ faces | 41 / 42 | **42 / 28** (47% vs 43%) |
-| Share of the clip with talking | 39 / 44 | 24 / **46** (73% vs 77%) |
-| Loud wordless stretches | 37 / 44 | 36 / 33 (*not* replicated) |
-| Time after the last words | 45 / 38 | 37 / 33 |
-| Highest happiness on a face | 46 / 37 | 39 / 31 |
-| Laughing-face moments per 30 s | 39 / 44 | 32 / 38 |
-| Quiet wordless stretches | 45 / 38 | 36 / 34 |
-| Words in the first 3 s | 40 / 42 | 30 / 40 |
+| Length | **60 / 27** (39 s vs 36 s) | **52 / 22** (41 s vs 33 s) |
+| Highest surprise on a face | **55 / 32** | **48 / 26** (0.37 vs 0.35) |
+| Share of pictures with 2+ faces | 42 / 45 | 43 / 31 (46% vs 44%) |
+| Share of the clip with talking | 39 / 48 | 24 / **50** (72% vs 76%) |
+| Loud wordless stretches | 39 / 46 | 41 / 33 (weak) |
+| Time after the last words | 46 / 41 | 39 / 35 |
+| Highest happiness on a face | 48 / 39 | 40 / 34 |
+| Laughing-face moments per 30 s | 41 / 46 | 34 / 40 |
+| Quiet wordless stretches | 49 / 38 | 40 / 34 |
+| Words in the first 3 s | 42 / 44 | 32 / 42 |
 
 As more accounts came in, only three patterns kept holding: **breakouts are
 longer**, **a face looks more surprised**, and among the biggest breakouts
