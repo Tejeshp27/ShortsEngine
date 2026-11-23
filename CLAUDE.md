@@ -289,7 +289,8 @@ original agreement dates were not supplied):
 - **Titles** (`titles.title_score`): "in GTA" −10 (flop phrase, YouTube study); +8 when a title names another person from the editor's "who".
 - **Packaging:** the `broad` hashtag option (#funny #fyp) is no longer tried (generic tags made no difference); `people` stays.
 - Editor prompt carries the final numbers, the screaming finding and asks titles to name the other person or story. Research doc section 3a lists every change.
-**821 tests pass** (9 new in `tests/test_reaction_beats.py`).
+- Follow-ups after a real-footage check (Jason recording 2, no editor call): overlapping moments are now face-read once (`recordings.merge_ranges`; 80 s → 40 s on 4 min of footage), a moment with no visible face gets the pool's median face values (`ranking.typical_face_values`) so gameplay-only moments are not favoured, and a gasp heard (≥0.3) is now also a place to look for moments (`ranking.event_times`). README and `docs/stream-clips.md` point at profile v3.
+**824 tests pass** (12 new in `tests/test_reaction_beats.py`).
 
 **TikTok watching, round 3 (2026-11-21, Claude Code; ongoing until the owner says stop):** the owner asked Claude to keep watching streamer clips to learn what to clip (dying laughing, super shocked...). The watcher tab reads each clip's transcript and sound in memory. Our sound model (`audio_events`) tags each second, and faces are read twice a second with the new free FER+ model. Only numbers are kept: `cache/tiktok_watch_raw.jsonl`, `tiktok_faces.jsonl` and `tiktok_sound_tags.jsonl`, with gz copies in `docs/research/`. Rules are summarised in **`docs/CLIP_PLAYBOOK.md`**. Findings:
 - On 1,209 fresh clips, "less talking" replicated (flops talked more in 20 of 24 accounts); "loud" gaps were weaker evidence than the first sample showed.

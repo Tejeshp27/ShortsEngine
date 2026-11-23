@@ -224,8 +224,11 @@ python -m src.clips.research --channel twitch_clips           # refresh the YouT
 
 Editing rules (ranking weights, framing, trimming, caption style, titles, QA) are
 in the `ranking`, `framing`, `trimming`, `titles`, `qa` and `captions` sections of
-`channels/twitch_clips.yaml` and the versioned profile `config/clip_ranking/v1.yaml`;
-see [how moments are chosen and edited](docs/stream-clips.md#how-moments-are-chosen-and-edited-overhaul-2026-11-20).
+`channels/twitch_clips.yaml` and the versioned profile `config/clip_ranking/v3.yaml`
+(earlier versions v1/v2 are kept for rollback); see
+[how moments are chosen and edited](docs/stream-clips.md#how-moments-are-chosen-and-edited-overhaul-2026-11-20).
+The rules come from watching about 13,900 TikTok streamer clips and comparing each
+account's breakouts with its own flops: [CLIP_PLAYBOOK.md](docs/CLIP_PLAYBOOK.md).
 
 Add approved streamers in the dashboard or `channels/twitch_clips.yaml`. Public
 Twitch clip/VOD discovery uses app credentials and never calls Get Clips Download.

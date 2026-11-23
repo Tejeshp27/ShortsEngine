@@ -413,6 +413,10 @@ asked for the lessons to be applied. Ranking profile `config/clip_ranking/v3.yam
   65%), only a gasp counts as shock (screams and cheers no longer), and loud
   wordless gaps get no pacing bonus (they still never count as dead air, and
   trimming keeps them).
+- **Gasps are a place to look:** a gasp heard by the sound model now also
+  proposes a moment (laughs, screams and cheers already did; every 15 s is
+  checked anyway). A moment with no visible face gets the pool's typical face
+  values, so faceless gameplay moments are not favoured.
 - **Longer preferred lengths:** reaction/gameplay 20-50 s (was 18-45 s).
 - **Faster drafts:** live recording pieces are 30 minutes (was 60), since the
   first post of a moment usually wins.

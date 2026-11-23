@@ -492,6 +492,9 @@ def event_times(duration, words, media, sounds, engagement):
     for second, chances in enumerate(sounds or []):
         if chances.get("laughter", 0) >= 0.25 or chances.get("scream", 0) >= 0.35 or chances.get("cheer", 0) >= 0.35:
             times.add(float(second))
+        # A gasp went with breakouts on TikTok (74 vs 42 accounts), so look there too.
+        elif chances.get("gasp", 0) >= 0.3:
+            times.add(float(second))
     volume = media.get("volume_db", [])
     if volume:
         median = float(np.median(volume))
@@ -800,7 +803,7 @@ def face_evidence(readings, start, end):
             "face_readings": len(inside)}
 
 
-def add_face_evidence(candidate, readings, profile):
+def add_face_evidence(candidate, readings, profile, typical=None):
     """
     Fold face evidence into a candidate's local surprise and conversation scores.
 
@@ -814,6 +817,9 @@ def add_face_evidence(candidate, readings, profile):
         candidate (dict): From propose_candidates() (changed in place).
         readings (list[dict]): Face readings covering the window.
         profile (dict): From load_profile().
+        typical (dict or None): {"peak_surprise", "multi_face_share"} to use when
+            no face is seen in this window (e.g. the pool's middle values), so a
+            moment without a visible face is neither rewarded nor punished.
 
     Returns:
         dict: The same candidate, with updated "components", "local_score"
@@ -822,22 +828,49 @@ def add_face_evidence(candidate, readings, profile):
     weights = profile.get("face_weights") or {}
     found = face_evidence(readings, candidate["start"], candidate["end"])
     candidate["evidence"].update(found)
+    values = found
     if found["face_readings"] == 0:
-        return candidate
+        if not typical:
+            return candidate
+        values = typical
     components = candidate["components"]
     surprise_share = float(weights.get("surprise_peak", 0) or 0)
     if surprise_share > 0:
-        face_part = min(1.0, found["peak_surprise"] / FULL_SURPRISE)
+        face_part = min(1.0, values["peak_surprise"] / FULL_SURPRISE)
         mixed = (1 - surprise_share) * components["surprise"] + surprise_share * face_part
         components["surprise"] = round(mixed, 3)
     people_share = float(weights.get("multi_face", 0) or 0)
     if people_share > 0:
-        face_part = min(1.0, found["multi_face_share"] / FULL_MULTI_FACE_SHARE)
+        face_part = min(1.0, values["multi_face_share"] / FULL_MULTI_FACE_SHARE)
         mixed = (1 - people_share) * components["conversation"] + people_share * face_part
         components["conversation"] = round(mixed, 3)
     if surprise_share > 0 or people_share > 0:
         candidate["local_score"] = weighted_total(components, profile["weights"])
     return candidate
+
+
+def typical_face_values(pool, tracks):
+    """
+    Find the middle (median) face values of the windows where a face was seen.
+
+    Args:
+        pool (list[dict]): Candidates.
+        tracks (list[list[dict]]): Face readings for each, same order.
+
+    Returns:
+        dict or None: {"peak_surprise", "multi_face_share"}, or None when no
+                      window showed a face.
+    """
+    surprises = []
+    shares = []
+    for candidate, track in zip(pool, tracks):
+        found = face_evidence(track, candidate["start"], candidate["end"])
+        if found["face_readings"] > 0:
+            surprises.append(found["peak_surprise"])
+            shares.append(found["multi_face_share"])
+    if not surprises:
+        return None
+    return {"peak_surprise": float(np.median(surprises)), "multi_face_share": float(np.median(shares))}
 
 
 def rerank_with_faces(pool, tracks, profile, keep):
@@ -853,9 +886,10 @@ def rerank_with_faces(pool, tracks, profile, keep):
     Returns:
         tuple: (shortlist, its face readings), best first.
     """
+    typical = typical_face_values(pool, tracks)
     track_of = {}
     for candidate, track in zip(pool, tracks):
-        add_face_evidence(candidate, track, profile)
+        add_face_evidence(candidate, track, profile, typical)
         track_of[id(candidate)] = track
     # Python's sort keeps the original order for equal scores, so on a tie the
     # candidate that was better before faces stays first.

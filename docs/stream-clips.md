@@ -23,6 +23,11 @@ recordings (both sites)                        │
 
 ## How moments are chosen and edited (overhaul, 2026-11-20)
 
+Later research that changed the rules (2026-11-21 to 11-23, ranking profile v3): the
+TikTok watching study, [TIKTOK_CONTENT_RESEARCH.md](TIKTOK_CONTENT_RESEARCH.md)
+(section 3a lists every change) and the plain-English [CLIP_PLAYBOOK.md](CLIP_PLAYBOOK.md).
+The diagram below shows the 2026-11-20 design with v3's numbers where they changed.
+
 Research behind every rule: [VIRAL_CONTENT_RESEARCH.md](VIRAL_CONTENT_RESEARCH.md)
 (130 real Shorts measured with the YouTube API, 5 watched frame by frame,
 ~25 GitHub projects inspected). Switched on in `channels/twitch_clips.yaml`
@@ -33,13 +38,15 @@ channels without those sections keep the older path.
 recorded hour ─► Whisper words + sound labels (laughter, scream, cheer, speech, music;
                  CED-tiny via sherpa-onnx, ~20 s per hour) + chat counts + motion
               ─► ranking.py: propose windows around possible payoffs, score 7 categories
-                 locally (humor 25 · surprise 20 · hook 15 · clarity 15 · pacing 10 ·
-                 conversation 10 · quality 5; config/clip_ranking/v1.yaml)
+                 locally (humor 25 · surprise 25 · hook 15 · clarity 15 · pacing 5 ·
+                 conversation 10 · quality 5; config/clip_ranking/v3.yaml since 2026-11-23)
+              ─► faces (expressions.py, FER+): 10 windows read once a second; peak surprise
+                 and 2+ faces re-rank them, the best 6 go on (v3; laughing faces unscored)
               ─► editor.py: ONE Haiku call reads the 6 best windows (transcript + LAUGH/
-                 SCREAM/CHAT marks), explains the joke, sets setup-start/payoff-end,
+                 SCREAM/CHAT and face marks), explains the joke, sets setup-start/payoff-end,
                  scores, rejects weak ones, writes title ideas  (~1–2 cents per hour)
-              ─► decide: blend (75% model / 25% evidence), reject no-payoff / unclear /
-                 duplicate / below 60; at most N per recording — zero is allowed
+              ─► decide: blend (85% model / 15% evidence), reject no-payoff / unclear /
+                 no event / duplicate / below 62; at most N per recording — zero is allowed
               ─► titles.py: hook text, YouTube title, TikTok description, ≤4 hashtags;
                  banned clickbait phrases, ≤1 caps word, ≤1 emoji, names/numbers must be
                  in the clip, no repeated formula; fallback = a real quote from the clip

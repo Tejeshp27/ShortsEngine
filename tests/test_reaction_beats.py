@@ -247,3 +247,43 @@ def test_in_gta_title_gets_a_small_penalty():
                                        ["Jason"], [], 12)
     assert gta < clean
     assert "flop phrase: in gta" in problems
+
+
+def test_merge_ranges_joins_overlaps():
+    from src.clips.recordings import merge_ranges
+    assert merge_ranges([(10, 20), (0, 5), (15, 30)]) == [(0, 5), (10, 30)]
+    assert merge_ranges([]) == []
+
+
+def test_overlapping_candidates_read_each_stretch_once(monkeypatch):
+    from src.clips import expressions, recordings
+    calls = []
+
+    def fake_track(source, start, end):
+        calls.append((start, end))
+        readings = []
+        second = start
+        while second < end:
+            readings.append({"time": second, "surprise": 0.0, "faces": 1})
+            second += 1
+        return readings
+
+    monkeypatch.setattr(expressions, "read_face_track", fake_track)
+    candidates = [{"start": 30, "end": 50}, {"start": 40, "end": 60}]
+    tracks = recordings.candidate_face_tracks("video.mp4", candidates, 300, 10, after_seconds=5)
+    assert calls == [(20, 65)]
+    assert tracks[0][0]["time"] == 20 and tracks[0][-1]["time"] <= 55
+    assert tracks[1][0]["time"] == 30
+
+
+def test_a_moment_without_a_visible_face_gets_the_typical_face_values():
+    profile = {"weights": {"humor": 25, "surprise": 25, "hook": 15, "clarity": 15,
+                           "pacing": 5, "conversation": 10, "quality": 5},
+               "face_weights": {"surprise_peak": 0.25, "multi_face": 0.15}}
+    calm_face = make_candidate(0, 30, 0.5, 0.5, 0)
+    no_face = make_candidate(100, 130, 0.5, 0.5, 0)
+    calm_track = [{"time": 10, "surprise": 0.1, "faces": 1}]
+    shortlist, _ = ranking.rerank_with_faces([calm_face, no_face], [calm_track, []], profile, 2)
+    # With the pool's typical values, the faceless moment scores the same, not higher.
+    assert calm_face["local_score"] == no_face["local_score"]
+    assert no_face["evidence"]["face_readings"] == 0

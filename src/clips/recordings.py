@@ -579,12 +579,46 @@ def candidate_face_tracks(source, candidates, duration, context_seconds, after_s
     """
     from src.clips.expressions import read_face_track
 
-    tracks = []
+    wanted = []
     for candidate in candidates:
         start = max(0.0, candidate["start"] - context_seconds)
         end = min(duration, candidate["end"] + after_seconds)
-        tracks.append(read_face_track(source, start, end))
+        wanted.append((start, end))
+    # Candidates often overlap, so join overlapping ranges and read each
+    # stretch of video only once (reading faces is the slow part).
+    readings = []
+    for start, end in merge_ranges(wanted):
+        readings.extend(read_face_track(source, start, end))
+    tracks = []
+    for start, end in wanted:
+        track = []
+        for reading in readings:
+            if start <= reading["time"] <= end:
+                track.append(reading)
+        tracks.append(track)
     return tracks
+
+
+def merge_ranges(ranges):
+    """
+    Join time ranges that overlap or touch.
+
+    Args:
+        ranges (list[tuple]): (start, end) pairs in seconds, in any order.
+
+    Returns:
+        list[tuple]: Non-overlapping (start, end) pairs, in time order.
+
+    Example:
+        merge_ranges([(10, 20), (0, 5), (15, 30)])  # [(0, 5), (10, 30)]
+    """
+    merged = []
+    for start, end in sorted(ranges):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
 
 
 def face_marks_for(tracks, words):
