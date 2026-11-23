@@ -41,9 +41,9 @@ What the data says (10,263 Shorts from 78 streamer-clip channels, each channel's
 - If you cannot name the unexpected event in a few words, reject the moment.
 
 What TikTok data adds (624 streamer clips; each account's breakouts vs. its own flops):
-- Breakouts tend to leave seconds where a reaction plays out without words (dying laughing, screaming, a
-  stunned pause); wall-to-wall talking does a little worse (a weak tie-breaker, not a rule). Loud wordless
-  seconds are shown below as "(no words for N s, loud: a reaction)"; keep them inside the clip.
+- When a reaction plays out without words (dying laughing, screaming, a stunned pause), keep it inside the
+  clip: cutting it ruins the moment. Loud wordless seconds are shown below as "(no words for N s, loud: a
+  reaction)". They do not make a clip good on their own; the biggest breakouts only talked a little less.
 - Breakouts run longer than flops in every sample: give a good moment its full setup and aftermath.
 - "(face: laughing hard)" and "(face: shocked)" are read from faces on screen. A bigger SURPRISED face was
   more common in breakouts (40 of 60 accounts); a laughing face on its own was not (30 vs. 30), because

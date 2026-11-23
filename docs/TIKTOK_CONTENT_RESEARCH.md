@@ -175,25 +175,32 @@ the same account posted in the previous 5 days did only a little better:
 against 26% of everything else (1,108 vs 3,607 clips, 26 accounts). So
 riding a trend helps a little, but each moment still has to be good.
 
-### 2.4a-2 Out-of-sample test: 62 clip accounts never seen before (3,914 clips)
+### 2.4a-2 Out-of-sample test: 66 clip accounts never seen before (4,190 clips)
 
 New clip accounts found through search (DUB, DDG, Adapt, Kai, N3on, Lacy,
-Marlon, Silky, StableRonaldo, Jynxzi clip pages and others) were listed by
-scrolling their profiles and watched the same way. Hits higher / flops higher,
-by account:
+Marlon, Silky, StableRonaldo, Jynxzi and Kick clip pages and others) were
+listed by scrolling their profiles and watched the same way. Hits higher /
+flops higher, by account:
 
-| Measure | 2x+ vs 0.6x (62 accounts) | 5x+ vs 0.3x (53 accounts) |
+| Measure | 2x+ vs 0.6x (66 accounts) | 5x+ vs 0.3x (56 accounts) |
 |---|---|---|
-| Length | **43 / 19** (39 s vs 36 s) | **37 / 16** (41 s vs 34 s) |
-| Highest surprise on a face | **41 / 21** | **32 / 21** (0.36 vs 0.35) |
-| Share of pictures with 2+ faces | 31 / 31 | **34 / 19** (47% vs 44%) |
-| Share of the clip with talking | 32 / 30 | 20 / **33** (75% vs 77%) |
-| Loud wordless stretches | 28 / 33 | 27 / 25 (fading: 0.47 vs 0.44) |
-| Time after the last words | 32 / 30 | 25 / 28 |
-| Highest happiness on a face | 34 / 28 | 29 / 24 |
-| Laughing-face moments per 30 s | 32 / 30 | 24 / 29 |
-| Quiet wordless stretches | 33 / 29 (*not* replicated) | 27 / 26 |
-| Words in the first 3 s | 32 / 30 | 24 / 29 |
+| Length | **45 / 21** (39 s vs 36 s) | **39 / 17** (40 s vs 33 s) |
+| Highest surprise on a face | **43 / 23** | **35 / 21** (0.36 vs 0.35) |
+| Share of pictures with 2+ faces | 33 / 33 | **36 / 20** (48% vs 44%) |
+| Share of the clip with talking | 32 / 34 | 21 / **35** (77% vs 77%) |
+| Loud wordless stretches | 29 / 35 | 27 / 28 (*not* replicated) |
+| Time after the last words | 34 / 32 | 26 / 30 |
+| Highest happiness on a face | 37 / 29 | 31 / 25 |
+| Laughing-face moments per 30 s | 33 / 33 | 26 / 30 |
+| Quiet wordless stretches | 37 / 29 | 29 / 27 |
+| Words in the first 3 s | 34 / 32 | 25 / 31 |
+
+As more accounts came in, only three patterns kept holding: **breakouts are
+longer**, **a face looks more surprised**, and among the biggest breakouts
+**more people are on screen and there is a little less talking**. Loud
+wordless stretches looked strong in the first sample (22 of 25 accounts) but
+are a tie here. Keep reaction seconds because cutting a laugh ruins the
+moment, not because they predict views.
 
 So among the *biggest* breakouts against real flops, the first sample's
 picture comes back: less talking, more loud reaction moments, more people,
