@@ -322,6 +322,9 @@ ranking:
   context_seconds: 20         # transcript shown before each moment so the model can find where the setup starts
   face_reactions: true        # read faces (free FER+ model): re-rank moments and mark laughing-hard / shocked seconds for the editor
   face_pool_size: 10          # moments found before the face re-rank; the best shortlist_size go to the editor (TikTok: surprised faces 58/33 accounts)
+  scout_moments: 6            # the clip_pick model skims the whole transcript and adds up to 6 moments for the editor (~0.6 cents per 30-min chunk; 0 = off).
+                              # On real TikTok posts of our own recordings, 65% of their views reached the editor with the scout vs 23% without (moment_benchmark.py).
+  local_moments_with_scout: 4 # with scout moments, this many locally ranked moments still go to the editor (so it reads up to 10)
 
 # Face-aware framing (src/clips/framing.py): finds the streamer's face in each clip, never cuts the head.
 framing:

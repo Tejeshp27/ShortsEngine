@@ -496,3 +496,19 @@ def test_moment_in_the_shared_boundary_is_not_clipped_twice(space):
                 signals_json=json.dumps({"start": 80.0, "end": 118.0}))   # stream 80–118
     assert live_recorder.overlaps_neighbouring_chunk(ids[1], 0.0, 40.0)        # stream 90–130
     assert not live_recorder.overlaps_neighbouring_chunk(ids[1], 40.0, 80.0)   # stream 130–170
+
+
+def test_chunk_evidence_keeps_timing_and_viewer_clips(tmp_path, monkeypatch):
+    """The small evidence file keeps the chunk's clock lines and each viewer clip's views."""
+    monkeypatch.setattr(live_recorder, "ROOT", tmp_path)
+    session = {"id": 7, "streamer": "kaicenat", "platform": "twitch", "stream_started_at": 1000.0}
+    clock = [{"wall": 2000.0 + second, "stream": float(second)} for second in range(0, 4000, 10)]
+    clips = [{"id": "Abc", "created_at": "2026-11-20T03:19:48Z", "vod_offset": 3500, "duration": 30,
+              "view_count": 8831, "title": "winner", "thumbnail_url": "not kept"}]
+    path = live_recorder.save_chunk_evidence(12, session, 3480.0, 300.0, clock, clips)
+    record = json.loads(path.read_text())
+    assert record["recording_id"] == 12 and record["streamer"] == "kaicenat"
+    assert record["viewer_clips"] == [{"id": "Abc", "created_at": "2026-11-20T03:19:48Z", "vod_offset": 3500,
+                                       "duration": 30, "view_count": 8831, "title": "winner"}]
+    # Only clock lines near the chunk are kept.
+    assert record["clock"][0]["stream"] >= 3450 and record["clock"][-1]["stream"] <= 3810

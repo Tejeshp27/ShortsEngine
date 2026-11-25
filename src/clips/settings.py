@@ -419,6 +419,11 @@ class RankingSettings(BaseModel):
     face_pool_size: With face_reactions on, this many moments are found first,
                     re-ranked with their faces (the profile's face_weights),
                     and the best shortlist_size go to the editor.
+    scout_moments: How many moments the "scout" (the cheap model skimming the
+                   whole transcript, src/clips/scout.py) may add to what the
+                   editor reads; 0 = no scout. Needs use_editor_model.
+    local_moments_with_scout: When the scout found moments, how many of the
+                              locally ranked ones still go to the editor.
     """
     enabled: bool = True
     profile: str = "config/clip_ranking/v1.yaml"
@@ -428,6 +433,8 @@ class RankingSettings(BaseModel):
     context_seconds: float = Field(default=20, ge=0, le=60)
     face_reactions: bool = False
     face_pool_size: int = Field(default=10, ge=1, le=20)
+    scout_moments: int = Field(default=0, ge=0, le=10)
+    local_moments_with_scout: int = Field(default=4, ge=0, le=12)
 
 
 class TrimSettings(BaseModel):

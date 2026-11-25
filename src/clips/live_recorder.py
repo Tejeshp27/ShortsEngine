@@ -257,12 +257,10 @@ def build_engagement(stream_start, duration, clock, chat, clip_spans, live):
     return samples
 
 
-def viewer_clip_spans(broadcaster_id, wall_start, wall_end, stream_started_at):
+def live_viewer_clips(broadcaster_id, wall_start, wall_end, stream_started_at):
     """
     List the viewer-made Twitch clips that were made live during part of a stream.
 
-    A clip made while watching live covers the seconds just before it was
-    created, so it becomes the clock span (created − clip length, created).
     Twitch also returns clips made later from the past broadcast (their
     vod_offset, the place in the broadcast, is hours away from their
     creation time); those are skipped. Very new clips have no vod_offset
@@ -275,12 +273,12 @@ def viewer_clip_spans(broadcaster_id, wall_start, wall_end, stream_started_at):
         stream_started_at (float): When the broadcast began (0 if unknown).
 
     Returns:
-        list[tuple]: (start clock time, end clock time) for each clip.
+        list[dict]: Twitch's clip details (id, created_at, duration, view_count, title...).
     """
     from src.sources import twitch
 
     found = twitch.discover_clips(broadcaster_id, rfc3339(wall_start - 60), rfc3339(wall_end + 60), max_pages=3)
-    spans = []
+    kept = []
     for item in found["items"]:
         created = parse_rfc3339(item["created_at"])
         # Twitch's date filter is loose, so check the creation time ourselves.
@@ -291,8 +289,85 @@ def viewer_clip_spans(broadcaster_id, wall_start, wall_end, stream_started_at):
             place_in_broadcast = stream_started_at + float(offset)
             if abs(created - place_in_broadcast) > LIVE_CLIP_TOLERANCE_SECONDS:
                 continue
+        kept.append(item)
+    return kept
+
+
+def clip_spans_of(clips):
+    """
+    Turn viewer clips into the clock spans they cover.
+
+    A clip made while watching live covers the seconds just before it was
+    created, so it becomes the clock span (created − clip length, created).
+
+    Args:
+        clips (list[dict]): From live_viewer_clips().
+
+    Returns:
+        list[tuple]: (start clock time, end clock time) for each clip.
+    """
+    spans = []
+    for item in clips:
+        created = parse_rfc3339(item["created_at"])
         spans.append((created - float(item.get("duration") or 30), created))
     return spans
+
+
+def viewer_clip_spans(broadcaster_id, wall_start, wall_end, stream_started_at):
+    """
+    List the clock spans of viewer-made Twitch clips made live during part of a stream.
+
+    Args:
+        broadcaster_id (str): The streamer's numeric Twitch ID.
+        wall_start (float): Start of the period (clock time).
+        wall_end (float): End of the period (clock time).
+        stream_started_at (float): When the broadcast began (0 if unknown).
+
+    Returns:
+        list[tuple]: (start clock time, end clock time) for each clip.
+    """
+    return clip_spans_of(live_viewer_clips(broadcaster_id, wall_start, wall_end, stream_started_at))
+
+
+def save_chunk_evidence(recording_id, session, stream_start, duration, clock, clips):
+    """
+    Keep a small record of what the audience did during one chunk, for later checks.
+
+    The raw video is deleted after clipping, but this file stays (a few KB).
+    It lets us check later whether the ranker found the moments viewers
+    clipped (src/clips/viewer_clip_check.py): it holds the clock-to-video
+    timing and each viewer clip's ID, place and view count at this moment.
+
+    Args:
+        recording_id (int): The recording made from the chunk.
+        session (dict): The live_sessions row.
+        stream_start (float): Stream time of the chunk's first second.
+        duration (float): The chunk's length in seconds.
+        clock (list[dict]): FFmpeg's {"wall", "stream"} log.
+        clips (list[dict]): Viewer clips from live_viewer_clips().
+
+    Returns:
+        Path: The file written.
+    """
+    # Only the clock lines inside this chunk (plus one on each side) are needed.
+    timing = []
+    for sample in clock:
+        if stream_start - 30 <= sample["stream"] <= stream_start + duration + 30:
+            timing.append({"wall": sample["wall"], "stream": sample["stream"]})
+    kept_clips = []
+    for item in clips:
+        kept_clips.append({"id": item.get("id"), "created_at": item.get("created_at"),
+                           "vod_offset": item.get("vod_offset"), "duration": item.get("duration"),
+                           "view_count": item.get("view_count"), "title": item.get("title", "")})
+    record = {"recording_id": recording_id, "session_id": session["id"], "streamer": session["streamer"],
+              "platform": session["platform"], "stream_started_at": session["stream_started_at"],
+              "stream_start": stream_start, "duration": duration, "clock": timing,
+              "viewer_clips": kept_clips, "saved_at": time.time()}
+    folder = ROOT / "cache" / "clips" / "evidence"
+    folder.mkdir(parents=True, exist_ok=True)
+    path = folder / f"recording_{recording_id}.json"
+    path.write_text(json.dumps(record))
+    return path
 
 
 # ---------------------------------------------------------------
@@ -998,17 +1073,18 @@ def finalize_part(channel, config, settings, session, part, previous, clock, cha
         return None
 
     stream_start = part["start"] - tail_seconds
-    clip_spans = []
+    viewer_clips = []
     if session["platform"] == "twitch" and session["broadcaster_id"] and live.viewer_clip_weight > 0:
         wall_start = wall_time_at(stream_start, clock)
         wall_end = wall_time_at(stream_start + duration, clock)
         if wall_start is not None and wall_end is not None:
             try:
-                clip_spans = viewer_clip_spans(session["broadcaster_id"], wall_start, wall_end,
-                                               session["stream_started_at"])
+                viewer_clips = live_viewer_clips(session["broadcaster_id"], wall_start, wall_end,
+                                                 session["stream_started_at"])
             except Exception:
                 # Viewer clips only improve the score; recording carries on without them.
-                clip_spans = []
+                viewer_clips = []
+    clip_spans = clip_spans_of(viewer_clips)
     engagement = build_engagement(stream_start, duration, clock, chat, clip_spans, live)
     sidecar = output.with_suffix(".engagement.json")
     sidecar.write_text(json.dumps(engagement))
@@ -1017,6 +1093,11 @@ def finalize_part(channel, config, settings, session, part, previous, clock, cha
                                         True, move=True, source_kind="live")
     finally:
         sidecar.unlink(missing_ok=True)
+    try:
+        save_chunk_evidence(recording_id, session, stream_start, duration, clock, viewer_clips)
+    except OSError:
+        # The record is only for later checks; never stop recording over it.
+        pass
     save_chunk(session["id"], part["index"], "imported", recording_id, stream_start, duration,
                f"{len(clip_spans)} viewer clips; chat samples {len(engagement)}")
     return recording_id

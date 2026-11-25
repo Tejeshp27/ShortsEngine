@@ -178,6 +178,8 @@ def paid_ai_steps(config, kind, payload):
         count = min(count, config.get("llm", {}).get("max_calls_per_run", 15))
         for index in range(count):
             steps.append(("clip_pick", 10000))
+    if kind == "clip_pipeline":
+        steps.extend(clip_ranking_steps(config))
     if kind == "discover" and payload.get("rank"):
         steps.append(("ranking", RANKING_INPUT_CEILING))
     if kind == "generate":
@@ -234,6 +236,63 @@ def voice_allowance(config, payload):
     return max_spoken_chars(config) * float(rate) / 1000
 
 
+# Worst-case input sizes (UTF-8 bytes, an upper bound on tokens) for the clip
+# ranking calls: the editor reads up to ~10 moments with context; the scout
+# reads a whole recorded chunk (about 25 KB per 30 minutes of talking).
+CLIP_EDITOR_INPUT_CEILING = 40000
+CLIP_SCOUT_INPUT_CEILING = 60000
+
+# Paid steps whose model and answer size differ from the job's other steps:
+# purpose → (model setting in `models:`, answer token limit or a function of the settings).
+CLIP_RANKING_PURPOSES = ("clip_editor", "clip_scout")
+
+
+def clip_ranking_steps(config):
+    """
+    List the ranking calls one clip pipeline job may make (editor model and scout).
+
+    Args:
+        config (dict): The clips channel's settings.
+
+    Returns:
+        list[tuple]: (purpose, input ceiling) pairs; empty when the editor model is off.
+    """
+    from src.clips.settings import is_clips_channel, load_clip_settings
+
+    if not is_clips_channel(config):
+        return []
+    ranking = load_clip_settings(config).ranking
+    if not ranking.enabled or not ranking.use_editor_model:
+        return []
+    steps = []
+    if ranking.scout_moments:
+        steps.append(("clip_scout", CLIP_SCOUT_INPUT_CEILING))
+    steps.append(("clip_editor", CLIP_EDITOR_INPUT_CEILING))
+    return steps
+
+
+def clip_ranking_answer_tokens(config, purpose):
+    """
+    The most tokens a clip ranking call may write (matches editor.py and scout.py).
+
+    Args:
+        config (dict): The clips channel's settings.
+        purpose (str): "clip_editor" or "clip_scout".
+
+    Returns:
+        int: The answer token limit used for that call.
+    """
+    from src.clips.settings import load_clip_settings
+
+    ranking = load_clip_settings(config).ranking
+    if purpose == "clip_scout":
+        return 60 * ranking.scout_moments + 100
+    reviewed = ranking.shortlist_size
+    if ranking.scout_moments:
+        reviewed = ranking.local_moments_with_scout + ranking.scout_moments
+    return min(4500, 450 * reviewed + 300)
+
+
 def estimate_job(config, kind, payload):
     """
     Work out the most a job may spend (its "allowance").
@@ -267,11 +326,16 @@ def estimate_job(config, kind, payload):
     total = voice_cost
     for purpose, input_ceiling in steps:
         model = config["models"].get(purpose) or config["models"].get("writing")
+        if purpose in CLIP_RANKING_PURPOSES:
+            # The editor and scout both use the cheap clip model.
+            model = config["models"].get("clip_pick")
         if model not in prices:
             raise ValueError(f"Add {model} to config/pricing.yaml before creating a paid job.")
         max_tokens = config["llm"].get(f"{purpose}_max_tokens", 6000)
         if kind == "clip_pipeline":
             max_tokens = config.get("llm", {}).get("clip_metadata_max_tokens", 400)
+        if purpose in CLIP_RANKING_PURPOSES:
+            max_tokens = clip_ranking_answer_tokens(config, purpose)
         # Input is priced as a prompt-cache write, the most expensive kind.
         total += calculate_cost(prices, model, 0, max_tokens, cache_write_tokens=input_ceiling)
     return round(total + ALLOWANCE_CUSHION_USD, 2)

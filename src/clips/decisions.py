@@ -115,7 +115,8 @@ def selection_record(candidate, recording, profile, rejected_others):
             "components": candidate.get("components", {}), "evidence": candidate.get("evidence", {}),
             "reason": candidate.get("reason", ""), "what_happened": review.get("what_happened", ""),
             "why_funny": review.get("why_funny", ""), "who": review.get("who", ""),
-            "editor_reviewed": bool(review), "profile_version": profile.get("version", ""),
+            "editor_reviewed": bool(review), "found_by": candidate.get("source", "local"),
+            "scout_why": candidate.get("scout_why", ""), "profile_version": profile.get("version", ""),
             "profile_path": profile.get("path", ""), "rejected_in_same_recording": others}
 
 

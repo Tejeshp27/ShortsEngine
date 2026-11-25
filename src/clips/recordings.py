@@ -336,19 +336,38 @@ def rank_moments(recording, words, media, engagement, config, settings, streamer
     profile = load_profile(profile_path)
     sounds = recording_events(recording["file_path"])
     duration = recording["duration"]
+    name = display_name_for(streamer)
+    use_editor = settings.ranking.use_editor_model and llm is not None
+    scouted = []
+    if settings.ranking.scout_moments and use_editor:
+        from src.clips.scout import scout_moments
+        # The scout skims the whole transcript for moments the local signals miss.
+        scouted = scout_moments(words, engagement, duration, name, config, llm, count=settings.ranking.scout_moments)
+    local_keep = settings.ranking.shortlist_size
+    if scouted:
+        local_keep = settings.ranking.local_moments_with_scout
     faces = None
+    tracks = []
     if settings.ranking.face_reactions:
         # Read faces on a slightly bigger pool, let them re-rank it (surprised
         # faces and more people went with breakouts), then keep the shortlist.
-        pool_size = max(settings.ranking.shortlist_size, settings.ranking.face_pool_size)
+        pool_size = max(local_keep, settings.ranking.face_pool_size)
         pool = propose_candidates(duration, words, media, sounds, engagement, settings, profile,
                                   pool_size=pool_size)
         tracks = candidate_face_tracks(recording["file_path"], pool, duration, settings.ranking.context_seconds)
-        shortlist, tracks = rerank_with_faces(pool, tracks, profile, settings.ranking.shortlist_size)
-        faces = face_marks_for(tracks, words)
+        shortlist, tracks = rerank_with_faces(pool, tracks, profile, local_keep)
     else:
-        shortlist = propose_candidates(duration, words, media, sounds, engagement, settings, profile)
-    name = display_name_for(streamer)
+        shortlist = propose_candidates(duration, words, media, sounds, engagement, settings, profile,
+                                       pool_size=local_keep)
+    if scouted:
+        from src.clips.ranking import add_scout_candidates
+        shortlist, added = add_scout_candidates(shortlist, scouted, words, media, sounds, engagement, profile,
+                                                duration)
+        if settings.ranking.face_reactions and added:
+            tracks = tracks + candidate_face_tracks(recording["file_path"], added, duration,
+                                                    settings.ranking.context_seconds)
+    if settings.ranking.face_reactions:
+        faces = face_marks_for(tracks, words)
     reviews = []
     if settings.ranking.use_editor_model and llm is not None:
         from src.clips.taste import taste_block
@@ -401,10 +420,12 @@ def rank_moments(recording, words, media, engagement, config, settings, streamer
     for candidate in result["rejected"]:
         summary_rejected.append({"start": candidate["start"], "end": candidate["end"],
                                  "score": candidate.get("score"), "reason": candidate.get("rejected"),
+                                 "source": candidate.get("source", "local"), "scout_why": candidate.get("scout_why", ""),
                                  "what_happened": (candidate.get("review") or {}).get("what_happened", "")})
     summary_chosen = []
     for candidate in chosen:
         summary_chosen.append({"start": candidate["start"], "end": candidate["end"], "score": candidate["score"],
+                               "source": candidate.get("source", "local"),
                                "category": candidate.get("category"), "reason": candidate.get("reason"),
                                "title": candidate["hook_title"]})
     log_event(recording["channel"], "recording_ranked",

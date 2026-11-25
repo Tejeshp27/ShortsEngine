@@ -902,6 +902,58 @@ def rerank_with_faces(pool, tracks, profile, keep):
     return shortlist, kept_tracks
 
 
+def add_scout_candidates(shortlist, scouted, words, media, sounds, engagement, profile, duration):
+    """
+    Add the scout's moments to the locally ranked shortlist (without repeats).
+
+    The scout (src/clips/scout.py) reads the whole transcript and points at
+    moments a clip account would post. On real TikTok posts of our own
+    recordings it found far more of them than the local signals did
+    (src/clips/moment_benchmark.py), so its moments are always read by the
+    editor. A scout moment that overlaps a local one just marks it.
+
+    Args:
+        shortlist (list[dict]): Local candidates, best first.
+        scouted (list[dict]): {"start", "end", "why"} windows from the scout.
+        words (list[dict]): Timed words.
+        media (dict): Per-second volume/motion.
+        sounds (list[dict]): Per-second sound chances.
+        engagement (list[dict]): Chat samples.
+        profile (dict): From load_profile().
+        duration (float): Recording length.
+
+    Returns:
+        tuple: (the local shortlist followed by new scout candidates, the new scout candidates only).
+    """
+    for candidate in shortlist:
+        candidate.setdefault("source", "local")
+    added = []
+    for window in scouted:
+        start = snap_start_to_word(window["start"], words)
+        end = snap_end_to_word(window["end"], words, duration)
+        if end - start < 5:
+            continue
+        candidate = {"start": round(start, 2), "end": round(end, 2)}
+        repeated = False
+        for existing in shortlist + added:
+            if overlaps(candidate, existing):
+                existing["source"] = "local+scout"
+                existing["scout_why"] = window["why"]
+                repeated = True
+                break
+        if repeated:
+            continue
+        components, evidence = local_components(start, end, words, media, sounds, engagement, profile)
+        spoken = []
+        for word in words_between(words, start, end):
+            spoken.append(word["word"])
+        candidate.update({"payoff_time": round((start + end) / 2, 1), "components": components,
+                          "evidence": evidence, "local_score": weighted_total(components, profile["weights"]),
+                          "transcript": " ".join(spoken), "source": "scout", "scout_why": window["why"]})
+        added.append(candidate)
+    return shortlist + added, added
+
+
 # ---------------------------------------------------------------------------
 # Combining with the editor model and deciding
 # ---------------------------------------------------------------------------
