@@ -36,12 +36,17 @@ audience: "Gamers and stream viewers aged 16-30 scrolling TikTok"
 # AI models (prices are in config/pricing.yaml).
 models:
   clip_pick: "claude-haiku-4-5"   # cheap model: picks the moment and writes the hook title
+  clip_scout: "claude-sonnet-5-5" # skims each chunk for moments (src/clips/scout.py). Benchmark on 35 TikTok-proven
+                                  # moments (2026-11-25): Sonnet 5.5 found 22 (79% of views), Haiku 4.5 11 (58%),
+                                  # Opus 5.5 19 (43%), Haiku 5.5 14 (31%). ~1.3 cents per 30-min chunk.
 
 # Spending guards for each run.
 llm:
   max_calls_per_run: 15          # most paid AI calls one run may make (one per clip)
   clip_pick_max_tokens: 300      # hard cap on how much the model may write per clip (a short JSON answer)
   clip_metadata_max_tokens: 400  # hard cap for optional speech assessment/title/description in the new pipeline
+  clip_scout_effort: "low"       # how hard the scout model thinks (low was tested; higher costs more)
+  clip_scout_max_tokens: 4000    # the scout's answer limit; newer models think first and that counts here
 
 # ---------------------------------------------------------------
 # Approved streamers. Each one needs written permission FIRST.

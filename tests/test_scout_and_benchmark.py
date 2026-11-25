@@ -100,3 +100,12 @@ def test_twitch_moments_use_the_saved_clock():
     moments = mb.twitch_moments(evidence)
     # Created at clock 1200 → stream 200 → 100 s into the chunk; the clip covers the 30 s before.
     assert moments == [{"recording_id": 3, "start": 70.0, "end": 100.0, "views": 5, "posts": 1, "desc": "W"}]
+
+
+def test_scout_uses_its_own_model_and_effort_when_set():
+    """models.clip_scout and llm.clip_scout_* override the clip model and answer limit."""
+    config = {"models": {"clip_pick": "claude-haiku-4-5", "clip_scout": "claude-sonnet-5-5"},
+              "llm": {"clip_scout_effort": "low", "clip_scout_max_tokens": 4000}}
+    assert scout.scout_model_settings(config, 6) == ("claude-sonnet-5-5", "low", 4000)
+    plain = {"models": {"clip_pick": "claude-haiku-4-5"}}
+    assert scout.scout_model_settings(plain, 6) == ("claude-haiku-4-5", None, 460)

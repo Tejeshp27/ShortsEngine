@@ -16,8 +16,9 @@
 # editor still decides what is good, so a wrong nomination only costs a
 # little reading.
 #
-# Cost: one Haiku call per recording. About 2,000 transcript words per
-# 15 minutes → roughly 0.7 cents per 30-minute chunk (answers are cached).
+# Cost: one call per recording with `models.clip_scout` (Sonnet 5.5 won a
+# benchmark of Haiku 4.5/5.5, Sonnet 5.5 and Opus 5.5): about 1.3 cents per
+# 30-minute chunk at low effort (answers are cached).
 # The transcript is treated as data, never as instructions.
 # =============================================================
 
@@ -143,6 +144,29 @@ def clean_moments(answer, duration, limit):
     return kept
 
 
+def scout_model_settings(config, count):
+    """
+    Read which model the scout uses, how hard it thinks and how long it may answer.
+
+    `models.clip_scout` picks the model (default: the clip_pick model).
+    Newer models think before answering and the thinking counts towards the
+    answer limit, so `llm.clip_scout_max_tokens` must leave room for it.
+
+    Args:
+        config (dict): Channel YAML.
+        count (int): How many moments are asked for.
+
+    Returns:
+        tuple: (model name, effort or None, answer token limit).
+    """
+    models = config.get("models", {})
+    limits = config.get("llm", {})
+    model = models.get("clip_scout") or models["clip_pick"]
+    effort = limits.get("clip_scout_effort")
+    max_tokens = int(limits.get("clip_scout_max_tokens", 60 * count + 100))
+    return model, effort, max_tokens
+
+
 def scout_moments(words, engagement, duration, name, config, llm, count=6):
     """
     Ask the cheap model which moments of a whole recording are worth a look.
@@ -164,11 +188,12 @@ def scout_moments(words, engagement, duration, name, config, llm, count=6):
     if llm is None or not words:
         return []
     transcript = compact_transcript(words, engagement)
+    model, effort, max_tokens = scout_model_settings(config, count)
     try:
-        answer_text = llm.ask(model=config["models"]["clip_pick"],
+        answer_text = llm.ask(model=model,
                               system_prompt=SYSTEM_PROMPT.format(name=name, count=count),
                               user_message=f"Streamer: {name}\n\n{transcript}",
-                              max_tokens=60 * count + 100, purpose="clip_scout")
+                              max_tokens=max_tokens, purpose="clip_scout", effort=effort)
     except (CallLimitReached, LLMError):
         return []
     if getattr(llm, "dry_run", False):

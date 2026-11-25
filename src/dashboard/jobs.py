@@ -284,9 +284,11 @@ def clip_ranking_answer_tokens(config, purpose):
     """
     from src.clips.settings import load_clip_settings
 
+    from src.clips.scout import scout_model_settings
+
     ranking = load_clip_settings(config).ranking
     if purpose == "clip_scout":
-        return 60 * ranking.scout_moments + 100
+        return scout_model_settings(config, ranking.scout_moments)[2]
     reviewed = ranking.shortlist_size
     if ranking.scout_moments:
         reviewed = ranking.local_moments_with_scout + ranking.scout_moments
@@ -326,9 +328,11 @@ def estimate_job(config, kind, payload):
     total = voice_cost
     for purpose, input_ceiling in steps:
         model = config["models"].get(purpose) or config["models"].get("writing")
-        if purpose in CLIP_RANKING_PURPOSES:
-            # The editor and scout both use the cheap clip model.
+        if purpose == "clip_editor":
             model = config["models"].get("clip_pick")
+        if purpose == "clip_scout":
+            # The scout may use its own (stronger) model; otherwise the clip model.
+            model = config["models"].get("clip_scout") or config["models"].get("clip_pick")
         if model not in prices:
             raise ValueError(f"Add {model} to config/pricing.yaml before creating a paid job.")
         max_tokens = config["llm"].get(f"{purpose}_max_tokens", 6000)
