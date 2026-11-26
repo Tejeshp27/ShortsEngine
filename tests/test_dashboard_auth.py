@@ -465,3 +465,16 @@ class TestEnsureSessionSecret:
 
         assert ensure_session_secret(str(env_file)) == "missing"
         assert not env_file.exists()
+
+
+def test_pages_show_the_out_of_credits_banner_only_while_it_is_on(client, tmp_path, monkeypatch):
+    """Every page warns about an empty Anthropic balance while the alert file exists."""
+    from src.generation import llm
+
+    monkeypatch.setattr(llm, "CREDIT_ALERT_PATH", str(tmp_path / "alerts" / "out_of_credits.json"))
+    log_in(client)
+    assert "Out of Anthropic API credits" not in client.get("/").text
+    llm.record_out_of_credits("Your credit balance is too low to access the Anthropic API.")
+    assert "Out of Anthropic API credits" in client.get("/").text
+    llm.clear_out_of_credits()
+    assert "Out of Anthropic API credits" not in client.get("/").text

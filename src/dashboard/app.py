@@ -43,6 +43,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.sessions import SessionMiddleware
 
 from src.analytics.collector import get_metrics_summary
+from src.generation.llm import read_out_of_credits
 from src.dashboard.accounts import ACCOUNT_PLATFORMS, account_platforms_for
 from src.dashboard.auth import (
     check_form_token,
@@ -93,6 +94,8 @@ templates = Jinja2Templates(directory=TEMPLATES_FOLDER)
 templates.env.globals["account_platforms"] = ACCOUNT_PLATFORMS
 templates.env.globals["account_platforms_for"] = account_platforms_for
 templates.env.globals["platform_names"] = PLATFORM_NAMES
+# Every page checks this so an empty Anthropic balance is shown at once.
+templates.env.globals["credit_alert"] = read_out_of_credits
 
 # A router collects the page functions below. create_app() attaches
 # them to the app.

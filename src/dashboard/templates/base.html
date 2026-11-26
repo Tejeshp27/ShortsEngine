@@ -37,7 +37,10 @@
 <button class="btn btn-plain" type="submit">Log out</button>
 </form>
   </header>
-  <main class="container" id="main">{% block content %}{% endblock %}</main>
+  <main class="container" id="main">
+  {% set out_of_credits = credit_alert() %}
+  {% if out_of_credits %}<div class="alert" role="alert"><strong>Out of Anthropic API credits</strong>{% if out_of_credits.since %} since {{ out_of_credits.since.replace('T', ' ') }}{% endif %}. AI steps (clip editor, scout, titles) are being skipped, so clips fall back to local scoring. Top up at console.anthropic.com (Billing); this message clears after the next successful AI call.</div>{% endif %}
+  {% block content %}{% endblock %}</main>
 </div>
 {% else %}
 <main class="login-container">{% block login_content %}{% endblock %}{% if self.login_content()|trim == '' %}{{ self.content() }}{% endif %}</main>

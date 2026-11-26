@@ -43,6 +43,70 @@ class LLMError(Exception):
     """Raised when the AI call fails in a way we can explain to the user."""
 
 
+class OutOfCreditsError(LLMError):
+    """Raised when Anthropic refuses a call because the account has no credits left."""
+
+
+# While this file exists the dashboard shows an "out of API credits" banner.
+# Parts of the clip pipeline quietly fall back to free local scoring when an
+# AI call fails, so without this alert an empty balance would go unnoticed.
+CREDIT_ALERT_PATH = os.path.join("cache", "alerts", "out_of_credits.json")
+
+# Words in Anthropic's error message when the balance is empty
+# ("Your credit balance is too low to access the Anthropic API...").
+CREDIT_ERROR_WORDS = "credit balance"
+
+
+def is_out_of_credits_message(message):
+    """
+    Check whether an Anthropic error message means the account ran out of credits.
+
+    Args:
+        message (str): The error text Anthropic sent back.
+
+    Returns:
+        bool: True for "Your credit balance is too low...", False otherwise.
+    """
+    return CREDIT_ERROR_WORDS in str(message).lower()
+
+
+def record_out_of_credits(message):
+    """
+    Save the "out of credits" alert so the dashboard can show it.
+
+    Args:
+        message (str): Anthropic's error text, kept for reference.
+    """
+    os.makedirs(os.path.dirname(CREDIT_ALERT_PATH), exist_ok=True)
+    alert = {"since": datetime.now().isoformat(timespec="seconds"), "message": str(message)[:300]}
+    with open(CREDIT_ALERT_PATH, "w", encoding="utf-8") as f:
+        json.dump(alert, f)
+
+
+def clear_out_of_credits():
+    """Remove the "out of credits" alert (called after a paid call succeeds)."""
+    if os.path.exists(CREDIT_ALERT_PATH):
+        os.remove(CREDIT_ALERT_PATH)
+
+
+def read_out_of_credits():
+    """
+    Read the "out of credits" alert, if there is one.
+
+    Returns:
+        dict or None: {"since": "2026-11-25T21:00:00", "message": "..."} while the
+                      account is out of credits, otherwise None.
+    """
+    if not os.path.exists(CREDIT_ALERT_PATH):
+        return None
+    try:
+        with open(CREDIT_ALERT_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except (OSError, ValueError):
+        # A half-written file still means the alert is on.
+        return {"since": "", "message": ""}
+
+
 def load_pricing():
     """
     Read the price list from config/pricing.yaml.
@@ -337,11 +401,18 @@ class LLMClient:
             raise LLMError("Rate limited by Anthropic. Wait a minute and try again.")
         except anthropic.APIStatusError as error:
             self.call_rejected = 400 <= error.status_code < 500
+            if is_out_of_credits_message(error.message):
+                record_out_of_credits(error.message)
+                print("  WARNING: Out of Anthropic API credits. AI steps are skipped until you top up.")
+                raise OutOfCreditsError("Your Anthropic credit balance is too low. "
+                                        "Top up at console.anthropic.com (Billing).")
             raise LLMError(f"Anthropic API error {error.status_code}: {error.message}")
         except anthropic.APIConnectionError:
             raise LLMError("Could not reach the Anthropic API. Check your internet connection.")
 
         self.last_usage = response.usage
+        # A call went through, so the account has credits again.
+        clear_out_of_credits()
         if response.stop_reason == "refusal":
             raise LLMError("The model declined this request. Try a different story.")
         if response.stop_reason == "max_tokens":

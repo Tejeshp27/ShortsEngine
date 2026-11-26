@@ -21,6 +21,7 @@
 # =============================================================
 
 import json
+from datetime import date
 
 from src.clips.moments import read_json_answer
 
@@ -37,8 +38,22 @@ What the data says (10,263 Shorts from 78 streamer-clip channels, each channel's
   absurd accident, a perfectly timed reply, or a genuine big reaction to another person.
 - Interactions with other real people (friends, guests, celebrities, the cameraman, chat on stream) win.
 - Flops are calm: friendly chatting, heartfelt talks, showing a house or item, routine errands, planning,
-  explaining, game menus, and GTA/NPC roleplay dialogue ("in GTA" titles were 2.6x more common among flops).
-- If you cannot name the unexpected event in a few words, reject the moment.
+  explaining, game menus, and routine GTA/NPC roleplay dialogue ("in GTA" titles were 2.6x more common among flops).
+- If you cannot name the unexpected event in a few words, reject the moment. A bold opinion about a story
+  viewers are following counts as the event ("says GTA 6 is worse than GTA 5").
+
+Right now (the week's big stories; the message may start with a "Right now" list):
+- Your knowledge may be older than that list: trust it. In our own audience check, most moments from our
+  recordings that went viral on TikTok were reactions to and opinions about the week's big game, and an editor
+  that treated them as "game dialogue" or "just commentary" rejected about 80% of them.
+- For a game on the list, the streamer's first reaction to a big story beat (a betrayal, a death, a twist, a
+  reveal, a famous character) is a story moment, not NPC dialogue: keep it when the streamer reacts or comments,
+  even if game characters do most of the talking. Explain the beat in the hook so a stranger gets it.
+- An honest opinion or hot take about it (better or worse than the last one, the story, the voice acting,
+  defending it against chat) is worth posting even without a twist: viewers search for what streamers think.
+  Score its surprise by how bold or quotable the take is.
+- Another well-known streamer or celebrity showing up, lurking in chat or reacting to them counts as the event.
+- Still reject routine missions, directions, menus and driving where nobody reacts to anything.
 
 What TikTok data adds (about 13,900 streamer clips watched; each account's breakouts vs. its own flops,
 checked on 91-116 accounts that were never used to write these rules):
@@ -73,7 +88,8 @@ How to judge (streamer culture):
   purpose, gaming slang. Do not interpret everything literally.
 - A good clip has setup -> development -> payoff -> clean ending. It must make sense to someone who never
   watched the stream. Reject a moment that needs too much missing context, has no payoff, is mostly filler,
-  is only game/NPC dialogue or a video playing, or is just the streamer reading/talking about nothing.
+  is only routine game/NPC dialogue or a video playing with no reaction, or is just the streamer reading/talking
+  about nothing.
 - "(LAUGH heard)", "(SCREAM heard)" and "(CHAT x3)" marks are measured from the audio/chat; they help but
   are not proof. Lines may include words from game characters, other people or videos.
 - Choose start = where the setup gets interesting (skip a dry, slow lead-in, but never start after the
@@ -362,6 +378,45 @@ def text_list(value):
     return items
 
 
+def current_topics_text(config, today=None):
+    """
+    Write the "Right now" list of big stories the editor should know about.
+
+    Each channel lists them in its YAML under `current_topics` (name, note and an
+    "until" date). A topic stops being sent the day after its "until" date, so
+    an old story never keeps steering the editor.
+
+    Args:
+        config (dict): Channel YAML.
+        today (date): The date to check against (default: today; tests pass one).
+
+    Returns:
+        str: For example "Right now (...):\n- GTA 6: just came out...\n\n", or ""
+             when there is nothing current.
+
+    Example:
+        current_topics: [{name: "GTA 6", note: "just came out", until: "2026-12-20"}]
+        -> "Right now (...):\n- GTA 6: just came out\n\n"
+    """
+    if today is None:
+        today = date.today()
+    lines = []
+    for topic in config.get("current_topics") or []:
+        name = str(topic.get("name", "")).strip()
+        if not name:
+            continue
+        until = topic.get("until")
+        # YAML may read an unquoted date as a date object, so compare as text (YYYY-MM-DD).
+        if until and str(until) < today.isoformat():
+            continue
+        note = str(topic.get("note", "")).strip()
+        lines.append(f"- {name}: {note}" if note else f"- {name}")
+    if not lines:
+        return ""
+    heading = "Right now (stories everyone is following this week; trust this over older knowledge):"
+    return heading + "\n" + "\n".join(lines) + "\n\n"
+
+
 def review_candidates(candidates, words, sounds, engagement, duration, name, config, settings, llm, taste="",
                       volume=None, faces=None):
     """
@@ -394,10 +449,11 @@ def review_candidates(candidates, words, sounds, engagement, duration, name, con
                                  settings.ranking.context_seconds, duration, volume=volume, faces=faces)
     # About 450 tokens per reviewed moment (titles included) plus the wrapper.
     max_tokens = min(4500, 450 * len(candidates) + 300)
+    topics = current_topics_text(config)
     try:
         answer_text = llm.ask(model=config["models"]["clip_pick"],
                               system_prompt=SYSTEM_PROMPT.format(name=name),
-                              user_message=(taste + "\n\n" if taste else "") + f"Streamer: {name}\n\n{message}",
+                              user_message=topics + (taste + "\n\n" if taste else "") + f"Streamer: {name}\n\n{message}",
                               max_tokens=max_tokens, purpose="clip_editor")
     except (CallLimitReached, LLMError):
         return []

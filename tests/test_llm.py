@@ -130,3 +130,42 @@ def test_cost_log_is_written(in_temp_folder):
         lines = f.read().strip().splitlines()
     assert lines[0].startswith("timestamp,channel")
     assert "test run" in lines[1]
+
+
+class NoCreditsMessages:
+    """Pretends to be client.messages when the Anthropic account has no credits left."""
+
+    def create(self, **request):
+        """Raise the same error Anthropic sends when the balance is empty."""
+        import anthropic
+        import httpx
+
+        request_info = httpx.Request("POST", "https://api.anthropic.com/v1/messages")
+        message = "Your credit balance is too low to access the Anthropic API."
+        reply = httpx.Response(400, request=request_info,
+                               json={"type": "error", "error": {"type": "invalid_request_error", "message": message}})
+        raise anthropic.BadRequestError(message, response=reply, body=None)
+
+
+def test_empty_balance_saves_an_alert_and_a_success_clears_it(in_temp_folder):
+    """An empty balance raises OutOfCreditsError and turns the dashboard alert on; a later good call turns it off."""
+    from src.generation.llm import OutOfCreditsError, read_out_of_credits
+
+    broke = make_client(api_client=SimpleNamespace(messages=NoCreditsMessages()))
+    with pytest.raises(OutOfCreditsError):
+        broke.ask("test-model", "sys", "question", 500, purpose="test")
+    alert = read_out_of_credits()
+    assert alert is not None
+    assert "credit balance" in alert["message"]
+
+    working = make_client(api_client=FakeClient())
+    working.ask("test-model", "sys", "another question", 500, purpose="test")
+    assert read_out_of_credits() is None
+
+
+def test_other_api_errors_do_not_raise_the_credit_alert():
+    """Only Anthropic's credit-balance message counts as running out of credits."""
+    from src.generation.llm import is_out_of_credits_message
+
+    assert is_out_of_credits_message("Your credit balance is too low to access the Anthropic API.")
+    assert not is_out_of_credits_message("max_tokens: must be at most 64000")

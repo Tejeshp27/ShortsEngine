@@ -315,6 +315,14 @@ analysis:
     visual: 0.07              # sampled frame changes; does not recognize game events
   excitement_terms: [wow, what, wait, unbelievable, "no way", amazing, why]  # speech cues to look for
 
+# Stories everyone is following right now. The clip editor is told about each one until its
+# "until" date, so it keeps first reactions and hot takes about them instead of rejecting them as
+# "game dialogue". The AI's own knowledge is older than these stories. Add, edit or remove freely.
+current_topics:
+  - name: "GTA 6"                # the story, as viewers would search for it
+    note: "Just came out and every focus streamer is playing it for the first time. Viewers want their first reactions to big story moments (betrayals, deaths, twists, characters like Lucia and Jason) and their honest opinions of the game (better or worse than GTA 5, the story, the voice acting)."  # what viewers want from it
+    until: "2026-12-20"          # last day the editor is told about it (YYYY-MM-DD)
+
 # Moment ranking (src/clips/ranking.py, src/clips/editor.py; research: docs/VIRAL_CONTENT_RESEARCH.md).
 # Seven categories (humor, surprise, hook, clarity, pacing, conversation, quality) with versioned
 # weights; weak, confusing or duplicate moments are rejected, so a dull hour gives fewer or no clips.

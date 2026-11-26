@@ -44,7 +44,11 @@ recorded hour ─► Whisper words + sound labels (laughter, scream, cheer, spee
                  and 2+ faces re-rank them, the best 6 go on (v3; laughing faces unscored)
               ─► editor.py: ONE Haiku call reads the 6 best windows (transcript + LAUGH/
                  SCREAM/CHAT and face marks), explains the joke, sets setup-start/payoff-end,
-                 scores, rejects weak ones, writes title ideas  (~1–2 cents per hour)
+                 scores, rejects weak ones, writes title ideas  (~1–2 cents per hour).
+                 It is also told the channel's `current_topics` (e.g. "GTA 6", until a set
+                 date), so first reactions and hot takes about the week's big story are
+                 kept instead of being dismissed as game dialogue (Haiku 4.5 was kept
+                 after a Haiku/Sonnet/Opus test on 2026-11-25: no model was better)
               ─► decide: blend (85% model / 15% evidence), reject no-payoff / unclear /
                  no event / duplicate / below 62; at most N per recording — zero is allowed
               ─► titles.py: hook text, YouTube title, TikTok description, ≤4 hashtags;

@@ -975,3 +975,46 @@ def test_keep_awake_follows_the_process(monkeypatch):
     assert started[0] == ["/usr/bin/caffeinate", "-i", "-s", "-w", "1234"]
     monkeypatch.setattr(keep_awake.shutil, "which", lambda name: None)
     assert keep_awake.keep_awake_while_running(1234) is None
+
+
+def test_current_topics_list_only_stories_that_have_not_expired():
+    """The "Right now" list keeps topics until their end date and skips blank ones."""
+    from datetime import date
+    config = {"current_topics": [
+        {"name": "GTA 6", "note": "just came out", "until": "2026-12-20"},
+        {"name": "Old award show", "note": "last month", "until": "2026-10-01"},
+        {"name": "  "},
+        {"name": "Kick launch"},
+    ]}
+    text = editor.current_topics_text(config, today=date(2026, 11, 25))
+    assert "- GTA 6: just came out" in text and "- Kick launch" in text
+    assert "Old award show" not in text
+    # The last day is still included; the day after it is not.
+    assert "GTA 6" in editor.current_topics_text(config, today=date(2026, 12, 20))
+    assert "GTA 6" not in editor.current_topics_text(config, today=date(2026, 12, 21))
+    assert editor.current_topics_text({}, today=date(2026, 11, 25)) == ""
+
+
+def test_editor_is_told_the_current_topics_and_how_to_treat_them():
+    """Current stories go in front of the editor, and story reactions are not dismissed as NPC dialogue."""
+    llm = FakeLLM(json.dumps({"reviews": []}))
+    config = {"models": {"clip_pick": "m"},
+              "current_topics": [{"name": "GTA 6", "note": "everyone is playing it", "until": "2999-01-01"}]}
+    editor.review_candidates([{"start": 0, "end": 10}], make_words("no way she betrayed us"), [], [], 10, "Kai",
+                             config, overhaul_settings(), llm)
+    assert llm.requests[0]["user_message"].startswith("Right now")
+    assert "GTA 6: everyone is playing it" in llm.requests[0]["user_message"]
+    assert "not NPC dialogue" in llm.requests[0]["system_prompt"]
+    assert "hot take" in llm.requests[0]["system_prompt"]
+
+
+def test_twitch_channel_lists_current_topics_with_valid_dates():
+    """channels/twitch_clips.yaml has current topics, each with a YYYY-MM-DD end date."""
+    from datetime import date
+    import yaml
+    with open("channels/twitch_clips.yaml", encoding="utf-8") as f:
+        config = yaml.safe_load(f)
+    assert config["current_topics"]
+    for topic in config["current_topics"]:
+        assert topic["name"].strip()
+        date.fromisoformat(str(topic["until"]))
